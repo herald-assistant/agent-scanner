@@ -99,6 +99,14 @@ export class InteractionTimelineComponent {
 
   freshInputTokens(span: SpanRecord): number { return Math.max(0, span.inputTokens - span.cacheReadTokens); }
 
+  hasCacheWriteForTurns(turns: ModelTurn[]): boolean {
+    return turns.some(turn => this.hasCacheWriteTelemetry(turn.model));
+  }
+
+  cacheWriteLabel(span: SpanRecord): string {
+    return this.hasCacheWriteTelemetry(span) ? this.compact(span.cacheCreationTokens) : '—';
+  }
+
   spanCredits(span: SpanRecord): number | null {
     const raw = this.attributes(span)['copilot_chat.copilot_usage_nano_aiu'];
     if (raw == null || raw === '') return null;
@@ -145,7 +153,7 @@ export class InteractionTimelineComponent {
   }
 
   subagentReturn(tool: SpanRecord): string {
-    return this.excerpt(this.telemetryValue(tool, 'gen_ai.tool.call.result', 'Brak wyniku w telemetrii.'), 900);
+    return this.telemetryValue(tool, 'gen_ai.tool.call.result', 'Brak wyniku w telemetrii.');
   }
 
   subagentInputTokens(tool: SpanRecord): number {
@@ -260,6 +268,11 @@ export class InteractionTimelineComponent {
     const prompt = this.numericAttribute(turn.model, 'copilot_chat.request.max_prompt_tokens');
     const response = this.numericAttribute(turn.model, 'gen_ai.request.max_tokens');
     return prompt != null && response != null ? prompt + response : null;
+  }
+
+  private hasCacheWriteTelemetry(span: SpanRecord): boolean {
+    return Object.prototype.hasOwnProperty.call(
+      this.attributes(span), 'gen_ai.usage.cache_creation.input_tokens');
   }
 
   private numericAttribute(span: SpanRecord, key: string): number | null {

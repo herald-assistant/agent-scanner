@@ -110,6 +110,10 @@ Najważniejsze metryki:
 - `credits` — `copilot_chat.copilot_usage_nano_aiu / 1 000 000 000`; jest to
   zużycie GitHub Copilot AI credits, nie kwota pieniężna.
 
+Jeżeli co najmniej jedna runda na prezentowanej liście zawiera jawną metrykę
+`cache write`, belki wszystkich rund pokazują jej osobną kolumnę obok outputu.
+Dla rund bez tej metryki widoczny jest znak `—`, a nie domniemane zero.
+
 Brak wartości oznacza „brak danych w telemetrii”, a nie zero ani potwierdzenie,
 że dana funkcja nie była użyta. Alert błędu pojawia się wyłącznie wtedy, gdy
 problem da się potwierdzić na podstawie statusu spanu, zdarzenia błędu albo

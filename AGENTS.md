@@ -394,6 +394,8 @@ Preserve these product decisions unless the user explicitly changes them:
   technical view;
 - request details and round token facts are not duplicated when already visible on
   the round bar;
+- round bars show `CACHE WRITE` beside output when at least one round in that
+  displayed list explicitly emitted the metric; rounds without it show `—`;
 - request params and incremental metadata start collapsed;
 - request parts not resent because previous response state is retained are omitted
   from the initial request-part list;
@@ -412,6 +414,9 @@ possible. Avoid repeatedly parsing `attributesJson` from a template expression.
 
 Large telemetry values must remain in constrained scroll containers. Do not render
 all raw payloads expanded by default.
+
+The final value returned by a subagent must not be truncated. Keep the complete
+`gen_ai.tool.call.result` in a bounded, independently scrollable container.
 
 ## Configuration UI
 

@@ -89,6 +89,43 @@ describe('InteractionTimelineComponent', () => {
     expect(section.textContent).toContain('Pozostałe wywołania modeli pomocniczych');
     expect(section.textContent).toContain('Generowanie tytułu');
   });
+
+  it('shows cache write on every round row when at least one round emitted the metric', () => {
+    const withoutMetric = span({id: 1, spanId: 'round-1', cacheCreationTokens: 0});
+    const withMetric = span({
+      id: 2,
+      spanId: 'round-2',
+      cacheCreationTokens: 640,
+      attributesJson: JSON.stringify({'gen_ai.usage.cache_creation.input_tokens': 640})
+    });
+    fixture.componentRef.setInput('turns', [
+      {index: 1, model: withoutMetric, tools: []},
+      {index: 2, model: withMetric, tools: []}
+    ]);
+    fixture.detectChanges();
+
+    const values = [...fixture.nativeElement.querySelectorAll('.round-row .round-token.write strong')]
+      .map((element: Element) => element.textContent?.trim());
+    expect(values).toEqual(['—', '640']);
+  });
+
+  it('does not reserve a cache write column when no round emitted the metric', () => {
+    fixture.componentRef.setInput('turns', [{index: 1, model: span(), tools: []}]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.round-row .round-token.write')).toBeNull();
+  });
+
+  it('keeps the complete subagent result instead of truncating it', () => {
+    const result = 'pełny wynik '.repeat(120);
+    const tool = span({
+      operationName: 'execute_tool',
+      attributesJson: JSON.stringify({'gen_ai.tool.call.result': result})
+    });
+
+    expect(component.subagentReturn(tool)).toBe(result);
+    expect(component.subagentReturn(tool).endsWith('…')).toBe(false);
+  });
 });
 
 function detail(): SessionDetail {
