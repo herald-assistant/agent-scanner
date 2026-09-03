@@ -1,0 +1,15 @@
+<header class="topbar">
+  <div class="brand">
+    <div class="mark"><span></span><span></span><span></span></div>
+    <div><strong>Agent Scanner</strong><small>LOCAL OBSERVABILITY</small></div>
+  </div>
+  <div class="top-actions">
+    <div class="connection" [class.connected]="status().connected" [class.paused]="status().paused">
+      <i></i>
+      <span>{{ status().paused ? 'Nasłuchiwanie wstrzymane' : status().connected ? 'Ostatnio odebrano telemetrię' : 'Oczekiwanie na telemetrię' }}</span>
+      @if (status().lastSignalAt) {<small>{{ time(status().lastSignalAt) }}</small>}
+    </div>
+    <button class="icon-button" matTooltip="Konfiguracja połączenia" matTooltipClass="scanner-info-tooltip" aria-label="Konfiguracja połączenia" (click)="configure.emit()"><mat-icon>settings</mat-icon></button>
+    <button class="button quiet" (click)="pauseToggle.emit()">{{ status().paused ? 'Wznów' : 'Pauza' }}</button>
+  </div>
+</header>

@@ -1,0 +1,11 @@
+target/
+frontend/node_modules/
+frontend/.npm-cache/
+agent-scanner-data/
+*.mv.db
+*.trace.db
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+frontend/.angular/

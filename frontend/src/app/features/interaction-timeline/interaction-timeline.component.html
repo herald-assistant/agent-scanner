@@ -1,0 +1,136 @@
+<section class="rounds-section">
+  <header class="rounds-heading">
+    <div><span class="eyebrow">KOLEJNOŚĆ WYKONANIA</span><h2>Interakcje użytkownika i rundy agent → model → narzędzia</h2></div>
+    <div class="rounds-note"><mat-icon class="info-tip" tabindex="0" role="img" aria-label="Różnica względem VS Code Context Window" matTooltip="Scanner pokazuje tokeny requestów wyemitowane w OTLP. VS Code Session Info pokazuje osobny klientowy stan rozmowy, którego Copilot nie eksportuje." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon><span>Kontekst modelu z OTLP, nie licznik Session Info</span></div>
+  </header>
+  <div class="round-list">
+    @for (turn of turns(); track turn.model.id) {
+      @if (turn.interactionTurnIndex === 1) {
+        @if (interactionForTurn(turn); as interaction) {
+          <article class="interaction-marker">
+            <div class="interaction-icon"><mat-icon aria-hidden="true">person</mat-icon></div>
+            <div class="interaction-copy">
+              <span>INTERAKCJA UŻYTKOWNIKA {{ interaction.index }} · {{ time(interaction.startedAt) }}</span>
+              <strong>{{ interaction.prompt }}</strong>
+            </div>
+            <div class="interaction-stats">
+              <span><b>{{ interaction.turns.length }}</b> {{ interaction.turns.length === 1 ? 'runda' : 'rundy' }}</span>
+              <span class="fresh">NOWY INPUT <b>{{ compact(interactionFreshInputTokens(interaction)) }}</b></span>
+              <span class="cache">CACHE READ <b>{{ compact(interactionCacheReadTokens(interaction)) }}</b></span>
+              <span class="output">OUTPUT <b>{{ compact(interactionOutputTokens(interaction)) }}</b></span>
+              <span>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon><b>{{ creditsLabel(interactionCredits(interaction)) }}</b></span>
+            </div>
+          </article>
+        }
+      }
+      <article class="round-row" [attr.id]="'turn-' + turn.model.id">
+        <div class="detail-trigger" role="button" tabindex="0" (click)="openDetails(roundDialog, 'Żądanie rundy ' + turnNumber(turn))" (keydown.enter)="openDetails(roundDialog, 'Żądanie rundy ' + turnNumber(turn))">
+          <span class="round-identity"><span><span class="round-title"><strong>Runda {{ turnNumber(turn) }}</strong>@if (roundHasConfirmedProblem(turn)) {<mat-icon class="round-error-alert" role="img" [attr.aria-label]="roundProblemTooltip(turn)" [matTooltip]="roundProblemTooltip(turn)" matTooltipClass="round-problem-tooltip" matTooltipPosition="above">error</mat-icon>}</span><small>{{ time(turn.model.startedAt) }} · {{ duration(turn.model.durationMs) }} · {{ turn.model.model }}</small><small class="round-trigger">{{ turnNumber(turn) === 1 ? 'nowy prompt + kontekst rozmowy' : toolResultsLabel(previousToolsForTurn(turn).length) + ' z poprzedniej rundy' }}</small></span></span>
+          <span class="round-context-summary"><small>OKNO PRZY WYSŁANIU <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Kontekst wysłany do modelu" matTooltip="Dokładne input_tokens bieżącego requestu podzielone przez limit modelu. Runda 5 pokazuje input rundy 5, a runda 6 input rundy 6." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ roundContextPercentLabel(turn) }}%</strong><em>{{ roundContextLabel(turn) }}</em></span>
+          <span class="round-input-equation" aria-label="Nowy input plus cache read daje input łącznie">
+            <span class="round-token fresh"><small>NOWY INPUT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Nowy input" matTooltip="Tokeny przesłane poza cache: input łącznie minus cache read." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ compact(freshInputTokens(turn.model)) }}</strong></span>
+            <b aria-hidden="true">+</b>
+            <span class="round-token cache"><small>CACHE READ</small><strong>{{ compact(turn.model.cacheReadTokens) }}</strong></span>
+            <b aria-hidden="true">=</b>
+            <span class="round-token input"><small>INPUT ŁĄCZNIE</small><strong>{{ compact(turn.model.inputTokens) }}</strong></span>
+          </span>
+          <span class="round-token output"><small>OUTPUT</small><strong>{{ compact(turn.model.outputTokens) }}</strong></span>
+          <span class="round-token credits"><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ spanCreditsLabel(turn.model) }}</strong></span>
+          <mat-icon class="round-chevron" aria-hidden="true">visibility</mat-icon>
+        </div>
+        <ng-template #roundDialog>
+          <as-round-details-dialog [turn]="turn" [messages]="messages()" [calibrationSpans]="calibrationSpans()" [headingContext]="'INTERAKCJA ' + turn.interactionIndex + ' · RUNDA ' + turnNumber(turn)" />
+        </ng-template>
+      </article>
+      @for (tool of subagentLaunchesForTurn(turn); track tool.id) {
+        <article class="timeline-subagent">
+          <div class="detail-trigger" role="button" tabindex="0" (click)="openDetails(subagentDialog, 'Szczegóły pracy subagenta')" (keydown.enter)="openDetails(subagentDialog, 'Szczegóły pracy subagenta')">
+            <span class="timeline-connector"><i>S</i></span>
+            <span class="timeline-subagent-identity"><small>INTERAKCJA {{ turn.interactionIndex }} · PO RUNDZIE {{ turnNumber(turn) }} · AGENT GŁÓWNY URUCHOMIŁ NARZĘDZIE</small><strong>{{ friendlyToolTitle(tool) }}</strong><em>{{ time(tool.startedAt) }} · {{ duration(tool.durationMs) }} · {{ modelCallsLabel(subagentModelCalls(tool).length) }}</em></span>
+            <span><small>NOWY INPUT</small><strong>{{ compact(subagentFreshInputTokens(tool)) }}</strong></span>
+            <span class="cache"><small>CACHE READ</small><strong>{{ compact(subagentCacheReadTokens(tool)) }}</strong></span>
+            <span><small>INPUT ŁĄCZNIE</small><strong>{{ compact(subagentInputTokens(tool)) }}</strong></span>
+            <span class="output"><small>OUTPUT</small><strong>{{ compact(subagentOutputTokens(tool)) }}</strong></span>
+            <span class="cost"><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ creditsLabel(subagentCredits(tool)) }}</strong></span>
+            <mat-icon class="round-chevron" aria-hidden="true">visibility</mat-icon>
+          </div>
+          <ng-template #subagentDialog>
+            <section class="dialog-shell">
+              <header class="dialog-title"><div><span>INTERAKCJA {{ turn.interactionIndex }} · SUBAGENT PO RUNDZIE {{ turnNumber(turn) }}</span><h2>{{ friendlyToolTitle(tool) }}</h2></div><button type="button" mat-dialog-close aria-label="Zamknij szczegóły"><mat-icon>close</mat-icon></button></header>
+              <mat-dialog-content><ng-container *ngTemplateOutlet="subagentBody; context: {$implicit: tool}"></ng-container></mat-dialog-content>
+            </section>
+          </ng-template>
+        </article>
+      }
+    }
+  </div>
+  @if (auxiliaryModelCalls(); as auxiliaryCalls) {
+    @if (auxiliaryCalls.length) {
+      <details class="auxiliary-calls">
+        <summary>
+          <div><span class="eyebrow">POZA GŁÓWNĄ PĘTLĄ</span><h3>Pozostałe wywołania modeli pomocniczych</h3><p>Operacje Copilota i VS Code wykonywane obok rund głównego agenta.</p></div>
+          <div class="auxiliary-summary">
+            <span><b>{{ auxiliaryCalls.length }}</b> wywołań</span>
+            <span class="fresh">NOWY INPUT <b>{{ compact(auxiliaryFreshInputTokens()) }}</b></span>
+            <span class="cache">CACHE READ <b>{{ compact(auxiliaryCacheReadTokens()) }}</b></span>
+            <span class="output">OUTPUT <b>{{ compact(auxiliaryOutputTokens()) }}</b></span>
+            <span>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon><b>{{ creditsLabel(auxiliaryCredits()) }}</b></span>
+            <mat-icon class="auxiliary-chevron" aria-hidden="true">expand_more</mat-icon>
+          </div>
+        </summary>
+        <div class="auxiliary-list">
+          @for (call of auxiliaryCalls; track call.span.id; let index = $index) {
+            <article class="auxiliary-row">
+              <div class="auxiliary-identity"><strong>{{ call.label }}</strong><small>{{ time(call.span.startedAt) }} · {{ duration(call.span.durationMs) }} · {{ call.span.model || 'model nieznany' }}</small></div>
+              <span class="round-token fresh"><small>NOWY INPUT</small><strong>{{ compact(freshInputTokens(call.span)) }}</strong></span>
+              <span class="round-token cache"><small>CACHE READ</small><strong>{{ compact(call.span.cacheReadTokens) }}</strong></span>
+              <span class="round-token input"><small>INPUT ŁĄCZNIE</small><strong>{{ compact(call.span.inputTokens) }}</strong></span>
+              <span class="round-token output"><small>OUTPUT</small><strong>{{ compact(call.span.outputTokens) }}</strong></span>
+              <span class="round-token credits"><small>CREDITS</small><strong>{{ spanCreditsLabel(call.span) }}</strong></span>
+              <button type="button" class="auxiliary-open" aria-label="Pokaż żądanie pomocnicze" (click)="openDetails(auxiliaryDialog, 'Wywołanie pomocnicze ' + call.label)"><mat-icon>visibility</mat-icon></button>
+              <ng-template #auxiliaryDialog><as-round-details-dialog [turn]="{index: index + 1, model: call.span, tools: []}" [messages]="messages()" [calibrationSpans]="auxiliarySpans()" [headingContext]="call.label" /></ng-template>
+            </article>
+          }
+        </div>
+      </details>
+    }
+  }
+  <ng-template #subagentBody let-tool>
+    <div class="inline-subagent">
+      <section class="delegation-brief">
+        <div><span>AGENT GŁÓWNY → SUBAGENT</span><h5>Co zostało zlecone</h5><p>{{ subagentTrigger(tool) }}</p></div>
+        <small>{{ attribute(tool, 'gen_ai.tool.name') }} · ID {{ short(attribute(tool, 'gen_ai.tool.call.id'), 22) }}</small>
+      </section>
+      <div class="subagent-token-flow">
+        <span><small>NOWY INPUT</small><strong>{{ compact(subagentFreshInputTokens(tool)) }}</strong></span><b>+</b>
+        <span class="cache"><small>CACHE READ</small><strong>{{ compact(subagentCacheReadTokens(tool)) }}</strong></span><b>=</b>
+        <span><small>INPUT ŁĄCZNIE</small><strong>{{ compact(subagentInputTokens(tool)) }}</strong></span>
+        <span class="output"><small>OUTPUT</small><strong>{{ compact(subagentOutputTokens(tool)) }}</strong></span>
+        <span><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ creditsLabel(subagentCredits(tool)) }}</strong></span>
+      </div>
+      <section class="subagent-rounds">
+        <header class="rounds-heading">
+          <div><span class="eyebrow">PRACA SUBAGENTA W KOLEJNOŚCI</span><h2>Rundy agent → model → narzędzia</h2></div>
+          <div class="rounds-note"><span>{{ modelCallsLabel(subagentTurns(tool).length) }} · {{ toolActionsLabel(subagentTools(tool).length) }}</span></div>
+        </header>
+        <div class="round-list">
+          @for (subturn of subagentTurns(tool); track subturn.model.id) {
+            <article class="round-row subagent-round-row">
+              <div class="detail-trigger" role="button" tabindex="0" (click)="openDetails(subagentRoundDialog, 'Żądanie rundy subagenta ' + subturn.index)" (keydown.enter)="openDetails(subagentRoundDialog, 'Żądanie rundy subagenta ' + subturn.index)">
+                <span class="round-identity"><span><span class="round-title"><strong>Runda {{ subturn.index }}</strong>@if (roundHasConfirmedProblem(subturn)) {<mat-icon class="round-error-alert" role="img" [attr.aria-label]="roundProblemTooltip(subturn)" [matTooltip]="roundProblemTooltip(subturn)" matTooltipClass="round-problem-tooltip" matTooltipPosition="above">error</mat-icon>}</span><small>{{ time(subturn.model.startedAt) }} · {{ duration(subturn.model.durationMs) }} · {{ subturn.model.model }}</small><small class="round-trigger">{{ subturn.index === 1 ? 'zlecenie + kontekst startowy' : toolResultsLabel(subagentPreviousToolsForTurn(tool, subturn.index).length) + ' z poprzedniej rundy' }}</small></span></span>
+                <span class="round-context-summary"><small>OKNO PRZY WYSŁANIU <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Kontekst wysłany do modelu" matTooltip="Dokładne input_tokens requestu tej rundy subagenta podzielone przez limit modelu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ roundContextPercentLabel(subturn) }}%</strong><em>{{ roundContextLabel(subturn) }}</em></span>
+                <span class="round-input-equation" aria-label="Nowy input plus cache read daje input łącznie"><span class="round-token fresh"><small>NOWY INPUT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Nowy input" matTooltip="Tokeny przesłane poza cache: input łącznie minus cache read." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ compact(freshInputTokens(subturn.model)) }}</strong></span><b aria-hidden="true">+</b><span class="round-token cache"><small>CACHE READ</small><strong>{{ compact(subturn.model.cacheReadTokens) }}</strong></span><b aria-hidden="true">=</b><span class="round-token input"><small>INPUT ŁĄCZNIE</small><strong>{{ compact(subturn.model.inputTokens) }}</strong></span></span>
+                <span class="round-token output"><small>OUTPUT</small><strong>{{ compact(subturn.model.outputTokens) }}</strong></span>
+                <span class="round-token credits"><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ spanCreditsLabel(subturn.model) }}</strong></span>
+                <mat-icon class="round-chevron" aria-hidden="true">visibility</mat-icon>
+              </div>
+              <ng-template #subagentRoundDialog><as-round-details-dialog [turn]="subturn" [messages]="messages()" [calibrationSpans]="subagentModelCalls(tool)" [headingContext]="'SUBAGENT · RUNDA ' + subturn.index" [subagent]="true" /></ng-template>
+            </article>
+          }
+          @if (!subagentTurns(tool).length) {<p class="empty-subagent-work">Copilot zarejestrował wywołanie subagenta, ale nie powiązał z nim wywołań modelu w dostępnej telemetrii.</p>}
+        </div>
+      </section>
+      <section class="delegation-return"><span>SUBAGENT → AGENT GŁÓWNY</span><h5>Co subagent zwrócił</h5><p>{{ subagentReturn(tool) }}</p></section>
+    </div>
+  </ng-template>
+</section>

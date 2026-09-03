@@ -1,0 +1,32 @@
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+  servlet:
+    context-path: /
+spring:
+  application:
+    name: agent-scanner
+  datasource:
+    url: ${AGENT_SCANNER_DB_URL:jdbc:h2:file:./agent-scanner-data/agent-scanner}
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 4
+  sql:
+    init:
+      mode: always
+  mvc:
+    async:
+      request-timeout: 0
+  servlet:
+    multipart:
+      max-file-size: 64MB
+      max-request-size: 64MB
+agent-scanner:
+  retention-days: ${AGENT_SCANNER_RETENTION_DAYS:30}
+  max-payload-bytes: ${AGENT_SCANNER_MAX_PAYLOAD_BYTES:67108864}
+logging:
+  level:
+    dev.agentscanner: INFO

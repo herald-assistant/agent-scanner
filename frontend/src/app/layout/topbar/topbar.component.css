@@ -1,0 +1,21 @@
+:host { position: sticky; top: 0; z-index: 20; display: block; }
+.topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--line); background: #0b0d11e8; backdrop-filter: blur(16px); }
+.brand, .top-actions, .connection { display: flex; align-items: center; }
+.brand { gap: 12px; }
+.brand strong { display: block; font-size: 15px; letter-spacing: -.01em; }
+.brand small { display: block; margin-top: 3px; color: var(--dim); font-size: 8px; letter-spacing: .19em; }
+.mark { width: 30px; height: 30px; display: flex; gap: 3px; align-items: flex-end; padding: 6px; background: #151b13; border: 1px solid #45503c; border-radius: 7px; }
+.mark span { flex: 1; background: var(--lime); border-radius: 1px; opacity: .85; }
+.mark span:nth-child(1) { height: 48%; }.mark span:nth-child(2) { height: 100%; }.mark span:nth-child(3) { height: 72%; }
+.top-actions { gap: 10px; }
+.connection { height: 34px; gap: 8px; padding: 0 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 18px; font-size: 12px; }
+.connection i { width: 7px; height: 7px; background: #707682; border-radius: 50%; box-shadow: 0 0 0 4px #70768215; }
+.connection.connected i { background: var(--lime); box-shadow: 0 0 0 4px #b8f36b15, 0 0 12px #b8f36b80; }
+.connection.paused i { background: var(--orange); }
+.connection small { padding-left: 8px; color: var(--dim); border-left: 1px solid var(--line); }
+.button, .icon-button { height: 34px; color: #e7e9ed; background: #171a21; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.button { padding: 0 14px; font-size: 12px; font-weight: 650; }
+.icon-button { width: 34px; display: grid; place-items: center; padding: 0; }
+.button:hover, .icon-button:hover { background: #1c2028; border-color: #454c58; }
+.icon-button mat-icon { width: 20px; height: 20px; font-size: 20px; }
+@media (max-width: 700px) { .topbar { padding: 0 12px; }.connection span { display: none; } }

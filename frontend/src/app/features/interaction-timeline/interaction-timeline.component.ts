@@ -1,0 +1,397 @@
+import {ChangeDetectionStrategy, Component, inject, input, TemplateRef} from '@angular/core';
+import {NgTemplateOutlet} from '@angular/common';
+import {MatDialog, MatDialogModule} from '@angular/material/dialog';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
+import {RoundDetailsDialogComponent} from '../round-details/round-details-dialog.component';
+
+interface ConfirmedProblem {
+  title: string;
+  evidence: string[];
+}
+
+@Component({
+  selector: 'as-interaction-timeline',
+  imports: [NgTemplateOutlet, MatDialogModule, MatIconModule, MatTooltipModule, RoundDetailsDialogComponent],
+  templateUrl: './interaction-timeline.component.html',
+  styleUrl: './interaction-timeline.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class InteractionTimelineComponent {
+  readonly turns = input.required<ModelTurn[]>();
+  readonly interactions = input.required<UserInteraction[]>();
+  readonly messages = input.required<MessageRecord[]>();
+  readonly calibrationSpans = input.required<SpanRecord[]>();
+  readonly relatedModelCalls = input<RelatedModelCall[]>([]);
+  readonly detail = input.required<SessionDetail>();
+  readonly relatedDetails = input<SessionDetail[]>([]);
+  readonly creditTooltip = input.required<string>();
+
+  private readonly dialog = inject(MatDialog);
+  private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
+  private readonly jsonAttributeCache = new WeakMap<SpanRecord, Map<string, unknown>>();
+  private readonly standardNumberFormat = new Intl.NumberFormat('pl-PL');
+  private readonly compactNumberFormat = new Intl.NumberFormat('pl-PL', {notation: 'compact'});
+  private readonly callCreditFormat = new Intl.NumberFormat('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 3});
+  private readonly percentFormat = new Intl.NumberFormat('pl-PL', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+  private readonly timeFormat = new Intl.DateTimeFormat('pl-PL', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+
+  openDetails(template: TemplateRef<unknown>, ariaLabel: string): void {
+    this.dialog.open(template, {
+      ariaLabel,
+      autoFocus: 'dialog',
+      panelClass: 'scanner-detail-dialog',
+      width: '95vw',
+      maxWidth: '95vw',
+      height: '95vh',
+      maxHeight: '95vh',
+      restoreFocus: true
+    });
+  }
+
+  turnNumber(turn: ModelTurn): number { return turn.interactionTurnIndex ?? turn.index; }
+
+  interactionForTurn(turn: ModelTurn): UserInteraction | undefined {
+    return this.interactions().find(interaction => interaction.index === turn.interactionIndex);
+  }
+
+  interactionFreshInputTokens(interaction: UserInteraction): number {
+    return interaction.turns.reduce((sum, turn) => sum + this.freshInputTokens(turn.model), 0);
+  }
+
+  interactionCacheReadTokens(interaction: UserInteraction): number {
+    return interaction.turns.reduce((sum, turn) => sum + turn.model.cacheReadTokens, 0);
+  }
+
+  interactionOutputTokens(interaction: UserInteraction): number {
+    return interaction.turns.reduce((sum, turn) => sum + turn.model.outputTokens, 0);
+  }
+
+  interactionCredits(interaction: UserInteraction): number | null {
+    return this.sumCredits(interaction.turns.map(turn => turn.model));
+  }
+
+  auxiliaryModelCalls(): RelatedModelCall[] {
+    const subagentCalls = new Set(this.turns()
+      .flatMap(turn => this.subagentLaunchesForTurn(turn))
+      .flatMap(tool => this.subagentModelCalls(tool)));
+    return this.relatedModelCalls().filter(call => !subagentCalls.has(call.span));
+  }
+
+  auxiliarySpans(): SpanRecord[] { return this.auxiliaryModelCalls().map(call => call.span); }
+
+  auxiliaryFreshInputTokens(): number {
+    return this.auxiliaryModelCalls().reduce((sum, call) => sum + this.freshInputTokens(call.span), 0);
+  }
+
+  auxiliaryCacheReadTokens(): number {
+    return this.auxiliaryModelCalls().reduce((sum, call) => sum + call.span.cacheReadTokens, 0);
+  }
+
+  auxiliaryOutputTokens(): number {
+    return this.auxiliaryModelCalls().reduce((sum, call) => sum + call.span.outputTokens, 0);
+  }
+
+  auxiliaryCredits(): number | null {
+    return this.sumCredits(this.auxiliaryModelCalls().map(call => call.span));
+  }
+
+  freshInputTokens(span: SpanRecord): number { return Math.max(0, span.inputTokens - span.cacheReadTokens); }
+
+  spanCredits(span: SpanRecord): number | null {
+    const raw = this.attributes(span)['copilot_chat.copilot_usage_nano_aiu'];
+    if (raw == null || raw === '') return null;
+    const nanoAiu = Number(raw);
+    return Number.isFinite(nanoAiu) ? nanoAiu / 1_000_000_000 : null;
+  }
+
+  spanCreditsLabel(span: SpanRecord): string { return this.creditsLabel(this.spanCredits(span)); }
+
+  creditsLabel(value: number | null): string {
+    return value == null ? 'brak danych' : this.callCreditFormat.format(value);
+  }
+
+  previousToolsForTurn(turn: ModelTurn): SpanRecord[] {
+    const turns = this.interactionForTurn(turn)?.turns ?? this.turns();
+    const position = turns.findIndex(candidate => candidate.model.id === turn.model.id);
+    return position > 0 ? turns[position - 1].tools : [];
+  }
+
+  roundContextPercentLabel(turn: ModelTurn): string {
+    const limit = this.contextWindowTokens(turn);
+    return this.percentFormat.format(limit ? turn.model.inputTokens / limit * 100 : 0);
+  }
+
+  roundContextLabel(turn: ModelTurn): string {
+    const limit = this.contextWindowTokens(turn);
+    return limit == null
+      ? `${this.compact(turn.model.inputTokens)} · limit niewyemitowany`
+      : `${this.compact(turn.model.inputTokens)} / ${this.compact(limit)}`;
+  }
+
+  subagentLaunchesForTurn(turn: ModelTurn): SpanRecord[] {
+    return turn.tools.filter(tool => ['execution_subagent', 'runSubagent'].includes(this.attribute(tool, 'gen_ai.tool.name')));
+  }
+
+  subagentTrigger(tool: SpanRecord): string {
+    const args = this.jsonAttribute(tool, 'gen_ai.tool.call.arguments');
+    if (args && typeof args === 'object') {
+      const record = args as Record<string, unknown>;
+      const trigger = record['prompt'] ?? record['task'] ?? record['description'] ?? record['query'];
+      if (trigger != null) return this.excerpt(String(trigger), 700);
+    }
+    return this.excerpt(this.telemetryValue(tool, 'gen_ai.tool.call.arguments', 'Brak zlecenia w telemetrii.'), 700);
+  }
+
+  subagentReturn(tool: SpanRecord): string {
+    return this.excerpt(this.telemetryValue(tool, 'gen_ai.tool.call.result', 'Brak wyniku w telemetrii.'), 900);
+  }
+
+  subagentInputTokens(tool: SpanRecord): number {
+    return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.inputTokens, 0);
+  }
+
+  subagentFreshInputTokens(tool: SpanRecord): number {
+    return Math.max(0, this.subagentInputTokens(tool) - this.subagentCacheReadTokens(tool));
+  }
+
+  subagentOutputTokens(tool: SpanRecord): number {
+    return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.outputTokens, 0);
+  }
+
+  subagentCacheReadTokens(tool: SpanRecord): number {
+    return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.cacheReadTokens, 0);
+  }
+
+  subagentCredits(tool: SpanRecord): number | null { return this.sumCredits(this.subagentModelCalls(tool)); }
+
+  subagentModelCalls(tool: SpanRecord): SpanRecord[] {
+    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
+    if (!callId || callId === '—') return [];
+    const spans = [
+      ...this.detail().spans.filter(span => span.operationName === 'chat' && this.attribute(span, 'gen_ai.conversation.id') === callId),
+      ...this.relatedDetails().filter(detail => detail.session.conversationId === callId)
+        .flatMap(detail => detail.spans.filter(span => span.operationName === 'chat'))
+    ];
+    return [...new Map(spans.map(span => [span.id, span])).values()]
+      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
+  }
+
+  subagentTools(tool: SpanRecord): SpanRecord[] {
+    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
+    return this.relatedDetails().filter(detail => detail.session.conversationId === callId)
+      .flatMap(detail => detail.spans.filter(span => span.operationName === 'execute_tool'))
+      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
+  }
+
+  subagentPreviousToolsForTurn(tool: SpanRecord, turnIndex: number): SpanRecord[] {
+    return turnIndex > 1 ? this.subagentTurns(tool)[turnIndex - 2]?.tools ?? [] : [];
+  }
+
+  subagentTurns(tool: SpanRecord): ModelTurn[] {
+    const calls = this.subagentModelCalls(tool);
+    const tools = this.subagentTools(tool);
+    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
+    const diagnostics = this.relatedDetails().filter(detail => detail.session.conversationId === callId)
+      .flatMap(detail => detail.spans.filter(span => span.operationName === 'execute_tool' || span.operationName === 'execute_hook'))
+      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
+    return calls.map((model, index) => {
+      const from = this.timestamp(model.endedAt || model.startedAt);
+      const to = index + 1 < calls.length ? this.timestamp(calls[index + 1].startedAt) : Number.MAX_SAFE_INTEGER;
+      return {
+        index: index + 1,
+        model,
+        tools: tools.filter(item => this.isBetween(item, from, to)),
+        diagnostics: diagnostics.filter(item => this.isBetween(item, from, to))
+      };
+    });
+  }
+
+  friendlyToolTitle(span: SpanRecord): string {
+    const name = this.attribute(span, 'gen_ai.tool.name');
+    const labels: Record<string, string> = {
+      execution_subagent: 'Uruchomił subagenta wykonawczego',
+      runSubagent: 'Uruchomił pomocniczego agenta'
+    };
+    return labels[name] || `Użył narzędzia: ${name === '—' ? span.spanName : name}`;
+  }
+
+  roundHasConfirmedProblem(turn: ModelTurn): boolean { return this.roundConfirmedProblems(turn).length > 0; }
+
+  roundProblemTooltip(turn: ModelTurn): string {
+    const problems = this.roundConfirmedProblems(turn);
+    const heading = problems.length === 1
+      ? 'Potwierdzony problem w tej rundzie:'
+      : `Potwierdzone problemy w tej rundzie (${problems.length}):`;
+    return [heading, ...problems.map(problem => `• ${problem.title}: ${problem.evidence.join('; ')}`)].join('\n');
+  }
+
+  toolResultsLabel(count: number): string {
+    return `${count} ${this.polishPlural(count, 'wynik narzędzia', 'wyniki narzędzi', 'wyników narzędzi')}`;
+  }
+
+  toolActionsLabel(count: number): string {
+    return `${count} ${this.polishPlural(count, 'działanie narzędzia', 'działania narzędzi', 'działań narzędzi')}`;
+  }
+
+  modelCallsLabel(count: number): string {
+    return `${count} ${this.polishPlural(count, 'wywołanie modelu', 'wywołania modelu', 'wywołań modelu')}`;
+  }
+
+  duration(value?: number): string {
+    if (value == null) return '—';
+    return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)} s` : `${Math.round(value)} ms`;
+  }
+
+  compact(value?: number): string {
+    return (value && value >= 10000 ? this.compactNumberFormat : this.standardNumberFormat).format(value ?? 0);
+  }
+
+  time(value?: string): string { return value ? this.timeFormat.format(new Date(value)) : '—'; }
+
+  short(value?: string, size = 9): string {
+    return value ? (value.length > size ? value.slice(0, size) + '…' : value) : '—';
+  }
+
+  attribute(span: SpanRecord, key: string): string { return String(this.attributes(span)[key] ?? '—'); }
+
+  private contextWindowTokens(turn: ModelTurn): number | null {
+    const prompt = this.numericAttribute(turn.model, 'copilot_chat.request.max_prompt_tokens');
+    const response = this.numericAttribute(turn.model, 'gen_ai.request.max_tokens');
+    return prompt != null && response != null ? prompt + response : null;
+  }
+
+  private numericAttribute(span: SpanRecord, key: string): number | null {
+    const value = this.attributes(span)[key];
+    if (value == null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private sumCredits(spans: SpanRecord[]): number | null {
+    const values = spans.map(span => this.spanCredits(span)).filter((value): value is number => value != null);
+    return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+  }
+
+  private isBetween(span: SpanRecord, from: number, to: number): boolean {
+    const at = this.timestamp(span.startedAt);
+    return at >= from && at < to;
+  }
+
+  private roundConfirmedProblems(turn: ModelTurn): ConfirmedProblem[] {
+    return [turn.model, ...(turn.diagnostics ?? turn.tools)]
+      .map(span => this.confirmedProblemForSpan(span))
+      .filter((problem): problem is ConfirmedProblem => problem != null);
+  }
+
+  private confirmedProblemForSpan(span: SpanRecord): ConfirmedProblem | null {
+    const evidence = new Set<string>();
+    if (span.statusCode === 'STATUS_CODE_ERROR') {
+      evidence.add(span.statusMessage ? `status ERROR — ${this.excerpt(span.statusMessage, 180)}` : 'status spanu: ERROR');
+    }
+    const errorType = this.attributes(span)['error.type'];
+    if (errorType != null && String(errorType).trim()) evidence.add(`error.type: ${String(errorType).trim()}`);
+    for (const event of this.spanEvents(span)) {
+      const name = String(event['name'] ?? '').trim();
+      const normalizedName = name.toLowerCase();
+      const attributes = event['attributes'] && typeof event['attributes'] === 'object'
+        ? event['attributes'] as Record<string, unknown> : {};
+      const failedCompaction = normalizedName === 'github.copilot.session.compaction_complete' &&
+        (attributes['success'] === false || String(attributes['success']).toLowerCase() === 'false');
+      const isErrorEvent = normalizedName === 'exception' || normalizedName === 'error' ||
+        normalizedName.endsWith('.error') || normalizedName === 'github.copilot.session.abort';
+      if (!isErrorEvent && !failedCompaction) continue;
+      const message = attributes['exception.message'] ?? attributes['error.message'] ?? attributes['message'] ??
+        attributes['github.copilot.error_type'];
+      evidence.add(message == null ? `zdarzenie ${name || 'błędu'}` : `zdarzenie ${name || 'błędu'} — ${this.excerpt(String(message), 180)}`);
+    }
+    if (span.operationName === 'execute_tool') {
+      const resultEvidence = this.structuredToolFailure(span);
+      if (resultEvidence) evidence.add(resultEvidence);
+    }
+    return evidence.size ? {title: this.problemSourceTitle(span), evidence: [...evidence]} : null;
+  }
+
+  private spanEvents(span: SpanRecord): Array<Record<string, unknown>> {
+    try {
+      const parsed = JSON.parse(span.eventsJson) as unknown;
+      return Array.isArray(parsed)
+        ? parsed.filter((event): event is Record<string, unknown> => event != null && typeof event === 'object')
+        : [];
+    } catch { return []; }
+  }
+
+  private structuredToolFailure(span: SpanRecord): string | null {
+    const raw = this.attributes(span)['gen_ai.tool.call.result'];
+    if (raw == null) return null;
+    let result: unknown = raw;
+    if (typeof raw === 'string') { try { result = JSON.parse(raw); } catch { /* Text result. */ } }
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      const record = result as Record<string, unknown>;
+      if (record['isError'] === true) return 'wynik narzędzia zawiera isError=true';
+      if (record['success'] === false) return 'wynik narzędzia zawiera success=false';
+      if (record['ok'] === false) return 'wynik narzędzia zawiera ok=false';
+      const status = String(record['status'] ?? '').toLowerCase();
+      if (['error', 'failed', 'failure'].includes(status)) return `wynik narzędzia ma status ${status}`;
+      const exitCode = record['exitCode'] ?? record['exit_code'];
+      if (exitCode != null && Number.isFinite(Number(exitCode)) && Number(exitCode) !== 0) return `narzędzie zakończyło się kodem ${exitCode}`;
+    }
+    if (typeof raw !== 'string') return null;
+    const toolName = String(this.attributes(span)['gen_ai.tool.name'] ?? '');
+    if (toolName === 'apply_patch') {
+      const patchFailure = raw.match(/Applying patch failed with error:\s*([^\r\n]+)/i);
+      if (patchFailure) return `apply_patch odrzucił zmianę — ${this.excerpt(patchFailure[1], 180)}`;
+    }
+    const exitCode = raw.match(/^(?:Process\s+)?Exit Code:\s*(-?\d+)\s*$/im);
+    return exitCode && Number(exitCode[1]) !== 0 ? `polecenie zakończyło się kodem ${exitCode[1]}` : null;
+  }
+
+  private problemSourceTitle(span: SpanRecord): string {
+    if (span.operationName === 'chat') return `Model ${span.model || ''}`.trim();
+    if (span.operationName === 'execute_hook') return `Hook ${span.spanName}`;
+    if (span.operationName === 'execute_tool') return `Narzędzie ${String(this.attributes(span)['gen_ai.tool.name'] ?? span.spanName)}`;
+    return span.spanName || 'Operacja';
+  }
+
+  private telemetryValue(span: SpanRecord, key: string, fallback: string): string {
+    const value = this.attributes(span)[key];
+    if (value == null || value === '') return fallback;
+    if (typeof value !== 'string') return JSON.stringify(value, null, 2);
+    try { return JSON.stringify(JSON.parse(value), null, 2); } catch { return value; }
+  }
+
+  private excerpt(value: string, size = 430): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > size ? normalized.slice(0, size).trimEnd() + '…' : normalized;
+  }
+
+  private jsonAttribute(span: SpanRecord, key: string): unknown {
+    let cache = this.jsonAttributeCache.get(span);
+    if (!cache) { cache = new Map<string, unknown>(); this.jsonAttributeCache.set(span, cache); }
+    if (cache.has(key)) return cache.get(key);
+    const raw = this.attributes(span)[key];
+    let value: unknown = raw;
+    if (typeof raw === 'string') { try { value = JSON.parse(raw); } catch { /* Text value. */ } }
+    cache.set(key, value);
+    return value;
+  }
+
+  private attributes(span: SpanRecord): Record<string, unknown> {
+    const cached = this.attributeCache.get(span);
+    if (cached) return cached;
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(span.attributesJson) as Record<string, unknown>; } catch { /* Invalid telemetry. */ }
+    this.attributeCache.set(span, parsed);
+    return parsed;
+  }
+
+  private timestamp(value?: string): number { return value ? new Date(value).getTime() : 0; }
+
+  private polishPlural(count: number, one: string, few: string, many: string): string {
+    if (count === 1) return one;
+    const lastTwo = count % 100;
+    const last = count % 10;
+    return last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? few : many;
+  }
+}

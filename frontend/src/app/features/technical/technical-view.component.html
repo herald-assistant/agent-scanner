@@ -1,0 +1,74 @@
+<section class="technical-view">
+  <div class="technical-warning">
+    <strong>Widok dla osób znających OpenTelemetry</strong>
+    <span>Span, trace ID i surowe atrybuty są danymi diagnostycznymi. Nie są potrzebne do zwykłej analizy sesji.</span>
+  </div>
+
+  <section class="telemetry-coverage panel">
+    <div class="panel-head">
+      <div><span class="eyebrow">KOMPLETNOŚĆ PRZECHWYTYWANIA</span><h3>Co zapisujemy bez przekształceń</h3></div>
+      <span>SOURCE OF TRUTH</span>
+    </div>
+    <div class="coverage-grid">
+      <article><strong>{{ detail().signals.length }}</strong><span>payloadów trace tej sesji</span><small>Pełny OTLP JSON, spany, atrybuty i eventy.</small></article>
+      <article><strong>{{ status().metrics }}</strong><span>paczek metrics globalnie <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o metrykach globalnych" matTooltip="Metryki są zachowane w bazie jako surowy OTLP. Nie przypisujemy ich automatycznie do sesji, jeśli sygnał nie zawiera wiarygodnego identyfikatora rozmowy — zapobiega to podwójnemu liczeniu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><small>Zapisane, lecz nie sumowane do kosztu sesji.</small></article>
+      <article><strong>{{ status().logs }}</strong><span>paczek events/logs globalnie <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o eventach globalnych" matTooltip="Eventy i logi są zachowane w bazie jako surowy OTLP. Obecnie nie przypisujemy ich do sesji bez jednoznacznego klucza korelacji; widok kosztu opiera się na spanach modelu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><small>Zachowane do diagnostyki; nie są obecnie częścią kosztu sesji.</small></article>
+      <article><strong>{{ status().contentCaptured ? 'pełna' : 'wyłączona' }}</strong><span>treść promptów i narzędzi</span><small>{{ status().contentCaptured ? 'Capture content działa; treść jest dostępna w atrybutach.' : 'Copilot nie wyemitował pełnej treści.' }}</small></article>
+    </div>
+    <p>Warstwa surowa zachowuje cały otrzymany payload. Widok główny pokazuje tylko pola, które można poprawnie przypisać do sesji; dane wyliczone i niewyemitowane są oznaczone ikoną informacji.</p>
+  </section>
+
+  <nav class="technical-switcher" aria-label="Rodzaj danych technicznych">
+    <button [class.active]="mode() === 'spans'" (click)="mode.set('spans')"><mat-icon aria-hidden="true">account_tree</mat-icon>Spany i atrybuty <span>{{ detail().spans.length }}</span></button>
+    <button [class.active]="mode() === 'signals'" (click)="mode.set('signals')"><mat-icon aria-hidden="true">data_object</mat-icon>Surowe payloady OTLP <span>{{ detail().signals.length }}</span></button>
+  </nav>
+
+  @if (mode() === 'spans') {
+    <div class="technical-workbench">
+      <section class="span-browser panel">
+        <div class="panel-head"><div><span class="eyebrow">TRACE TREE</span><h3>Surowe spany</h3></div><span>{{ filteredSpans().length }}/{{ detail().spans.length }}</span></div>
+        <label class="technical-search"><mat-icon aria-hidden="true">search</mat-icon><input type="search" [value]="query()" (input)="setQuery($event)" placeholder="Szukaj po nazwie, operacji, modelu lub ID…"></label>
+        <div class="span-list">
+          @for (span of filteredSpans(); track span.id) {
+            <button class="span-row" [class.active]="selectedSpan().id === span.id" (click)="selectedSpanId.set(span.id)">
+              <i class="op-icon" [attr.data-op]="span.operationName">{{ operationIcon(span) }}</i>
+              <div class="span-info"><strong>{{ span.spanName }}</strong><small>{{ span.operationName }}@if (span.model) { · {{ span.model }}}</small></div>
+              <span class="duration">{{ duration(span.durationMs) }}</span>
+            </button>
+          } @empty {
+            <p class="technical-empty">Brak spanów pasujących do filtra.</p>
+          }
+        </div>
+      </section>
+      @if (selectedSpan(); as span) {
+        <aside class="inspector technical-inspector panel">
+          <div class="panel-head"><div><span class="eyebrow">SPAN DETAIL</span><h3>{{ span.spanName }}</h3></div><span class="status-ok" [class.bad]="span.statusCode === 'STATUS_CODE_ERROR'">{{ span.statusCode === 'STATUS_CODE_ERROR' ? 'BŁĄD' : 'OK' }}</span></div>
+          <div class="technical-detail-scroll">
+            <dl><div><dt>Trace</dt><dd class="mono">{{ short(span.traceId, 18) }}</dd></div><div><dt>Span</dt><dd class="mono">{{ short(span.spanId, 18) }}</dd></div><div><dt>Operacja</dt><dd>{{ span.operationName }}</dd></div><div><dt>Model</dt><dd>{{ span.model || '—' }}</dd></div></dl>
+            <section class="technical-payload"><h4>Atrybuty OTLP</h4><pre>{{ pretty(span.attributesJson) }}</pre></section>
+            @if (span.eventsJson !== '[]') {<section class="technical-payload"><h4>Eventy OTLP</h4><pre>{{ pretty(span.eventsJson) }}</pre></section>}
+          </div>
+        </aside>
+      } @else {
+        <aside class="inspector technical-inspector panel"><p class="technical-empty">Wybierz span z listy, aby zobaczyć szczegóły.</p></aside>
+      }
+    </div>
+  } @else {
+    <div class="technical-workbench raw-workbench">
+      <section class="signal-browser panel">
+        <div class="panel-head"><div><span class="eyebrow">SOURCE OF TRUTH</span><h3>Payloady OTLP</h3></div><span>{{ detail().signals.length }}</span></div>
+        <div class="signal-list">
+          @for (signal of detail().signals; track signal.id) {
+            <button class="signal-row" [class.active]="selectedSignal().id === signal.id" (click)="selectedSignalId.set(signal.id)"><mat-icon aria-hidden="true">data_object</mat-icon><span><strong>{{ signal.signalType }}</strong><small>{{ signal.itemCount }} elementów · {{ time(signal.receivedAt) }}</small></span></button>
+          }
+        </div>
+      </section>
+      @if (selectedSignal(); as signal) {
+        <aside class="raw-inspector panel">
+          <div class="panel-head"><div><span class="eyebrow">OTLP JSON</span><h3>{{ signal.signalType }} · {{ time(signal.receivedAt) }}</h3></div><span>{{ signal.itemCount }} elementów</span></div>
+          <pre>{{ pretty(signal.rawJson) }}</pre>
+        </aside>
+      }
+    </div>
+  }
+</section>

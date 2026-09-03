@@ -1,0 +1,78 @@
+<section class="dialog-shell">
+  <header class="dialog-title">
+    <div><span>{{ headingContext() }} · {{ turn().model.model }}</span><h2>Agent → model → agent</h2></div>
+    <button type="button" mat-dialog-close aria-label="Zamknij szczegóły"><mat-icon>close</mat-icon></button>
+  </header>
+  <mat-dialog-content>
+    <div class="round-detail">
+      <section class="detail-section input-detail">
+        <header><span>A → M</span><div><h3>Co weszło do modelu</h3><p>{{ inputDescription() }}</p></div></header>
+        @if (contextLimit(); as limit) {
+          <section class="context-window-meter">
+            <header>
+              <div><span>OKNO W MOMENCIE WYSŁANIA <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o oknie kontekstowym" [matTooltip]="subagent() ? 'To input_tokens dokładnie tego requestu subagenta. Każdy subagent ma własne okno kontekstowe.' : 'To input_tokens dokładnie tego requestu. VS Code pokazuje własny klientowy licznik bieżącej rozmowy.'" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span>
+                <strong class="context-equation"><span class="fresh">{{ compact(freshInputTokens()) }} <small>(nowy)</small></span><b>+</b><span class="cache">{{ compact(turn().model.cacheReadTokens) }} <small>(cache)</small></span><b>=</b><span class="total">{{ exact(turn().model.inputTokens) }} <small>/ {{ exact(limit) }} tokenów</small></span></strong>
+              </div>
+              <b>{{ percent(contextPercent()) }}%</b>
+            </header>
+            <div class="context-track"><i class="context-fresh" [style.width.%]="freshPercent()"></i><i class="context-cache" [style.left.%]="freshPercent()" [style.width.%]="cachePercent()"></i><i class="context-reserved" [style.width.%]="reservePercent()"></i></div>
+            <footer><span><i class="fresh"></i>{{ compact(freshInputTokens()) }} nowy input</span><span><i class="cache"></i>{{ compact(turn().model.cacheReadTokens) }} cache read</span><span><i class="reserved"></i>{{ compact(contextResponseReserve() ?? 0) }} zarezerwowane na odpowiedź</span><span>{{ compact(contextPromptLimit() ?? 0) }} maks. prompt</span></footer>
+            <p class="context-source"><b>Co dokładnie pokazujemy?</b> Jest to input_tokens requestu rundy {{ turnNumber() }}, czyli wartość „Input łącznie” z belki rundy. Limit {{ exact(limit) }} wynika z max prompt + rezerwy max output.</p>
+          </section>
+        }
+
+        <section class="request-inspector">
+          <details class="request-metadata">
+            <summary class="request-inspector-header"><div><h4>Co dokładnie Agent przekazał modelowi</h4><p>{{ compact(requestCapturedChars()) }} znaków treści przechwyconej w OTLP dla tego wywołania</p></div><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+            <div class="request-metadata-body">
+              <div class="request-params">@for (parameter of requestParameters(); track parameter.label) {<div><span>{{ parameter.label }}</span><b>{{ parameter.value }}</b></div>}</div>
+              @if (usesPreviousResponseState()) {<p class="incremental-request"><b>Request przyrostowy:</b> Copilot wysłał nowe elementy z odwołaniem do poprzedniej odpowiedzi. Model kontynuuje stan przez <code>previous_response_id</code>.</p>}
+              @else {<p class="full-request"><b>Request samodzielny:</b> brak odwołania do poprzedniej odpowiedzi. Poniższe sekcje pokazują zawartość wyemitowaną dla tego wywołania.</p>}
+            </div>
+          </details>
+          @if (systemInstructionBlocks().length) {
+            <details class="request-part" (toggle)="toggleSection('system', $event)"><summary><span><i>S</i><strong>System instructions</strong><small>{{ systemInstructionBlocks().length }} blok · {{ compact(systemInstructionChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(systemInstructionChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+              @if (sectionOpen('system')) {<div class="request-part-body">@for (block of systemInstructionBlocks(); track $index; let index = $index) {<article class="system-block"><header><span>system[{{ index }}]</span><small>{{ block.type }} · {{ compact(block.content.length) }} znaków · ≈ {{ compact(estimatedTokens(block.content)) }} tokenów</small></header><pre>{{ block.content }}</pre></article>}</div>}
+            </details>
+          }
+          <details class="request-part" (toggle)="toggleSection('messages', $event)"><summary><span><i>M</i><strong>Messages / input items</strong><small>{{ requestInputMessages().length }} elementów · {{ compact(requestInputChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestInputChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+            @if (sectionOpen('messages')) {<div class="request-part-body messages-body">@for (message of requestInputMessages(); track message.id) {<article class="request-message" [attr.data-role]="requestMessageLabel(message)"><header><span>{{ requestMessageLabel(message) }}</span><small>input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></header><pre>{{ pretty(message.content) }}</pre></article>} @empty {<p>Brak wiadomości wejściowych wyemitowanych dla tego spanu.</p>}</div>}
+          </details>
+          <details class="request-part" (toggle)="toggleSection('tools', $event)"><summary><span><i>T</i><strong>Tools dostępne dla modelu</strong><small>{{ requestToolDefinitions().length }} definicji · {{ compact(requestToolDefinitionChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestToolDefinitionChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+            @if (sectionOpen('tools')) {<div class="request-part-body tools-body">@for (definition of requestToolDefinitions(); track definition.id) {<details class="request-tool"><summary><span><strong>{{ toolDefinitionName(definition) }}</strong><small>tool[{{ definition.sequenceNo }}] · {{ compact(definition.content.length) }} znaków · ≈ {{ compact(estimatedTokens(definition.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(definition.content) }}</pre></details>} @empty {<p>Brak definicji narzędzi wyemitowanych dla tego spanu.</p>}</div>}
+          </details>
+        </section>
+        <p class="attribution-note"><b>Szacunek tokenów:</b> wartości „≈” są kalibrowane do dokładnego inputu pełnych requestów. Copilot nie emituje dokładnego podziału dla pojedynczej części.</p>
+      </section>
+
+      <section class="detail-section output-detail">
+        <header><span>M → A</span><div><h3>Co zwrócił model</h3></div></header>
+        <div class="response-metrics" aria-label="Metryki odpowiedzi modelu">
+          <span class="response-metric output">
+            <small>OUTPUT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o tokenach output" matTooltip="Tokeny odpowiedzi raportowane przez model: tekst oraz zapisane w odpowiedzi decyzje o użyciu narzędzi. To osobno wyceniana kategoria; jej stawka zależy od modelu i może być wyższa niż stawka inputu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
+            <strong>{{ compact(turn().model.outputTokens) }}</strong>
+            <em>tekst i tool calle</em>
+          </span>
+          <span class="response-metric reasoning">
+            <small>REASONING <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o tokenach reasoning" matTooltip="Tokeny wewnętrznego rozumowania raportowane osobno przez telemetrię. Zależnie od providera mogą już należeć do outputu, dlatego nie sumujemy ich ponownie." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
+            <strong>{{ compact(turn().model.reasoningTokens) }}</strong>
+            <em>praca wewnętrzna modelu</em>
+          </span>
+          <span class="response-metric latency">
+            <small>TTFT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o TTFT" matTooltip="Time to First Token: czas od wysłania żądania do pierwszego fragmentu odpowiedzi. Mierzy odczuwalną szybkość, nie zużycie tokenów ani osobny koszt." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
+            <strong>{{ duration(turn().model.ttftMs) }}</strong>
+            <em>czas do pierwszego tokena</em>
+          </span>
+        </div>
+        <blockquote>{{ excerpt(responseText()) }}</blockquote>
+        @if (responseToolCalls(); as calls) {
+          @if (calls.length) {<section class="response-tool-requests"><header><h4>Model przekazał {{ subagent() ? 'subagentowi' : 'agentowi' }} {{ toolRequestsLabel(calls.length) }}</h4></header>
+            @for (call of calls; track call.id) {<details class="response-tool-request"><summary><span><mat-icon>{{ responseToolIcon(call.name) }}</mat-icon><span><strong>{{ responseToolTitle(call.name) }}</strong><small>{{ call.name }}</small></span></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><div><pre>{{ call.arguments }}</pre></div></details>}
+          </section>}
+          @else {<p class="no-tool-request"><mat-icon>check_circle</mat-icon>Model nie zażądał uruchomienia narzędzia w tej rundzie.</p>}
+        }
+        <p class="response-boundary-note">Powyżej jest dokładna odpowiedź modelu: tekst oraz tool calle. Rezultaty wykonania narzędzi powstają później i mogą wejść do żądania następnej rundy.</p>
+      </section>
+    </div>
+  </mat-dialog-content>
+</section>

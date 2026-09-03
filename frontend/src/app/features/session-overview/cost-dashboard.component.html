@@ -1,0 +1,25 @@
+<section class="cost-dashboard">
+  <header class="cost-heading">
+    <div><span class="eyebrow">KOSZT I PRZEBIEG SESJI</span><h2>Koszt, tokeny i rekordy rund</h2></div>
+    <p>{{ view().modelCalls }} głównego · {{ view().toolActions }}</p>
+  </header>
+  <div class="dashboard-row-title"><span>Cała sesja</span><small>agent główny i subagenci zapisani w tej sesji</small></div>
+  <div class="session-totals dashboard-grid">
+    <article class="fresh"><span>Nowy input <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Nowy input całej sesji" matTooltip="Suma input_tokens minus cache read dla każdego wywołania modelu w sesji. Jest to wartość wyliczona z dwóch dokładnych metryk." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.freshInput }}</strong><small>poza cache read</small></article>
+    <article class="cache"><span>Input z cache</span><strong>{{ view().totals.cacheRead }}</strong><small>cache read</small></article>
+    <article class="write"><span>Cache write <mat-icon class="info-tip warning" tabindex="0" role="img" aria-label="Informacja o cache write" matTooltip="Jeżeli Copilot nie wyemituje gen_ai.usage.cache_creation.input_tokens, nie odtwarzamy tej wartości z ceny ani estymacji." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.cacheWrite }}</strong><small>{{ view().totals.hasCacheWrite ? 'z telemetrii' : 'niewyemitowane' }}</small></article>
+    <article class="output"><span>Output modelu</span><strong>{{ view().totals.output }}</strong><small>tekst i tool calle</small></article>
+    <article><span>Czas trwania sesji <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czas trwania sesji" matTooltip="Czas od początku pierwszej interakcji do ostatniego sygnału sesji; obejmuje również przerwy pomiędzy promptami użytkownika." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.duration }}</strong><small>łącznie z przerwami</small></article>
+    <article class="cost"><span>Suma credits <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.credits }}</strong><small>{{ view().totals.creditCoverage }}</small></article>
+  </div>
+  <div class="dashboard-row-title records"><span>Rekordy rund</span><small>pojedyncze rundy agenta głównego</small></div>
+  <div class="round-records dashboard-grid">
+    @if (view().records.freshInput; as record) {<article class="fresh"><span>Największy nowy input</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
+    @if (view().records.cacheRead; as record) {<article class="cache"><span>Największy input z cache</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
+    <article class="write"><span>Największy cache write</span>@if (view().records.cacheWrite; as record) {<strong>{{ record.reference }}</strong><b>{{ record.value }}</b>} @else {<strong>Brak danych</strong><b>niewyemitowane</b>}</article>
+    @if (view().records.output; as record) {<article class="output"><span>Największy output</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
+    @if (view().records.longest; as record) {<article><span>Najdłuższa runda</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
+    <article class="cost"><span>Najdroższa runda <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span>@if (view().records.mostExpensive; as record) {<strong>{{ record.reference }}</strong><b>{{ record.value }}</b>} @else {<strong>Brak danych</strong><b>koszt niewyemitowany</b>}</article>
+  </div>
+  <p class="billing-boundary"><b>Jakość danych:</b> input z cache, output, czasy i koszt pochodzą z telemetrii Copilota. „Nowy input” jest różnicą input − cache read. Cache write pokazujemy wyłącznie wtedy, gdy został wyemitowany. Sum tokenów z wielu rund nie należy porównywać z bieżącym Context Window w VS Code.</p>
+</section>

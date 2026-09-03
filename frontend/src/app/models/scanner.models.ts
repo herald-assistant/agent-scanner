@@ -1,0 +1,131 @@
+export type Tab = 'loop' | 'technical';
+export type TechnicalMode = 'spans' | 'signals';
+
+export interface ScannerStatus {
+  paused: boolean;
+  connected: boolean;
+  lastSignalAt: string | null;
+  traces: number;
+  metrics: number;
+  logs: number;
+  contentCaptured: boolean;
+  retentionDays: number;
+}
+
+export interface Session {
+  id: number;
+  conversationId: string;
+  agentName?: string;
+  agentType?: string;
+  requestedModel?: string;
+  responseModel?: string;
+  repository?: string;
+  branchName?: string;
+  startedAt?: string;
+  endedAt?: string;
+  lastSeenAt: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  reasoningTokens: number;
+  turnCount: number;
+  toolCount: number;
+  errorCount: number;
+  contentCaptured: boolean;
+}
+
+export interface SpanRecord {
+  id: number;
+  signalId: number;
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  spanName: string;
+  operationName?: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  statusCode?: string;
+  statusMessage?: string;
+  model?: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  reasoningTokens: number;
+  ttftMs?: number;
+  attributesJson: string;
+  eventsJson: string;
+  depth?: number;
+}
+
+export interface MessageRecord {
+  id: number;
+  spanId: number;
+  direction: string;
+  sequenceNo: number;
+  roleName?: string;
+  content: string;
+  sourceKind: string;
+}
+
+export interface SignalRecord {
+  id: number;
+  signalType: string;
+  receivedAt: string;
+  rawJson: string;
+  resourceAttributes: string;
+  itemCount: number;
+}
+
+export interface SessionDetail {
+  session: Session;
+  spans: SpanRecord[];
+  messages: MessageRecord[];
+  signals: SignalRecord[];
+}
+
+export interface ModelTurn {
+  index: number;
+  interactionIndex?: number;
+  interactionTurnIndex?: number;
+  interactionPrompt?: string;
+  interactionStartedAt?: string;
+  model: SpanRecord;
+  tools: SpanRecord[];
+  diagnostics?: SpanRecord[];
+}
+
+export interface UserInteraction {
+  index: number;
+  traceId: string;
+  prompt: string;
+  startedAt?: string;
+  turns: ModelTurn[];
+}
+
+export interface ImportSessionResult {
+  sessionId: number;
+  signals: number;
+  spans: number;
+}
+
+export interface RelatedModelCall {
+  span: SpanRecord;
+  label: string;
+}
+
+export interface SessionView {
+  source: SessionDetail;
+  relatedSource: SessionDetail[];
+  tools: SpanRecord[];
+  primaryModelSpans: SpanRecord[];
+  modelTurns: ModelTurn[];
+  interactions: UserInteraction[];
+  relatedModelCalls: RelatedModelCall[];
+  assistantAnswer: string;
+  toolDefinitionNames: string[];
+  contextualMessageCount: number;
+  madeFileChanges: boolean;
+}
