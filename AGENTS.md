@@ -16,6 +16,11 @@ Do not silently broaden a UI request into a change of telemetry semantics, data
 retention, import format, or public API. Those boundaries require explicit intent
 and proportionate tests.
 
+For a new continuation task, start with
+[`docs/kontynuacja/README.md`](docs/kontynuacja/README.md). It links the current
+business goal, architecture, telemetry semantics, implemented workflow UI and
+prioritized roadmap. This file remains the binding development contract.
+
 ## Product goal
 
 Agent Scanner is a local observability tool for GitHub Copilot agent sessions. It
@@ -36,6 +41,8 @@ billing authority, or exact tokenizer.
 ## Technology baseline
 
 - Java 17
+- Maven frontend toolchain: Node.js 22.22.3 (Angular 22 requirement)
+- Optional text-only classification: GitHub Copilot Java SDK 1.0.11
 - Spring Boot 3.4.x
 - Spring MVC, JDBC and H2
 - OpenTelemetry protobuf 1.7.0-alpha
@@ -56,6 +63,7 @@ the repository.
 .
 ├── AGENTS.md                         development contract (this file)
 ├── README.md                         operator and contributor documentation
+├── docs/                             product and analysis specifications
 ├── pom.xml                           backend and full frontend build
 ├── src/main/java/dev/agentscanner
 │   ├── AgentScannerApplication.java  Spring Boot entry point
@@ -124,7 +132,14 @@ does not currently use them.
 ### Session
 
 A session is primarily keyed by `gen_ai.conversation.id`. If unavailable, the
-ingestion fallback is `trace:<traceId>`. `ScannerStore.upsertSession` merges later
+ingestion fallback is `trace:<traceId>`. Resolve ownership per span, not by the last
+conversation ID in an OTLP batch. For the tested `copilot-episode-v1` shape, when
+`copilot_chat.parent_chat_session_id` equals the raw conversation ID and a distinct
+nonempty `copilot_chat.chat_session_id` is present, that chat ID identifies the
+child's normalized session. Missing IDs may inherit a known ancestor in the same
+batch, or the sole unambiguous identity in the trace batch; conflicting identities
+must not be assigned by iteration order. Preserve all raw attributes unchanged.
+`ScannerStore.upsertSession` merges later
 batches and uses maxima for cumulative values. Before changing this behavior,
 verify whether the provider sends cumulative or per-request metrics and add a
 fixture demonstrating the desired result.
@@ -157,16 +172,30 @@ agent request (A → M)
 ```
 
 Tool executions following a model response are associated with that round using
-their timestamps up to the start of the next `chat` span. The round modal must
-show the exact request on the left and the exact model response/tool requests on
-the right. Do not mix execution results into “what the model returned”.
+their timestamps up to the start of the next `chat` span. User-facing flow is
+presented as the initial interaction, then `M → A → M` cycles, then the final
+response. A cycle detail shows the exact source model response/tool requests and
+the exact receiving model request; keep execution results between those boundaries.
+Do not mix execution results into “what the model returned”.
 
 ### Subagents and auxiliary model calls
 
 Subagents work like the primary agent and should receive equivalent round detail.
-The launching tool is currently recognized by names `execution_subagent` and
-`runSubagent`. Link a subagent only when `gen_ai.tool.call.id` matches a related
-conversation/session ID. Do not correlate solely by temporal proximity.
+The cost/execution timeline recognizes launching tools by names `execution_subagent`
+and `runSubagent`. The dedicated `Mapa pracy` view uses generic joins between an
+execution's `gen_ai.tool.call.id` and a child's raw `gen_ai.conversation.id`, without
+tool-name inference. It rejects ambiguous joins and cycle-closing edges and counts
+nested subtrees once. Do not correlate solely by temporal proximity.
+
+Both execution and workflow views use `session-episodes.ts` to reconstruct episodes
+across historical session rows. A nested invoke span may use the parent's raw
+conversation ID: `copilot-episode-v1` requires its explicit chat/parent chat IDs to
+match the launching execution and its structural parent before attributing its
+descendant chats/tools to the child. This does not replace timestamp-based tool
+assignment within an episode. No database rewrite is required for old sessions.
+Cost totals include the main episode and uniquely linked descendants once;
+auxiliary requests remain separate. Never use a cumulative session error counter
+as proof of the session's final outcome; label emitted cancellation separately.
 
 Known technical/auxiliary agent names are centralized in
 `SessionAnalysisService.isAuxiliarySession`. Keep them hidden from the primary
@@ -190,6 +219,10 @@ and modal:
 - context limit: `copilot_chat.request.max_prompt_tokens + gen_ai.request.max_tokens`;
 - context usage at send time: the current round's `inputTokens`, not the next
   round's post-tool state.
+
+The reasoning tooltip may show exact `copilot_chat.reasoning_content` from the
+response span. Treat absent, blank, encrypted or redacted values as unavailable;
+never reconstruct or infer hidden reasoning from token counts or model output.
 
 Credits are GitHub Copilot AI credits, not currency. Never label them `cost`, `cr`
 or a monetary amount. The UI labels are `CREDITS` and `Suma credits`.
@@ -325,9 +358,37 @@ together.
   cleanup entry points.
 - `CostDashboardComponent`: session totals and per-round records.
 - `InteractionTimelineComponent`: interaction/round ordering, subagent and
-  auxiliary call presentation, confirmed alerts, opening dialogs.
-- `RoundDetailsDialogComponent`: exact A → M and M → A detail for one round.
+  auxiliary call presentation, confirmed alerts, opening round details.
+- `RoundDetailsDialogComponent`: exact initial request, `M → A → M` cycle or final
+  model response, according to the selected flow boundary;
+  `RoundDetailsAsideComponent` hosts that content in the shared right panel.
+  Tool-result input messages correlate to earlier emitted tool requests by call ID
+  and show the matched tool name, arguments and returned value without guessing
+  missing links. Keep this as one flat card; the duplicate raw message starts
+  collapsed under `Surowa wiadomość`.
 - `TechnicalViewComponent`: filterable span tree and raw signal/span inspection.
+- `WorkflowViewComponent`: factual flow map, context pressure, exact delegation
+  lanes, tool definitions and optional AI capability mapping. Its pure analysis lives
+  in `WorkflowAnalysisService` and `core/workflow`, called through
+  `SessionAnalysisService.buildWorkflow`. It reads raw attribute presence instead
+  of normalized token defaults. `flow-tool-catalog.ts` collects captured M→A tool requests and
+  canonical definition versions; `ToolClassificationService` keeps a small browser
+  working cache, while the backend persists validated results per session and exact
+  version/model/request hash. `ai/` owns the backend prompt,
+  strict result validation, bounded worker and text-only Copilot lifecycle.
+  `model-response.ts` parses model response envelopes for both classification and
+  round detail; never reconstruct missing responses from executions.
+  `model-action-evidence.ts` joins requests, executions, receiving inputs and child
+  streams by exact call IDs within an episode/trace. Conflicting IDs/names stay
+  unresolved. Credits stay on measured calls; linked recipients and subtrees are
+  overlapping evidence, not additive components of an action's cost.
+  Clicking a round node opens the same factual `M → A → M` round content used by
+  the execution timeline in the shared right-side aside. AI classification remains
+  on the map and is not included in this round-content panel.
+  Do not duplicate selected-round measurements or generic interpretation/coverage
+  cards below the map; round metrics belong in the shared round-content aside.
+  The round-content aside provides previous/next round navigation in its header,
+  scoped to the sequence represented by the opener.
 
 Do not create pass-through components that add no semantic boundary. Do extract a
 component when it owns behavior, state, a repeated visual contract or a testable
@@ -343,8 +404,10 @@ Use Angular Material for:
 - `MatIcon` with Material Symbols;
 - `MatSidenav` for the collapsible session panel.
 
-Round/subagent details use a 95vw × 95vh dialog. Keep scrollbar space stable
-(`scrollbar-gutter`) so expanding content does not shift the two columns.
+Round, auxiliary-call and subagent details use the shared right-side aside. It
+closes from its button, backdrop or Escape and restores focus to the trigger.
+Keep scrollbar space stable (`scrollbar-gutter`) so expanding content does not
+shift the two columns.
 
 Interaction controls follow these semantics:
 
@@ -389,7 +452,43 @@ metric in one isolated component.
 
 Preserve these product decisions unless the user explicitly changes them:
 
-- the main view contains only `Koszt i przebieg` and `Dane techniczne` tabs;
+- the main view contains `Koszt i przebieg`, `Mapa pracy` and `Dane techniczne` tabs;
+- the workflow map leads with the emitted user request and a visual round/agent
+  path; numeric tables and raw payloads start collapsed;
+- no input/output heuristic profiles or bands are shown in the map; AI is invoked
+  only by an explicit button. `model-actions-v5` classifies requested tool
+  definitions into capabilities/specialization and each M→A request into fixed
+  action sets. Search and read are one `ACQUIRE_DATA` action. Round actions must
+  equal the union of their request actions.
+  Goals inform fit only; later outcomes never determine response classification.
+  Agent profiles count actions in their own rounds, not semantic roles or descendants.
+  The classification summary leads with the category carrying the largest estimated
+  credit attribution and a cautious category-specific direction to investigate,
+  followed by a ranked list. Technical attribution details start collapsed.
+  The classified overview orders primary and subagent calls together and groups
+  adjacent rounds with identical action sets into noninteractive phases. Each phase
+  lists its participating main/subagent round labels and sums their emitted credits;
+  partial sums expose round coverage and fully missing values remain `—`. The
+  detailed round/subagent map starts expanded.
+  Counts/errors/links stay factual. The screen presents initial interaction,
+  `M → A → M` cycles and final response.
+  Credits remain on emitted model calls. Category credits are a UI estimate marked
+  `≈`: split each known call by emitted input/output tokens, allocate the full
+  output portion to classified requests and the full input portion to exact-call-ID
+  result occurrences. Use characters/4.25 only as relative weights when multiple
+  elements share a portion. Show request, first receipt and retained-result portions
+  in collapsed details. Split a multi-action request equally, keep portions without
+  category evidence as `Poza kategoriami`, expose call coverage and reconcile
+  estimated categories plus remainder to known credits.
+  Child calls are allocated to their own actions; delegation may show their exact
+  known subtree total only as a non-additive roll-up;
+- definitions/goals have an inspectable preview. Missing or conflicting definition
+  versions leave specialization unknown, but visible request arguments can still
+  support an action classification. Generic capability does not imply poor fit, and fit
+  never proves execution quality or savings. See docs/klasyfikacja-narzedzi-ai.md;
+- successful compaction/rehydration classification remains gated on an anonymized
+  emitter fixture; the map may show the emitted compaction event without claiming
+  success or rehydration;
 - session KPI dashboard is shown in the cost/execution view, not duplicated in the
   technical view;
 - request details and round token facts are not duplicated when already visible on
@@ -531,6 +630,17 @@ sensitive content as the database; keep warnings visible and accurate.
 
 Do not add outbound analytics, cloud upload or remote storage without explicit user
 authorization and a documented privacy model.
+
+The authorized optional workflow classification sends unique requested-tool
+definitions, emitted agent goals, recursively shortened tool arguments and up to
+1000 characters of captured model output per round to Copilot after the user clicks
+its button. Do not send full requests, tool execution results or credentials in the
+prompt. Execution outcomes, confirmed errors/compactions and recipient credits
+remain local. Missing definitions do not drop requests; use a null tool ID.
+The token is backend-only, read from application properties; local
+config/application.properties is ignored by Git. Never run a paid prompt at startup
+or in normal tests. No tools, skills, MCP or repository discovery are enabled for
+the classification session. Keep model interpretations separate from raw telemetry.
 
 ## Definition of done
 

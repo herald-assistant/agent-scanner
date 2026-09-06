@@ -1,29 +1,35 @@
-<section class="dialog-shell">
+<section class="dialog-shell" [class.request-view]="mode() === 'request'" [class.cycle-view]="mode() === 'cycle'" [class.final-view]="mode() === 'final'">
   <header class="dialog-title">
-    <div><span>{{ headingContext() }} · {{ turn().model.model }}</span><h2>Agent → model → agent</h2></div>
-    <button type="button" mat-dialog-close aria-label="Zamknij szczegóły"><mat-icon>close</mat-icon></button>
+    <div><span>{{ headingContext() }} · {{ panelModelLabel() }}</span><h2>{{ panelTitle() }}</h2></div>
+    <div class="dialog-actions">
+      @if (navigationVisible()) {
+        <button type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasPrevious()" (click)="previous.emit()"><mat-icon>chevron_left</mat-icon></button>
+        <button type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasNext()" (click)="next.emit()"><mat-icon>chevron_right</mat-icon></button>
+      }
+      <button type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+    </div>
   </header>
-  <mat-dialog-content>
+  <div class="round-detail-scroll">
     <div class="round-detail">
+      @if (mode() !== 'final') {
       <section class="detail-section input-detail">
-        <header><span>A → M</span><div><h3>Co weszło do modelu</h3><p>{{ inputDescription() }}</p></div></header>
+        <header><span>{{ mode() === 'cycle' ? 'A → M' : 'START → M' }}</span><div><h3>{{ mode() === 'cycle' ? 'Co wróciło do modelu' : 'Co uruchomiło pierwszy model' }} <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o zawartości inputu" [matTooltip]="inputDescription()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></h3></div></header>
         @if (contextLimit(); as limit) {
           <section class="context-window-meter">
             <header>
-              <div><span>OKNO W MOMENCIE WYSŁANIA <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o oknie kontekstowym" [matTooltip]="subagent() ? 'To input_tokens dokładnie tego requestu subagenta. Każdy subagent ma własne okno kontekstowe.' : 'To input_tokens dokładnie tego requestu. VS Code pokazuje własny klientowy licznik bieżącej rozmowy.'" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span>
+              <div><span>OKNO W MOMENCIE WYSŁANIA <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o oknie kontekstowym" [matTooltip]="contextWindowTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span>
                 <strong class="context-equation"><span class="fresh">{{ compact(freshInputTokens()) }} <small>(nowy)</small></span><b>+</b><span class="cache">{{ compact(turn().model.cacheReadTokens) }} <small>(cache)</small></span><b>=</b><span class="total">{{ exact(turn().model.inputTokens) }} <small>/ {{ exact(limit) }} tokenów</small></span></strong>
               </div>
               <b>{{ percent(contextPercent()) }}%</b>
             </header>
             <div class="context-track"><i class="context-fresh" [style.width.%]="freshPercent()"></i><i class="context-cache" [style.left.%]="freshPercent()" [style.width.%]="cachePercent()"></i><i class="context-reserved" [style.width.%]="reservePercent()"></i></div>
             <footer><span><i class="fresh"></i>{{ compact(freshInputTokens()) }} nowy input</span><span><i class="cache"></i>{{ compact(turn().model.cacheReadTokens) }} cache read</span><span><i class="reserved"></i>{{ compact(contextResponseReserve() ?? 0) }} zarezerwowane na odpowiedź</span><span>{{ compact(contextPromptLimit() ?? 0) }} maks. prompt</span></footer>
-            <p class="context-source"><b>Co dokładnie pokazujemy?</b> Jest to input_tokens requestu rundy {{ turnNumber() }}, czyli wartość „Input łącznie” z belki rundy. Limit {{ exact(limit) }} wynika z max prompt + rezerwy max output.</p>
           </section>
         }
 
         <section class="request-inspector">
           <details class="request-metadata">
-            <summary class="request-inspector-header"><div><h4>Co dokładnie Agent przekazał modelowi</h4><p>{{ compact(requestCapturedChars()) }} znaków treści przechwyconej w OTLP dla tego wywołania</p></div><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+            <summary class="request-inspector-header"><div><h4>Co dokładnie Agent przekazał modelowi <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o przechwyconej treści" [matTooltip]="requestCapturedDescription()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above" (click)="$event.preventDefault(); $event.stopPropagation()">info</mat-icon></h4></div><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
             <div class="request-metadata-body">
               <div class="request-params">@for (parameter of requestParameters(); track parameter.label) {<div><span>{{ parameter.label }}</span><b>{{ parameter.value }}</b></div>}</div>
               @if (usesPreviousResponseState()) {<p class="incremental-request"><b>Request przyrostowy:</b> Copilot wysłał nowe elementy z odwołaniem do poprzedniej odpowiedzi. Model kontynuuje stan przez <code>previous_response_id</code>.</p>}
@@ -36,7 +42,30 @@
             </details>
           }
           <details class="request-part" (toggle)="toggleSection('messages', $event)"><summary><span><i>M</i><strong>Messages / input items</strong><small>{{ requestInputMessages().length }} elementów · {{ compact(requestInputChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestInputChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
-            @if (sectionOpen('messages')) {<div class="request-part-body messages-body">@for (message of requestInputMessages(); track message.id) {<article class="request-message" [attr.data-role]="requestMessageLabel(message)"><header><span>{{ requestMessageLabel(message) }}</span><small>input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></header><pre>{{ pretty(message.content) }}</pre></article>} @empty {<p>Brak wiadomości wejściowych wyemitowanych dla tego spanu.</p>}</div>}
+            @if (sectionOpen('messages')) {<div class="request-part-body messages-body">@for (message of requestInputMessages(); track message.id) {
+              @if (toolResponseContexts(message); as contexts) {
+                @if (contexts.length) {
+                  <details class="request-message tool-message">
+                    <summary><span class="tool-message-summary"><mat-icon>{{ contexts[0].matched ? responseToolIcon(contexts[0].name || '') : 'link_off' }}</mat-icon><strong>{{ contexts[0].name || 'Niepowiązane wywołanie narzędzia' }}</strong><small>· input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+                    <div class="request-message-body">
+                    @for (context of contexts; track context.id) {
+                      <section class="tool-correlation" [class.unmatched]="!context.matched">
+                        @if (context.matched) {
+                          @if (toolParameterItems(context.arguments); as parameters) {
+                            <div class="tool-parameter-list">@for (parameter of parameters; track parameter.label) {<div><small>{{ parameter.label }}</small><pre>{{ parameter.value }}</pre></div>} @empty {<p>Parametry żądania nie zostały wyemitowane.</p>}</div>
+                          }
+                        } @else {<p class="unmatched-note">Nie znaleziono żądania o tym ID. Nazwy ani parametrów nie przypisujemy.</p>}
+                        <div class="tool-response-value"><small>WYNIK PRZEKAZANY MODELOWI</small><pre>{{ toolResponseValue(context.response) }}</pre></div>
+                      </section>
+                    }
+                    <details class="raw-tool-message"><summary>Surowa wiadomość <mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(message.content) }}</pre></details>
+                    </div>
+                  </details>
+                } @else {
+                  <details class="request-message" [attr.data-role]="requestMessageLabel(message)"><summary><span><strong>{{ requestMessageLabel(message) }}</strong><small>input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(message.content) }}</pre></details>
+                }
+              }
+            } @empty {<p>Brak wiadomości wejściowych wyemitowanych dla tego spanu.</p>}</div>}
           </details>
           <details class="request-part" (toggle)="toggleSection('tools', $event)"><summary><span><i>T</i><strong>Tools dostępne dla modelu</strong><small>{{ requestToolDefinitions().length }} definicji · {{ compact(requestToolDefinitionChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestToolDefinitionChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
             @if (sectionOpen('tools')) {<div class="request-part-body tools-body">@for (definition of requestToolDefinitions(); track definition.id) {<details class="request-tool"><summary><span><strong>{{ toolDefinitionName(definition) }}</strong><small>tool[{{ definition.sequenceNo }}] · {{ compact(definition.content.length) }} znaków · ≈ {{ compact(estimatedTokens(definition.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(definition.content) }}</pre></details>} @empty {<p>Brak definicji narzędzi wyemitowanych dla tego spanu.</p>}</div>}
@@ -44,35 +73,45 @@
         </section>
         <p class="attribution-note"><b>Szacunek tokenów:</b> wartości „≈” są kalibrowane do dokładnego inputu pełnych requestów. Copilot nie emituje dokładnego podziału dla pojedynczej części.</p>
       </section>
+      }
 
+      @if (mode() !== 'request') {
       <section class="detail-section output-detail">
-        <header><span>M → A</span><div><h3>Co zwrócił model</h3></div></header>
+        <header><span>{{ mode() === 'final' ? 'M → ODPOWIEDŹ' : 'M → A' }}</span><div><h3>{{ mode() === 'cycle' ? 'Co model zlecił agentowi' : 'Co zwrócił model' }}</h3></div></header>
         <div class="response-metrics" aria-label="Metryki odpowiedzi modelu">
           <span class="response-metric output">
             <small>OUTPUT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o tokenach output" matTooltip="Tokeny odpowiedzi raportowane przez model: tekst oraz zapisane w odpowiedzi decyzje o użyciu narzędzi. To osobno wyceniana kategoria; jej stawka zależy od modelu i może być wyższa niż stawka inputu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
-            <strong>{{ compact(turn().model.outputTokens) }}</strong>
+            <strong>{{ compact(responseOutputTokens()) }}</strong>
             <em>tekst i tool calle</em>
           </span>
           <span class="response-metric reasoning">
-            <small>REASONING <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o tokenach reasoning" matTooltip="Tokeny wewnętrznego rozumowania raportowane osobno przez telemetrię. Zależnie od providera mogą już należeć do outputu, dlatego nie sumujemy ich ponownie." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
-            <strong>{{ compact(turn().model.reasoningTokens) }}</strong>
+            <small>REASONING <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Treść reasoning z telemetrii" [matTooltip]="responseReasoningTooltip()" matTooltipClass="scanner-reasoning-tooltip" matTooltipPosition="above">info</mat-icon></small>
+            <strong>{{ compact(responseReasoningTokens()) }}</strong>
             <em>praca wewnętrzna modelu</em>
           </span>
           <span class="response-metric latency">
             <small>TTFT <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o TTFT" matTooltip="Time to First Token: czas od wysłania żądania do pierwszego fragmentu odpowiedzi. Mierzy odczuwalną szybkość, nie zużycie tokenów ani osobny koszt." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small>
-            <strong>{{ duration(turn().model.ttftMs) }}</strong>
+            <strong>{{ duration(responseTtftMs()) }}</strong>
             <em>czas do pierwszego tokena</em>
           </span>
         </div>
         <blockquote>{{ excerpt(responseText()) }}</blockquote>
         @if (responseToolCalls(); as calls) {
           @if (calls.length) {<section class="response-tool-requests"><header><h4>Model przekazał {{ subagent() ? 'subagentowi' : 'agentowi' }} {{ toolRequestsLabel(calls.length) }}</h4></header>
-            @for (call of calls; track call.id) {<details class="response-tool-request"><summary><span><mat-icon>{{ responseToolIcon(call.name) }}</mat-icon><span><strong>{{ responseToolTitle(call.name) }}</strong><small>{{ call.name }}</small></span></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><div><pre>{{ call.arguments }}</pre></div></details>}
+            @for (call of calls; track $index) {
+              <article class="response-tool-request">
+                <header><mat-icon>{{ responseToolIcon(call.name) }}</mat-icon><strong>{{ call.name }}</strong></header>
+                @if (toolParameterItems(call.arguments); as parameters) {
+                  <div class="tool-parameter-list">@for (parameter of parameters; track parameter.label) {<div><small>{{ parameter.label }}</small><pre>{{ parameter.value }}</pre></div>} @empty {<p>To żądanie nie zawiera parametrów.</p>}</div>
+                }
+              </article>
+            }
           </section>}
-          @else {<p class="no-tool-request"><mat-icon>check_circle</mat-icon>Model nie zażądał uruchomienia narzędzia w tej rundzie.</p>}
+          @else {<p class="no-tool-request"><mat-icon>info</mat-icon>Nie przechwycono żądań narzędzi w odpowiedzi tej rundy.</p>}
         }
-        <p class="response-boundary-note">Powyżej jest dokładna odpowiedź modelu: tekst oraz tool calle. Rezultaty wykonania narzędzi powstają później i mogą wejść do żądania następnej rundy.</p>
+        <p class="response-boundary-note">@if (mode() === 'cycle') { To początek cyklu. Żądania modelu są wykonywane przez agenta, a potwierdzone wyniki widać w inputach kolejnego wywołania po prawej. } @else if (mode() === 'final') { To końcowa przechwycona odpowiedź tego przepływu. Nie przypisujemy jej kolejnego wywołania modelu. } @else { To pierwsza odpowiedź modelu po zleceniu użytkownika; rozpoczyna pierwszy cykl pracy agenta. }</p>
       </section>
+      }
     </div>
-  </mat-dialog-content>
+  </div>
 </section>

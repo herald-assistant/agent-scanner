@@ -143,6 +143,20 @@ public class ScannerStore {
             .stream().findFirst();
     }
 
+    public Optional<String> toolClassification(long sessionId, String requestHash) {
+        return jdbc.queryForList("SELECT result_json FROM tool_classification_result WHERE session_id=? AND request_hash=?",
+            String.class, sessionId, requestHash).stream().findFirst();
+    }
+
+    public void saveToolClassification(long sessionId, String requestHash, String version, String model,
+                                       Instant analyzedAt, String resultJson) {
+        jdbc.update("""
+            MERGE INTO tool_classification_result
+              (session_id, request_hash, version, model, analyzed_at, result_json)
+            KEY(session_id, request_hash) VALUES (?,?,?,?,?,?)
+            """, sessionId, requestHash, version, model, ts(analyzedAt), resultJson);
+    }
+
     public List<Map<String, Object>> spans(long sessionId) {
         return jdbc.queryForList("""
             SELECT id, signal_id, trace_id, span_id, parent_span_id, span_name, operation_name, span_kind,

@@ -1,8 +1,23 @@
 import {Injectable} from '@angular/core';
 import {ImportSessionResult, ScannerStatus, Session, SessionDetail} from '../models/scanner.models';
+import {ToolClassificationRequest, ToolClassificationResult, ToolClassificationStatus} from '../models/tool-classification.models';
 
 @Injectable({providedIn: 'root'})
 export class ScannerApiService {
+  toolClassificationStatus(): Promise<ToolClassificationStatus> { return this.get('/api/ai/tool-classification/status'); }
+  async cachedToolClassification(sessionId: number, request: ToolClassificationRequest): Promise<ToolClassificationResult | null> {
+    const response = await fetch(`/api/ai/tool-classification/cached?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
+    if (response.status === 204) return null;
+    const result = await response.json().catch(() => null) as (ToolClassificationResult & {error?: string}) | null;
+    if (!response.ok || !result) throw new Error(result?.error || 'Nie udało się odczytać zapisanej analizy.');
+    return result;
+  }
+  async classifyTools(sessionId: number, request: ToolClassificationRequest): Promise<ToolClassificationResult> {
+    const response = await fetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
+    const result = await response.json().catch(() => null) as (ToolClassificationResult & {error?: string}) | null;
+    if (!response.ok || !result) throw new Error(result?.error || (response.status === 404 ? 'Uruchom ponownie backend, aby włączyć analizę AI.' : 'Nie udało się przeanalizować działań modelu.'));
+    return result;
+  }
   status(): Promise<ScannerStatus> { return this.get('/api/status'); }
   sessions(): Promise<Session[]> { return this.get('/api/sessions'); }
   session(id: number): Promise<SessionDetail> { return this.get(`/api/sessions/${id}`); }

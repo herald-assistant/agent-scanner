@@ -15,10 +15,14 @@ import {CostDashboardComponent, CostDashboardView, DashboardRecord} from './feat
 import {SessionAnalysisService} from './core/session-analysis.service';
 import {TechnicalViewComponent} from './features/technical/technical-view.component';
 import {InteractionTimelineComponent} from './features/interaction-timeline/interaction-timeline.component';
+import {WorkflowViewComponent} from './features/workflow/workflow-view.component';
+import {WorkflowAnalysis} from './models/workflow.models';
+import {RoundDetailsAsideComponent} from './features/round-details/round-details-aside.component';
+import {RoundDetailsPanelService} from './core/round-details-panel.service';
 
 @Component({
   selector: 'as-root',
-  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatSnackBarModule, MatTooltipModule, TopbarComponent, SessionSidebarComponent, CostDashboardComponent, TechnicalViewComponent, InteractionTimelineComponent],
+  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatSnackBarModule, MatTooltipModule, TopbarComponent, SessionSidebarComponent, CostDashboardComponent, TechnicalViewComponent, InteractionTimelineComponent, WorkflowViewComponent, RoundDetailsAsideComponent],
   providers: [{provide: MAT_ICON_DEFAULT_OPTIONS, useValue: {fontSet: 'material-symbols-outlined'}}],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
@@ -29,11 +33,16 @@ export class AppComponent {
   private readonly api = inject(ScannerApiService);
   private readonly notifications = inject(NotificationService);
   private readonly analysis = inject(SessionAnalysisService);
+  private readonly detailsPanel = inject(RoundDetailsPanelService);
   private readonly statusState = signal<ScannerStatus>({paused: false, connected: false, lastSignalAt: null, traces: 0, metrics: 0, logs: 0, contentCaptured: false, retentionDays: 30});
   private readonly sessionsState = signal<Session[]>([]);
   private readonly detailState = signal<SessionDetail | undefined>(undefined);
   private readonly relatedDetailsState = signal<SessionDetail[]>([]);
   private readonly activeTabState = signal<Tab>('loop');
+  readonly workflowState = signal<WorkflowAnalysis | undefined>(undefined);
+  readonly workflowLoading = signal(false);
+  readonly workflowFailed = signal(false);
+  private workflowRequest = 0;
   private readonly showConfigState = signal(false);
   private readonly configPlatformState = signal<'vscode' | 'intellij'>('vscode');
   private readonly sidebarOpenState = signal(true);
@@ -50,6 +59,7 @@ export class AppComponent {
   readonly creditTooltip = 'Uproszczony zapis: liczba oznacza GitHub Copilot AI credits. Scanner dzieli wartość nano AIU z telemetrii przez 1 000 000 000. To zużycie kredytów, nie kwota pieniężna.';
 
   readonly visibleSessions = computed(() => this.sessions.filter(session => !this.isAuxiliarySession(session)));
+  readonly sessionStatus = computed(() => this.detail ? this.analysis.sessionStatus(this.detail, this.relatedDetails) : '');
   readonly costDashboard = computed<CostDashboardView>(() => {
     const record = (turn: ModelTurn | undefined, value: string): DashboardRecord | undefined => turn
       ? {reference: this.turnReference(turn), value}
@@ -138,10 +148,12 @@ export class AppComponent {
   }
 
   async selectSession(session: Session): Promise<void> {
+    if (this.detail?.session.id !== session.id) this.detailsPanel.close();
     const loadedDetail = await this.api.session(session.id);
     const detail = {...loadedDetail, spans: this.analysis.withDepth(loadedDetail.spans)};
     this.detailState.set(detail);
     this.relatedDetailsState.set(this.isAuxiliarySession(session) ? [] : await this.loadRelatedDetails(detail));
+    if (this.activeTab === 'workflow') void this.loadWorkflow();
   }
 
   async togglePause(): Promise<void> {
@@ -196,7 +208,38 @@ export class AppComponent {
 
   selectTab(tab: Tab): void {
     if (this.activeTab === tab) return;
+    this.detailsPanel.close();
     this.activeTabState.set(tab);
+    if (tab === 'workflow') void this.loadWorkflow();
+  }
+
+  async loadWorkflow(): Promise<void> {
+    const source = this.detail;
+    if (!source) return;
+    const request = ++this.workflowRequest;
+    this.workflowLoading.set(true);
+    this.workflowFailed.set(false);
+    try {
+      // The session key is only an index hint; exact linking needs raw per-span IDs.
+      const pending = this.sessions.filter(session => session.id !== source.session.id);
+      const details: SessionDetail[] = [];
+      let cursor = 0;
+      await Promise.all(Array.from({length: Math.min(4, pending.length)}, async () => {
+        while (cursor < pending.length) {
+          const candidate = pending[cursor++];
+          details.push(await this.api.session(candidate.id));
+        }
+      }));
+      const result = await this.analysis.buildWorkflow(source, details);
+      if (request === this.workflowRequest && this.detail === source) this.workflowState.set(result);
+    } catch {
+      if (request === this.workflowRequest && this.detail === source) {
+        this.workflowFailed.set(true);
+        this.notifications.error('Nie udało się przygotować mapy pracy. Spróbuj ponownie.', () => this.loadWorkflow());
+      }
+    } finally {
+      if (request === this.workflowRequest) this.workflowLoading.set(false);
+    }
   }
 
   setConfigVisible(visible: boolean): void {
@@ -289,7 +332,7 @@ export class AppComponent {
   sessionCreditCoverage(): string {
     const spans = this.billingModelSpans();
     const captured = spans.filter(span => this.spanCredits(span) != null).length;
-    return `${captured}/${spans.length} wywołań z kosztem`;
+    return `${captured}/${spans.length} rund z credits`;
   }
 
   highestFreshInputTurn(): ModelTurn | undefined {
@@ -354,7 +397,7 @@ export class AppComponent {
   }
 
   private billingModelSpans(): SpanRecord[] {
-    return (this.detail?.spans ?? []).filter(span => span.operationName === 'chat');
+    return this.sessionView()?.billingModelSpans ?? [];
   }
 
   repositoryName(): string {
@@ -377,14 +420,15 @@ export class AppComponent {
 
   private async loadRelatedDetails(primary: SessionDetail): Promise<SessionDetail[]> {
     const linkedConversationIds = new Set(primary.spans
-      .filter(span => ['execution_subagent', 'runSubagent'].includes(String(this.parsedAttributes(span)['gen_ai.tool.name'] ?? '')))
+      .filter(span => span.operationName === 'execute_tool')
       .map(span => String(this.parsedAttributes(span)['gen_ai.tool.call.id'] ?? '—'))
       .filter(value => value && value !== '—'));
     const start = this.newDate(primary.session.startedAt) - 2000;
     const end = this.newDate(primary.session.endedAt || primary.session.lastSeenAt) + 2500;
     const candidates = this.sessions.filter(session => {
-      if (session.id === primary.session.id || !this.isAuxiliarySession(session)) return false;
+      if (session.id === primary.session.id) return false;
       if (linkedConversationIds.has(session.conversationId)) return true;
+      if (!this.isAuxiliarySession(session)) return false;
       const at = this.newDate(session.startedAt || session.lastSeenAt);
       return at >= start && at <= end;
     });

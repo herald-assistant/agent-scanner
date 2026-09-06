@@ -22,12 +22,18 @@
         <opentelemetry-proto.version>1.7.0-alpha</opentelemetry-proto.version>
         <protobuf.version>4.30.2</protobuf.version>
         <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
-        <node.version>v20.19.1</node.version>
+        <node.version>v22.22.3</node.version>
         <npm.version>10.8.2</npm.version>
         <skip.frontend>false</skip.frontend>
+        <copilot-sdk.version>1.0.11</copilot-sdk.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.github</groupId>
+            <artifactId>copilot-sdk-java</artifactId>
+            <version>${copilot-sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

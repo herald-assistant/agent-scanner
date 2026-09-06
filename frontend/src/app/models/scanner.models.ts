@@ -1,4 +1,4 @@
-export type Tab = 'loop' | 'technical';
+export type Tab = 'loop' | 'workflow' | 'technical';
 export type TechnicalMode = 'spans' | 'signals';
 
 export interface ScannerStatus {
@@ -121,6 +121,7 @@ export interface SessionView {
   relatedSource: SessionDetail[];
   tools: SpanRecord[];
   primaryModelSpans: SpanRecord[];
+  billingModelSpans: SpanRecord[];
   modelTurns: ModelTurn[];
   interactions: UserInteraction[];
   relatedModelCalls: RelatedModelCall[];

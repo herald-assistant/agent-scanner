@@ -1,19 +1,25 @@
-import {ChangeDetectionStrategy, Component, inject, input, TemplateRef} from '@angular/core';
-import {NgTemplateOutlet} from '@angular/common';
-import {MatDialog, MatDialogModule} from '@angular/material/dialog';
+import {ChangeDetectionStrategy, Component, computed, inject, input, TemplateRef} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
-import {RoundDetailsDialogComponent} from '../round-details/round-details-dialog.component';
+import {episodeLaunches, sessionEpisodes} from '../../core/session-episodes';
+import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 
 interface ConfirmedProblem {
   title: string;
   evidence: string[];
 }
 
+interface RoundPanelItem {
+  turn: ModelTurn;
+  sourceTurn?: ModelTurn;
+  mode: 'request' | 'cycle' | 'final';
+  headingContext: string;
+}
+
 @Component({
   selector: 'as-interaction-timeline',
-  imports: [NgTemplateOutlet, MatDialogModule, MatIconModule, MatTooltipModule, RoundDetailsDialogComponent],
+  imports: [MatIconModule, MatTooltipModule],
   templateUrl: './interaction-timeline.component.html',
   styleUrl: './interaction-timeline.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,8 +33,10 @@ export class InteractionTimelineComponent {
   readonly detail = input.required<SessionDetail>();
   readonly relatedDetails = input<SessionDetail[]>([]);
   readonly creditTooltip = input.required<string>();
+  private readonly episodes = computed(() => sessionEpisodes(this.detail(), this.relatedDetails()));
+  private readonly launches = computed(() => episodeLaunches(this.episodes()));
 
-  private readonly dialog = inject(MatDialog);
+  private readonly detailsPanel = inject(RoundDetailsPanelService);
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
   private readonly jsonAttributeCache = new WeakMap<SpanRecord, Map<string, unknown>>();
   private readonly standardNumberFormat = new Intl.NumberFormat('pl-PL');
@@ -37,17 +45,86 @@ export class InteractionTimelineComponent {
   private readonly percentFormat = new Intl.NumberFormat('pl-PL', {minimumFractionDigits: 1, maximumFractionDigits: 1});
   private readonly timeFormat = new Intl.DateTimeFormat('pl-PL', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
 
-  openDetails(template: TemplateRef<unknown>, ariaLabel: string): void {
-    this.dialog.open(template, {
-      ariaLabel,
-      autoFocus: 'dialog',
-      panelClass: 'scanner-detail-dialog',
-      width: '95vw',
-      maxWidth: '95vw',
-      height: '95vh',
-      maxHeight: '95vh',
-      restoreFocus: true
+  openInitialRequest(turn: ModelTurn, event: Event): void {
+    const items = this.mainPanelItems();
+    const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'request');
+    if (current) this.showRoundDetails(items, current, this.calibrationSpans(), false, event.currentTarget);
+  }
+
+  openMainRoundDetails(turn: ModelTurn, event: Event): void {
+    const items = this.mainPanelItems();
+    const current = items.find(item => item.sourceTurn?.model.id === turn.model.id && item.mode === 'cycle');
+    if (current) this.showRoundDetails(items, current, this.calibrationSpans(), false, event.currentTarget);
+  }
+
+  openFinalResponse(turn: ModelTurn, event: Event): void {
+    const items = this.mainPanelItems();
+    const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'final');
+    if (current) this.showRoundDetails(items, current, this.calibrationSpans(), false, event.currentTarget);
+  }
+
+  openAuxiliaryRoundDetails(call: RelatedModelCall, event: Event): void {
+    const items: RoundPanelItem[] = this.auxiliaryModelCalls().map((item, index) => ({
+      turn: {index: index + 1, model: item.span, tools: []}, mode: 'request', headingContext: item.label
+    }));
+    const selected = items.find(item => item.turn.model.id === call.span.id);
+    if (selected) this.showRoundDetails(items, selected, this.auxiliarySpans(), false, event.currentTarget);
+  }
+
+  openSubagentInitialRequest(tool: SpanRecord, turn: ModelTurn, event: Event): void {
+    const calls = this.subagentModelCalls(tool);
+    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'request');
+    if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
+  }
+
+  openSubagentRoundDetails(tool: SpanRecord, turn: ModelTurn, event: Event): void {
+    const calls = this.subagentModelCalls(tool);
+    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const current = items.find(item => item.sourceTurn?.model.id === turn.model.id && item.mode === 'cycle');
+    if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
+  }
+
+  openSubagentFinalResponse(tool: SpanRecord, turn: ModelTurn, event: Event): void {
+    const calls = this.subagentModelCalls(tool);
+    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'final');
+    if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
+  }
+
+  openSubagentDetails(template: TemplateRef<unknown>, tool: SpanRecord, turn: ModelTurn, event: Event): void {
+    const eyebrow = `INTERAKCJA ${turn.interactionIndex} · CYKL ${this.turnNumber(turn)} · DELEGACJA PO M${this.turnNumber(turn)}`;
+    this.detailsPanel.openTemplate(template, {$implicit: tool}, eyebrow, this.friendlyToolTitle(tool), 'Szczegóły pracy subagenta', event.currentTarget);
+  }
+
+  private showRoundDetails(items: RoundPanelItem[], selected: RoundPanelItem, calibrationSpans: SpanRecord[], subagent: boolean,
+                           origin?: EventTarget | null): void {
+    const index = items.indexOf(selected);
+    const current = items[index];
+    if (!current) return;
+    this.detailsPanel.openRound({turn: current.turn, sourceTurn: current.sourceTurn, mode: current.mode, messages: this.messages(), calibrationSpans,
+      headingContext: current.headingContext, subagent}, current.headingContext, origin, {
+      previous: index > 0 ? () => this.showRoundDetails(items, items[index - 1], calibrationSpans, subagent) : undefined,
+      next: index < items.length - 1 ? () => this.showRoundDetails(items, items[index + 1], calibrationSpans, subagent) : undefined
     });
+  }
+
+  private mainPanelItems(): RoundPanelItem[] {
+    return this.sequencePanelItems(this.turns(), (label, turn) => `INTERAKCJA ${turn.interactionIndex ?? 1} · ${label}`);
+  }
+
+  private sequencePanelItems(turns: ModelTurn[], heading: (label: string, turn: ModelTurn) => string): RoundPanelItem[] {
+    const items: RoundPanelItem[] = [];
+    for (const [index, turn] of turns.entries()) {
+      const previous = index > 0 && turns[index - 1].model.traceId === turn.model.traceId ? turns[index - 1] : undefined;
+      items.push(previous
+        ? {turn, sourceTurn: previous, mode: 'cycle', headingContext: heading(`CYKL ${this.turnNumber(previous)}`, turn)}
+        : {turn, mode: 'request', headingContext: heading('START', turn)});
+      const next = turns[index + 1];
+      if (!next || next.model.traceId !== turn.model.traceId)
+        items.push({turn, mode: 'final', headingContext: heading('ODPOWIEDŹ KOŃCOWA', turn)});
+    }
+    return items;
   }
 
   turnNumber(turn: ModelTurn): number { return turn.interactionTurnIndex ?? turn.index; }
@@ -99,6 +176,17 @@ export class InteractionTimelineComponent {
 
   freshInputTokens(span: SpanRecord): number { return Math.max(0, span.inputTokens - span.cacheReadTokens); }
 
+  roundTokenLabel(span: SpanRecord, kind: 'input' | 'cache' | 'fresh' | 'output'): string {
+    const key = kind === 'cache' ? 'gen_ai.usage.cache_read.input_tokens'
+      : kind === 'output' ? 'gen_ai.usage.output_tokens' : 'gen_ai.usage.input_tokens';
+    let value = this.numericAttribute(span, key);
+    if (kind === 'fresh') {
+      const cache = this.numericAttribute(span, 'gen_ai.usage.cache_read.input_tokens');
+      value = value != null && cache != null ? Math.max(0, value - cache) : null;
+    }
+    return value == null ? '—' : this.compact(value);
+  }
+
   hasCacheWriteForTurns(turns: ModelTurn[]): boolean {
     return turns.some(turn => this.hasCacheWriteTelemetry(turn.model));
   }
@@ -120,26 +208,51 @@ export class InteractionTimelineComponent {
     return value == null ? 'brak danych' : this.callCreditFormat.format(value);
   }
 
-  previousToolsForTurn(turn: ModelTurn): SpanRecord[] {
+  isInitialTurn(turn: ModelTurn): boolean { return !this.previousTurnFor(turn); }
+  isFinalTurn(turn: ModelTurn): boolean {
     const turns = this.interactionForTurn(turn)?.turns ?? this.turns();
     const position = turns.findIndex(candidate => candidate.model.id === turn.model.id);
-    return position > 0 ? turns[position - 1].tools : [];
+    return position >= 0 && position === turns.length - 1;
+  }
+  previousTurnFor(turn: ModelTurn): ModelTurn | undefined {
+    const turns = this.interactionForTurn(turn)?.turns ?? this.turns();
+    const position = turns.findIndex(candidate => candidate.model.id === turn.model.id);
+    return position > 0 ? turns[position - 1] : undefined;
+  }
+
+  nextTurnFor(turn: ModelTurn): ModelTurn | undefined {
+    const turns = this.interactionForTurn(turn)?.turns ?? this.turns();
+    return this.nextTurnIn(turns, turn);
+  }
+
+  nextSubagentTurn(tool: SpanRecord, turn: ModelTurn): ModelTurn | undefined {
+    return this.nextTurnIn(this.subagentTurns(tool), turn);
+  }
+
+  modelCallLabel(turn: ModelTurn): string { return `M${this.turnNumber(turn)}`; }
+
+  subagentCallLabel(turn: ModelTurn): string { return `S${turn.index}`; }
+
+  cycleReceiptLabel(source: ModelTurn, receiver: ModelTurn): string {
+    return `${this.toolResultsLabel(source.tools.length)} po ${this.modelCallLabel(source)} → input ${this.modelCallLabel(receiver)}`;
   }
 
   roundContextPercentLabel(turn: ModelTurn): string {
     const limit = this.contextWindowTokens(turn);
-    return this.percentFormat.format(limit ? turn.model.inputTokens / limit * 100 : 0);
+    const input = this.numericAttribute(turn.model, 'gen_ai.usage.input_tokens');
+    return limit && input != null ? `${this.percentFormat.format(input / limit * 100)}%` : '—';
   }
 
   roundContextLabel(turn: ModelTurn): string {
     const limit = this.contextWindowTokens(turn);
+    const input = this.roundTokenLabel(turn.model, 'input');
     return limit == null
-      ? `${this.compact(turn.model.inputTokens)} · limit niewyemitowany`
-      : `${this.compact(turn.model.inputTokens)} / ${this.compact(limit)}`;
+      ? `${input} · limit niewyemitowany`
+      : `${input} / ${this.compact(limit)}`;
   }
 
   subagentLaunchesForTurn(turn: ModelTurn): SpanRecord[] {
-    return turn.tools.filter(tool => ['execution_subagent', 'runSubagent'].includes(this.attribute(tool, 'gen_ai.tool.name')));
+    return turn.tools.filter(tool => this.subagentEpisode(tool) || ['execution_subagent', 'runSubagent'].includes(this.attribute(tool, 'gen_ai.tool.name')));
   }
 
   subagentTrigger(tool: SpanRecord): string {
@@ -175,43 +288,29 @@ export class InteractionTimelineComponent {
   subagentCredits(tool: SpanRecord): number | null { return this.sumCredits(this.subagentModelCalls(tool)); }
 
   subagentModelCalls(tool: SpanRecord): SpanRecord[] {
-    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
-    if (!callId || callId === '—') return [];
-    const spans = [
-      ...this.detail().spans.filter(span => span.operationName === 'chat' && this.attribute(span, 'gen_ai.conversation.id') === callId),
-      ...this.relatedDetails().filter(detail => detail.session.conversationId === callId)
-        .flatMap(detail => detail.spans.filter(span => span.operationName === 'chat'))
-    ];
-    return [...new Map(spans.map(span => [span.id, span])).values()]
-      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
+    return this.subagentEpisode(tool)?.spans.filter(span => span.operationName === 'chat') ?? [];
+  }
+
+  private subagentEpisode(tool: SpanRecord): SessionDetail | undefined {
+    return this.launches().get(tool)?.source;
   }
 
   subagentTools(tool: SpanRecord): SpanRecord[] {
-    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
-    return this.relatedDetails().filter(detail => detail.session.conversationId === callId)
-      .flatMap(detail => detail.spans.filter(span => span.operationName === 'execute_tool'))
-      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
-  }
-
-  subagentPreviousToolsForTurn(tool: SpanRecord, turnIndex: number): SpanRecord[] {
-    return turnIndex > 1 ? this.subagentTurns(tool)[turnIndex - 2]?.tools ?? [] : [];
+    return this.subagentEpisode(tool)?.spans.filter(span => span.operationName === 'execute_tool') ?? [];
   }
 
   subagentTurns(tool: SpanRecord): ModelTurn[] {
     const calls = this.subagentModelCalls(tool);
     const tools = this.subagentTools(tool);
-    const callId = this.attribute(tool, 'gen_ai.tool.call.id');
-    const diagnostics = this.relatedDetails().filter(detail => detail.session.conversationId === callId)
-      .flatMap(detail => detail.spans.filter(span => span.operationName === 'execute_tool' || span.operationName === 'execute_hook'))
-      .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
+    const diagnostics = this.subagentEpisode(tool)?.spans.filter(span => span.operationName === 'execute_tool' || span.operationName === 'execute_hook') ?? [];
     return calls.map((model, index) => {
       const from = this.timestamp(model.endedAt || model.startedAt);
       const to = index + 1 < calls.length ? this.timestamp(calls[index + 1].startedAt) : Number.MAX_SAFE_INTEGER;
       return {
         index: index + 1,
         model,
-        tools: tools.filter(item => this.isBetween(item, from, to)),
-        diagnostics: diagnostics.filter(item => this.isBetween(item, from, to))
+        tools: tools.filter(item => item.traceId === model.traceId && this.isBetween(item, from, to)),
+        diagnostics: diagnostics.filter(item => item.traceId === model.traceId && this.isBetween(item, from, to))
       };
     });
   }
@@ -277,9 +376,9 @@ export class InteractionTimelineComponent {
 
   private numericAttribute(span: SpanRecord, key: string): number | null {
     const value = this.attributes(span)[key];
-    if (value == null || value === '') return null;
+    if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null;
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   }
 
   private sumCredits(spans: SpanRecord[]): number | null {
@@ -290,6 +389,12 @@ export class InteractionTimelineComponent {
   private isBetween(span: SpanRecord, from: number, to: number): boolean {
     const at = this.timestamp(span.startedAt);
     return at >= from && at < to;
+  }
+
+  private nextTurnIn(turns: ModelTurn[], turn: ModelTurn): ModelTurn | undefined {
+    const position = turns.findIndex(candidate => candidate.model.id === turn.model.id);
+    const next = position >= 0 ? turns[position + 1] : undefined;
+    return next?.model.traceId === turn.model.traceId ? next : undefined;
   }
 
   private roundConfirmedProblems(turn: ModelTurn): ConfirmedProblem[] {

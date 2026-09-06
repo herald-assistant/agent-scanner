@@ -1,27 +1,34 @@
 import {Injectable} from '@angular/core';
 import {RelatedModelCall, Session, SessionDetail, SessionView, SpanRecord, UserInteraction, ModelTurn} from '../models/scanner.models';
+import {WorkflowAnalysisService} from './workflow-analysis.service';
+import {WorkflowAnalysis} from '../models/workflow.models';
+import {episodeLaunches, sessionEpisodes} from './session-episodes';
+import {TelemetryReader} from './workflow/telemetry';
 
 @Injectable({providedIn: 'root'})
 export class SessionAnalysisService {
+  private readonly workflow = new WorkflowAnalysisService();
   private cachedView?: SessionView;
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
+
+  buildWorkflow(source: SessionDetail, related: SessionDetail[]): Promise<WorkflowAnalysis> {
+    return this.workflow.analyze(source, related);
+  }
 
   build(source: SessionDetail | undefined, relatedSource: SessionDetail[]): SessionView | undefined {
     if (!source) return undefined;
     if (this.cachedView?.source === source && this.cachedView.relatedSource === relatedSource) return this.cachedView;
 
-    const tools = source.spans
+    const episodes = sessionEpisodes(source, relatedSource);
+    const own = episodes[0].source;
+    const tools = own.spans
       .filter(span => span.operationName === 'execute_tool' || span.operationName === 'execute_hook')
       .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
-    const primaryModel = source.session.responseModel || source.session.requestedModel;
-    const conversationModelSpans = source.spans.filter(span => span.operationName === 'chat' &&
-      this.attribute(span, 'gen_ai.conversation.id') === source.session.conversationId);
-    const primaryModelSpans = (conversationModelSpans.length ? conversationModelSpans : source.spans
-      .filter(span => span.operationName === 'chat' && (!primaryModel || span.model === primaryModel)))
+    const primaryModelSpans = own.spans.filter(span => span.operationName === 'chat')
       .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
     const executedTools = tools.filter(span => span.operationName === 'execute_tool');
     const primaryTraceIds = new Set(primaryModelSpans.map(span => span.traceId));
-    const interactionRoots = source.spans
+    const interactionRoots = own.spans
       .filter(span => span.operationName === 'invoke_agent' && primaryTraceIds.has(span.traceId))
       .sort((a, b) => this.timestamp(a.startedAt) - this.timestamp(b.startedAt));
     const rootByTrace = new Map(interactionRoots.map(root => [root.traceId, root]));
@@ -39,7 +46,7 @@ export class SessionAnalysisService {
       const traceTools = executedTools.filter(span => span.traceId === traceId);
       const traceDiagnostics = tools.filter(span => span.traceId === traceId);
       const rootPrompt = root ? this.attributes(root)['copilot_chat.user_request'] : undefined;
-      const promptMessage = root ? source.messages
+      const promptMessage = root ? own.messages
         .filter(message => message.spanId === root.id && message.direction === 'input' && message.roleName === 'user')
         .map(message => this.messageText(message.content))
         .find(text => text && !text.startsWith('<environment_info>') && !text.startsWith('<context>')) : undefined;
@@ -71,25 +78,21 @@ export class SessionAnalysisService {
     });
     const modelTurns = interactions.flatMap(interaction => interaction.turns);
 
-    const primaryIds = new Set(primaryModelSpans.map(span => span.id));
     const relatedCalls = new Map<number, RelatedModelCall>();
-    for (const span of source.spans.filter(item => item.operationName === 'chat' && !primaryIds.has(item.id))) {
-      relatedCalls.set(span.id, {span, label: span.model?.includes('luna') ? 'Model subagenta' : 'Model pomocniczy VS Code'});
-    }
-    for (const related of relatedSource) {
+    for (const {source: related} of episodes.slice(1)) {
       for (const span of related.spans.filter(item => item.operationName === 'chat')) {
         relatedCalls.set(span.id, {span, label: this.sessionTitle(related.session)});
       }
     }
 
     const root = interactionRoots[0];
-    const rootMessages = root ? source.messages.filter(message => message.spanId === root.id) : [];
+    const rootMessages = root ? own.messages.filter(message => message.spanId === root.id) : [];
     const latestRoot = interactionRoots.at(-1);
-    const latestRootMessages = latestRoot ? source.messages.filter(message => message.spanId === latestRoot.id) : [];
-    const answerMessage = [...latestRootMessages, ...rootMessages, ...source.messages]
+    const latestRootMessages = latestRoot ? own.messages.filter(message => message.spanId === latestRoot.id) : [];
+    const answerMessage = [...latestRootMessages, ...rootMessages, ...own.messages]
       .find(message => message.direction === 'output' && message.roleName === 'assistant');
     const definitionNames = new Set<string>();
-    for (const message of source.messages) {
+    for (const message of own.messages) {
       if (message.direction !== 'definition') continue;
       try {
         const definition = JSON.parse(message.content) as {name?: string};
@@ -97,22 +100,47 @@ export class SessionAnalysisService {
       } catch { /* Surowa definicja pozostaje dostępna w widoku technicznym. */ }
     }
     const mutating = new Set(['apply_patch', 'create_file', 'create_directory', 'edit_notebook_file', 'vscode_renameSymbol']);
+    const included = new Set([episodes[0].id]);
+    const pending = [episodes[0]];
+    const launches = episodeLaunches(episodes);
+    while (pending.length) {
+      const episode = pending.shift()!;
+      for (const tool of episode.source.spans.filter(span => span.operationName === 'execute_tool')) {
+        const child = launches.get(tool);
+        if (child && !included.has(child.id)) {
+          included.add(child.id); pending.push(child);
+        }
+      }
+    }
 
     this.cachedView = {
       source,
       relatedSource,
       tools,
       primaryModelSpans,
+      billingModelSpans: episodes.filter(episode => included.has(episode.id)).flatMap(episode => episode.source.spans.filter(span => span.operationName === 'chat')),
       modelTurns,
       interactions,
       relatedModelCalls: [...relatedCalls.values()].sort((a, b) => this.timestamp(a.span.startedAt) - this.timestamp(b.span.startedAt)),
       assistantAnswer: answerMessage ? this.messageText(answerMessage.content) : 'Odpowiedź nie została wyemitowana.',
       toolDefinitionNames: [...definitionNames].sort(),
-      contextualMessageCount: source.messages.filter(message => message.direction === 'input' &&
+      contextualMessageCount: own.messages.filter(message => message.direction === 'input' &&
         (message.content.includes('<environment_info>') || message.content.includes('<context>'))).length,
       madeFileChanges: tools.some(span => mutating.has(this.attribute(span, 'gen_ai.tool.name')))
     };
     return this.cachedView;
+  }
+
+  sessionStatus(source: SessionDetail, related: SessionDetail[]): string {
+    const reader = new TelemetryReader();
+    const spans = sessionEpisodes(source, related, reader)[0].source.spans;
+    const last = spans.filter(span => span.operationName === 'chat').at(-1);
+    const canceled = last && reader.events(last).some(event => {
+      const attributes = event['attributes'] as Record<string, unknown> | undefined;
+      return event['name'] === 'github.copilot.session.abort' || ['Canceled', 'Cancelled', 'CancellationError'].includes(String(attributes?.['exception.type']));
+    });
+    if (canceled) return 'OSTATNIE ŻĄDANIE ANULOWANE';
+    return spans.some(span => reader.errors(span).length) ? 'WYSTĄPIŁY BŁĘDY' : 'BRAK POTWIERDZONYCH BŁĘDÓW';
   }
 
   withDepth(spans: SpanRecord[]): SpanRecord[] {

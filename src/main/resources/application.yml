@@ -25,6 +25,12 @@ spring:
       max-file-size: 64MB
       max-request-size: 64MB
 agent-scanner:
+  ai:
+    github-token: ${COPILOT_GITHUB_TOKEN:}
+    model: ${AGENT_SCANNER_AI_MODEL:}
+    cli-path: ${AGENT_SCANNER_COPILOT_CLI:copilot}
+    data-directory: ./agent-scanner-data/copilot
+    timeout-seconds: 120
   retention-days: ${AGENT_SCANNER_RETENTION_DAYS:30}
   max-payload-bytes: ${AGENT_SCANNER_MAX_PAYLOAD_BYTES:67108864}
 logging:

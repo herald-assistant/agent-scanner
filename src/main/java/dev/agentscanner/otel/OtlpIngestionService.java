@@ -62,33 +62,56 @@ public class OtlpIngestionService {
             long signalId = store.insertSignal("traces", receivedAt, contentType, encoding, resources,
                 print(request), payload, spanCount);
 
-            Map<String, String> conversationByTrace = new HashMap<>();
             Map<String, List<SpanEnvelope>> byTrace = new LinkedHashMap<>();
             for (ResourceSpans resourceSpans : request.getResourceSpansList()) {
                 ObjectNode resource = attributes(mapper, resourceSpans.getResource().getAttributesList());
                 resourceSpans.getScopeSpansList().forEach(scope -> scope.getSpansList().forEach(span -> {
                     String traceId = hex(span.getTraceId());
                     ObjectNode attrs = attributes(mapper, span.getAttributesList());
-                    String conversation = text(attrs, "gen_ai.conversation.id");
-                    if (conversation != null) conversationByTrace.put(traceId, conversation);
                     byTrace.computeIfAbsent(traceId, ignored -> new ArrayList<>())
                         .add(new SpanEnvelope(span, attrs, resource));
                 }));
             }
 
             byTrace.forEach((traceId, spans) -> {
-                String conversation = conversationByTrace.getOrDefault(traceId, "trace:" + traceId);
-                SpanEnvelope root = spans.stream()
-                    .filter(item -> "invoke_agent".equals(text(item.attributes(), "gen_ai.operation.name")))
-                    .findFirst().orElse(spans.get(0));
-                SessionAggregate aggregate = aggregate(conversation, spans, root, receivedAt);
-                long sessionId = store.upsertSession(aggregate.values());
-                spans.forEach(item -> persistSpan(signalId, sessionId, conversation, item));
+                Map<String, SpanEnvelope> byId = new HashMap<>();
+                spans.forEach(item -> byId.put(hex(item.span().getSpanId()), item));
+                Set<String> identities = new HashSet<>();
+                spans.stream().map(item -> explicitSessionKey(item.attributes())).filter(Objects::nonNull).forEach(identities::add);
+                Map<String, List<SpanEnvelope>> byConversation = new LinkedHashMap<>();
+                for (SpanEnvelope item : spans) {
+                    String conversation = explicitSessionKey(item.attributes());
+                    SpanEnvelope ancestor = item;
+                    Set<String> visited = new HashSet<>();
+                    while (conversation == null && ancestor != null && visited.add(hex(ancestor.span().getSpanId()))) {
+                        ancestor = byId.get(hex(ancestor.span().getParentSpanId()));
+                        if (ancestor != null) conversation = explicitSessionKey(ancestor.attributes());
+                    }
+                    if (conversation == null) conversation = identities.size() == 1 ? identities.iterator().next() : "trace:" + traceId;
+                    byConversation.computeIfAbsent(conversation, ignored -> new ArrayList<>()).add(item);
+                }
+                byConversation.forEach((conversation, members) -> {
+                    SpanEnvelope root = members.stream()
+                        .filter(item -> "invoke_agent".equals(text(item.attributes(), "gen_ai.operation.name")))
+                        .min(Comparator.comparingLong(item -> item.span().getStartTimeUnixNano())).orElse(members.get(0));
+                    SessionAggregate aggregate = aggregate(conversation, members, root, receivedAt);
+                    long sessionId = store.upsertSession(aggregate.values());
+                    members.forEach(item -> persistSpan(signalId, sessionId, conversation, item));
+                });
             });
             return new IngestionResult("traces", spanCount, false);
         } catch (InvalidProtocolBufferException exception) {
             throw new InvalidOtlpPayloadException("Invalid OTLP trace protobuf", exception);
         }
+    }
+
+    /** copilot-episode-v1: resolve child ownership without modifying emitted attributes. */
+    private static String explicitSessionKey(ObjectNode attrs) {
+        String conversation = text(attrs, "gen_ai.conversation.id");
+        String chat = text(attrs, "copilot_chat.chat_session_id");
+        String parent = text(attrs, "copilot_chat.parent_chat_session_id");
+        if (conversation != null && !conversation.isBlank() && conversation.equals(parent) && chat != null && !chat.isBlank() && !chat.equals(parent)) return chat;
+        return conversation == null || conversation.isBlank() ? null : conversation;
     }
 
     @Transactional

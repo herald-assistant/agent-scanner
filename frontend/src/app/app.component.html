@@ -74,7 +74,7 @@
       <section class="content">
         <div class="session-title">
           <div>
-            <span class="eyebrow">SESJA AGENTA · {{ detail.session.errorCount ? 'ZAKOŃCZONA Z BŁĘDEM' : 'ZAKOŃCZONA POPRAWNIE' }}</span>
+            <span class="eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
             <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : 'Rozmowa z GitHub Copilot' }}</h1>
             <p><span>{{ repositoryName() }}</span><b>·</b><span>{{ detail.session.responseModel || detail.session.requestedModel || 'model nieznany' }}</span><b>·</b><span>{{ time(detail.session.startedAt) }}</span></p>
           </div>
@@ -85,6 +85,7 @@
         </div>
         <nav class="tabs">
           <button [class.active]="activeTab === 'loop'" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
+          <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
           <button [class.active]="activeTab === 'technical'" (click)="selectTab('technical')">Dane techniczne</button>
         </nav>
         @if (activeTab === 'loop') {
@@ -103,6 +104,19 @@
         }
         @if (activeTab === 'technical') {
           <as-technical-view [detail]="detail" [status]="status" />
+        }
+        @if (activeTab === 'workflow') {
+          @if (workflowState(); as workflow) {
+            @if (workflow.source.session.id === detail.session.id) {
+              <as-workflow-view [analysis]="workflow" [refreshing]="workflowLoading()" />
+            }
+          }
+          @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
+            <p role="status">Układanie mapy rund i powiązań subagentów…</p>
+          }
+          @if (workflowFailed()) {
+            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
+          }
         }
 </section>
 } @else {
@@ -150,3 +164,4 @@
     </mat-drawer-content>
   </mat-drawer-container>
 </div>
+<as-round-details-aside />

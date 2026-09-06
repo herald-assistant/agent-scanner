@@ -87,8 +87,20 @@ CREATE TABLE IF NOT EXISTS metric_or_event (
     FOREIGN KEY (signal_id) REFERENCES telemetry_signal(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS tool_classification_result (
+    session_id BIGINT NOT NULL,
+    request_hash VARCHAR(64) NOT NULL,
+    version VARCHAR(64) NOT NULL,
+    model VARCHAR(512) NOT NULL,
+    analyzed_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    result_json CLOB NOT NULL,
+    PRIMARY KEY (session_id, request_hash),
+    FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_signal_received ON telemetry_signal(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_last_seen ON agent_session(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_span_session ON span_record(session_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_span_trace ON span_record(trace_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_message_span ON message_record(span_id, sequence_no);
+CREATE INDEX IF NOT EXISTS idx_classification_session ON tool_classification_result(session_id, analyzed_at DESC);

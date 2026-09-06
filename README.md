@@ -11,7 +11,7 @@ aby każdą wartość prezentowaną w UI dało się porównać ze źródłem.
 ## Szybki start
 
 Wymagane do budowania całej aplikacji są JDK 17+ i Maven. Maven pobiera własny
-Node.js i npm na potrzeby produkcyjnego buildu frontendu.
+Node.js 22.22.3 i npm na potrzeby produkcyjnego buildu frontendu.
 
 ```powershell
 mvn clean package
@@ -86,15 +86,19 @@ Invoke-RestMethod http://localhost:8080/api/status
 
 ## Jak czytać dane
 
+Szczegółowa propozycja deterministycznej klasyfikacji faz pracy, stanu kontekstu,
+anomalii i profili subagentów znajduje się w dokumencie
+[Deterministyczna klasyfikacja faz pracy i profili subagentów](docs/deterministyczna-klasyfikacja-faz-i-subagentow.md).
+
 - **Sesja** jest grupowana po `gen_ai.conversation.id`.
 - **Interakcja użytkownika** odpowiada osobnemu trace'owi i zwykle zaczyna się od
   spanu `invoke_agent`.
 - **Runda** jest jednym spanem `chat`: agent wysyła request do modelu, model zwraca
   tekst i opcjonalne żądania narzędzi, a wyniki narzędzi mogą wejść do kolejnej
   rundy.
-- **Subagent** może mieć własną sesję i własne rundy. Scanner wiąże go z tool
-  callem uruchamiającym za pomocą `gen_ai.tool.call.id`, jeśli taki związek został
-  wyemitowany.
+- **Subagent** może mieć własną sesję i własne wywołania modelu. Scanner wiąże go
+  z tool callem uruchamiającym za pomocą `gen_ai.tool.call.id`, jeśli taki związek
+  został wyemitowany.
 
 Najważniejsze metryki:
 
@@ -105,7 +109,9 @@ Najważniejsze metryki:
 - `output` — tokeny odpowiedzi modelu, w tym decyzje o użyciu narzędzi zgodnie z
   raportowaniem providera;
 - `reasoning` — osobna metryka telemetryczna; UI nie dodaje jej ponownie do
-  outputu;
+  outputu. Tooltip pokazuje `copilot_chat.reasoning_content`, jeśli provider
+  wyemitował użyteczną treść; znacznik szyfrowania lub brak pola jest opisany jako
+  brak dostępnej treści, bez rekonstruowania rozumowania;
 - `TTFT` — czas do pierwszego tokenu;
 - `credits` — `copilot_chat.copilot_usage_nano_aiu / 1 000 000 000`; jest to
   zużycie GitHub Copilot AI credits, nie kwota pieniężna.
@@ -119,6 +125,89 @@ Brak wartości oznacza „brak danych w telemetrii”, a nie zero ani potwierdze
 problem da się potwierdzić na podstawie statusu spanu, zdarzenia błędu albo
 ustrukturyzowanego wyniku narzędzia.
 
+## Mapa pracy
+
+Zakładka **Mapa pracy** zaczyna od wyemitowanego zlecenia i przepływu rund:
+narzędzi, delegacji, potwierdzonych błędów i pomiarów kontekstu/tokenów/credits.
+Początkowo nie prezentuje klasyfikacji wynikającej z proporcji input/output.
+
+Menu **Analiza przepływu** udostępnia przycisk **Przeanalizuj działania modelu** oraz
+podgląd **Zakres analizy**. Analiza zbiera żądania narzędzi z odpowiedzi modelu całego
+powiązanego drzewa sesji, deduplikuje pełne definicje i wysyła pojedynczy prompt
+przez GitHub Copilot Java SDK. Różne wersje definicji pod tą samą nazwą pozostają
+rozdzielone. Żądania bez definicji nadal podlegają ocenie akcji, ale ich specjalizacja pozostaje nieustalona.
+
+AI ocenia możliwości definicji oraz konkretne akcje żądane w odpowiedzi modelu:
+wyszukiwanie, odczyt, zmianę/zapis, zapis pośredni/końcowy, weryfikację, delegację,
+zarządzanie kontekstem lub odpowiedź. Cel „analiza architektury” nie zamienia
+żądania odczytu w kategorię „analiza”. Każda runda zachowuje wszystkie akcje
+swoich żądań; sąsiednie identyczne zbiory akcji tworzą segmenty. Profil subagenta
+zestawia akcje jego własnych rund. Argumenty są skrócone do 100 znaków na wartość,
+tekst odpowiedzi do 1000, a cel do 4000 znaków. Cel służy tylko ocenie dopasowania.
+Wykonania i późniejsze wyniki nie określają klasyfikacji odpowiedzi. Brak treści
+odpowiedzi pozostaje nieustalony. Ocena AI nie dowodzi efektywności ani sukcesu.
+Liczby, błędy i relacje nadal pochodzą z telemetrii. Radio **Kategorie / Fakty**
+przełącza wyłącznie sposób prezentacji i nigdy nie wywołuje AI.
+Najechanie na przycisk klasyfikacji pokazuje przybliżoną liczbę tokenów wysyłanych
+do modelu, oczekiwany rozmiar odpowiedzi i jej dłuższy wariant. Estymacja
+korzysta z liczby znaków podzielonej przez cztery i nie zastępuje licznika dostawcy.
+
+Odczyt i wyszukiwanie są jedną kategorią `Pozyskanie danych`. Mapa układa pracę jako
+interakcję, pierwsze wywołanie modelu, cykle `M → A → M` i końcową odpowiedź.
+Delegacja pozostaje narzędziem rodzica: przebieg subagenta i jego zwrot są częścią
+tego samego cyklu.
+Panel łączy żądanie z wykonaniem oraz pierwszym odbiorem wyniku
+po dokładnym call ID; dalsze wystąpienia oznacza jako zachowaną historię.
+Nad mapą znajduje się procentowy podział odpowiedzi modelu według kategorii.
+Najpierw pokazuje dominujący obszar zużycia credits i kierunek do sprawdzenia,
+a dalej statyczny ranking kategorii. Kategorie są wieloetykietowe, dlatego liczba
+odpowiedzi w kategoriach może się nakładać.
+Credits pozostają przy rzeczywistych wywołaniach modeli i nie są grupowane ani
+przesuwane do kategorii akcji jako fakty. UI pokazuje osobno estymację `≈`: dzieli
+credits wywołania między input i output według wyemitowanych tokenów. Pełną część
+outputu przypisuje kategoriom żądań bieżącej odpowiedzi, a pełną część inputu
+kategoriom dokładnie powiązanych wyników. Przy wielu elementach lokalny szacunek
+tokenów wyznacza względne wagi. Część bez dowodu kategorii pozostaje jako „Poza
+kategoriami”, dzięki czemu podział uzgadnia się z sumą credits objętych analizą.
+Podział credits, zagregowana sekwencja faz i szczegółowy graf wywołań modeli oraz
+subagentów są osobnymi sekcjami w tej kolejności. Szczegółowy graf zaczyna
+rozwinięty i można go ukryć. Wersja `model-actions-v5` wymaga jednego ponownego
+wyznaczenia analizy po aktualizacji; poprzednie etykiety pozostają pod dawnym hashem.
+
+Wymagania opcjonalnej analizy: Copilot CLI `1.0.55` lub nowszy, token użytkownika
+z dostępem do Copilota i ID modelu zwróconego przez to konto. SDK jest przypięte
+do `1.0.11`; korzysta z trybu
+bez narzędzi i skilli. Skopiuj
+[`config/application.properties.example`](config/application.properties.example)
+do ignorowanego przez Git `config/application.properties`, uzupełnij
+`agent-scanner.ai.github-token`, `agent-scanner.ai.model` i ewentualnie
+`agent-scanner.ai.cli-path`, po czym uruchom aplikację ponownie.
+Brak konfiguracji nie blokuje odbiornika ani widoku faktów.
+
+Kliknięcie analizy przesyła definicje, zlecenia, skrócone argumenty wykonań oraz
+fragment odpowiedzi modelu z każdej rundy, ograniczony do 1000 znaków, do GitHub
+Copilot i może zużyć limit konta. Zachowujemy wszystkie właściwości obiektu argumentów;
+wartość tekstowa powyżej 100 znaków ma 50 początkowych znaków, `...` i 47 końcowych.
+Wyniki narzędzi nie są częścią tego promptu.
+Podgląd pozwala sprawdzić wysyłany zakres. Zwalidowany wynik jest zapisywany w H2
+dla sesji i skrótu wersji reguł, modelu oraz zakresu analizy. Ponowne wejście do mapy
+odczytuje go lokalnie bez uruchamiania Copilota. Zmiana zakresu albo modelu wymaga
+nowej analizy. Wynik usuwa się kaskadowo z sesją; nie zmieniamy surowej telemetrii
+ani formatu eksportu.
+
+Mapa i koszt/przebieg odtwarzają epizody z raw identyfikatorów oraz drzewa spanów,
+również gdy starsza normalizacja rozdzieliła epizod pomiędzy rekordy sesji.
+Reguła `copilot-episode-v1` wymaga zgodności jawnych chat/parent chat ID z delegacją
+i jej relacji w drzewie. Nie wymaga ponownego importu. Suma credits obejmuje
+główny epizod i dokładnie powiązane dzieci. Kolizje i cykle nie otrzymują atrybucji.
+Oś opisuje kolejność; szerokość nie oznacza czasu. Szczegółowe pomiary i payloady
+startują zwinięte, a poziomy obszar mapy można przewijać przeciągając jego tło.
+
+Kontrakt, kategorie, ograniczenia i konfiguracja:
+[Klasyfikacja narzędzi AI](docs/klasyfikacja-narzedzi-ai.md).
+Playbook integracji: [Copilot SDK Java](docs/github-copilot-sdk-local-java-spring-ai.md).
+Kompletny kontekst do dalszego rozwoju: [Kontynuacja projektu](docs/kontynuacja/README.md).
+
 ## Co zawiera projekt
 
 - odbiornik OTLP/HTTP JSON i protobuf: `POST /v1/traces`, `/v1/metrics`, `/v1/logs`;
@@ -130,7 +219,7 @@ ustrukturyzowanego wyniku narzędzia.
 - eksport/import sesji, pauzę odbiornika, retencję i pełne czyszczenie;
 - frontend Angular 22 z Angular Material, osadzany w wykonywalnym JAR-ze;
 - test kontraktowy przepływu OTLP → H2 → REST API;
-- widok kosztu i przebiegu oraz niezależny widok surowych danych technicznych.
+- widok kosztu i przebiegu, interaktywną mapę pracy oraz surowe dane techniczne.
 
 ## Architektura
 
@@ -172,6 +261,9 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 | `POST /api/pause` | wstrzymanie lub wznowienie zapisu nowych sygnałów |
 | `DELETE /api/sessions/{id}` | usunięcie sesji i powiązanych sygnałów |
 | `DELETE /api/data` | usunięcie wszystkich danych |
+| `GET /api/ai/tool-classification/status` | gotowość konfiguracji AI, model i zajętość; bez tokena |
+| `POST /api/ai/tool-classification/cached?sessionId={id}` | odczyt zapisanej klasyfikacji dla identycznego zakresu |
+| `POST /api/ai/tool-classification` | klasyfikacja możliwości definicji i akcji żądanych w odpowiedziach modelu |
 
 ## Development
 

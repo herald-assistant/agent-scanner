@@ -3,7 +3,7 @@
     <div><span class="eyebrow">KOSZT I PRZEBIEG SESJI</span><h2>Koszt, tokeny i rekordy rund</h2></div>
     <p>{{ view().modelCalls }} głównego · {{ view().toolActions }}</p>
   </header>
-  <div class="dashboard-row-title"><span>Cała sesja</span><small>agent główny i subagenci zapisani w tej sesji</small></div>
+  <div class="dashboard-row-title"><span>Cała sesja</span><small>główny agent i powiązani subagenci</small></div>
   <div class="session-totals dashboard-grid">
     <article class="fresh"><span>Nowy input <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Nowy input całej sesji" matTooltip="Suma input_tokens minus cache read dla każdego wywołania modelu w sesji. Jest to wartość wyliczona z dwóch dokładnych metryk." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.freshInput }}</strong><small>poza cache read</small></article>
     <article class="cache"><span>Input z cache</span><strong>{{ view().totals.cacheRead }}</strong><small>cache read</small></article>

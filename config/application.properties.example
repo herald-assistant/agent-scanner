@@ -1,0 +1,8 @@
+# Skopiuj jako config/application.properties (plik ignorowany przez Git).
+# Wpisz token użytkownika z uprawnieniem Copilot Requests. Nie umieszczaj tokena w repozytorium.
+agent-scanner.ai.github-token=
+# ID modelu dostępnego dla tego konta Copilot.
+agent-scanner.ai.model=
+# Absolutna ścieżka do copilot.exe lub copilot dostępny w PATH.
+agent-scanner.ai.cli-path=copilot
+agent-scanner.ai.timeout-seconds=120

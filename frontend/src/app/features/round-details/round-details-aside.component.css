@@ -1,0 +1,17 @@
+:host { position: relative; z-index: 1000; }
+.aside-layer { position: fixed; z-index: 1000; inset: 0; display: flex; justify-content: flex-end; }
+.aside-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; background: rgb(2 5 8 / 72%); border: 0; cursor: default; animation: backdrop-in .18s ease-out; }
+aside { position: relative; width: min(1250px, 94vw); height: 100dvh; min-width: 0; color: #dce3e8; background: #0d1116; border-left: 1px solid #35414d; box-shadow: -24px 0 70px rgb(0 0 0 / 48%); outline: none; animation: aside-in .24s cubic-bezier(.2, .8, .2, 1); }
+.template-shell { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+.aside-title { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 82px; padding: 16px 22px; background: #121820; border-bottom: 1px solid #313a45; }
+.aside-title span { color: var(--lime); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.aside-title h2 { margin: 4px 0 0; color: #f2f5f7; font-size: 24px; }
+.aside-actions { display: flex; flex: 0 0 auto; gap: 7px; }
+.aside-title button { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; color: #dce3e8; background: #1a212b; border: 1px solid #384351; border-radius: 8px; cursor: pointer; }
+.aside-title button:hover, .aside-title button:focus-visible { color: #fff; background: #242e3a; outline: 2px solid var(--cyan); }
+.aside-title button:disabled { color: #59636d; background: #11171e; border-color: #28313b; cursor: default; outline: none; }
+.aside-scroll { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+@keyframes aside-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 700px) { aside { width: 100vw; border-left: 0; } .aside-title { padding: 13px 15px; } .aside-title h2 { font-size: 20px; } }
+@media (prefers-reduced-motion: reduce) { aside, .aside-backdrop { animation: none; } }

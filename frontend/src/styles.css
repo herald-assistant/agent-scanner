@@ -78,6 +78,22 @@ code, pre, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", m
   line-height: 1.45;
   box-shadow: 0 10px 32px #000b;
 }
+.scanner-reasoning-tooltip .mat-mdc-tooltip-surface {
+  max-width: min(860px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 48px));
+  padding: 13px 15px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #eee8f5;
+  background: #17131d;
+  border: 1px solid #6b587d;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.55;
+  box-shadow: 0 10px 32px #000b;
+}
 
 .mat-mdc-snack-bar-container.scanner-error-snackbar .mdc-snackbar__surface,
 .mat-mdc-snack-bar-container.scanner-success-snackbar .mdc-snackbar__surface {

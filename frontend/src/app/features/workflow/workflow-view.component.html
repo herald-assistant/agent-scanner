@@ -1,0 +1,275 @@
+<section class="workflow" aria-label="Mapa pracy agenta">
+  <header class="map-intro">
+    <div class="intro-copy">
+      <span class="eyebrow"><span class="tiny-orbit"></span> CZYTANIE PRZEBIEGU SESJI</span>
+      <h2>Od zlecenia, przez cykle pracy, do odpowiedzi.</h2>
+      <p>Każdy cykl zaczyna decyzja modelu, agent wykonuje żądane działania, a ich wyniki mogą zasilić następne wywołanie modelu.</p>
+    </div>
+    <div class="intro-flow" aria-label="Schemat: interakcja, cykle model agent model, odpowiedź">
+      <div class="flow-step fresh"><mat-icon>person</mat-icon><span>Interakcja</span></div>
+      <span class="flow-line"></span><div class="flow-step cache"><mat-icon>sync_alt</mat-icon><span>M → A → M</span></div>
+      <span class="flow-line"></span><div class="flow-step output"><mat-icon>output</mat-icon><span>Odpowiedź</span></div>
+    </div>
+  </header>
+
+  @if (interaction(); as current) {
+    <section class="prompt-card">
+      <div class="prompt-icon"><mat-icon>chat_bubble_outline</mat-icon></div>
+      <div class="prompt-copy">
+        <span class="eyebrow">ZLECENIE UŻYTKOWNIKA · INTERAKCJA {{ current.round.turn.interactionIndex }}</span>
+        <details><summary>{{ current.round.turn.interactionPrompt }}</summary><pre>{{ current.round.turn.interactionPrompt }}</pre></details>
+      </div>
+      @if (interactions().length > 1) {
+        <div class="interaction-switch" aria-label="Wybór interakcji">
+          @for (item of interactions(); track item.trace) {
+            <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
+              [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">{{ item.round.turn.interactionIndex }}</button>
+          }
+        </div>
+      }
+    </section>
+
+    <section class="analysis-menu" aria-label="Analiza przepływu">
+      <div class="analysis-menu-copy"><mat-icon>auto_awesome</mat-icon><div><span class="eyebrow">ANALIZA PRZEPŁYWU</span><h3>Czego model żąda od agenta?</h3><p>{{ plural(catalog().rounds.length, 'runda', 'rundy', 'rund') }} · {{ catalog().agents.length }} agentów · {{ catalog().request.tools.length }} unikalnych definicji@if (catalog().missing) { · {{ catalog().missing }} żądań bez jednoznacznej definicji }</p></div></div>
+      <div class="analysis-controls">
+        <div class="analysis-actions">
+          @if (hasAiResult()) { <span class="classification-ready"><mat-icon>check_circle</mat-icon> Analiza gotowa</span> }
+          @else {
+            <button class="classify-button" [disabled]="classifying() || restoringClassification() || !catalog().request.contexts.length" (click)="classifyTools()" [attr.aria-busy]="classifying()"
+              [matTooltip]="classificationEstimateTooltip()" matTooltipClass="scanner-info-tooltip"><mat-icon>{{ classifying() ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>{{ classifying() ? 'Analizowanie działań…' : 'Przeanalizuj działania modelu' }}</button>
+          }
+          <button class="catalog-button" (click)="open(catalogDialog, 'Zakres wysyłany do AI')"><mat-icon>visibility</mat-icon> Zakres analizy</button>
+        </div>
+        <fieldset class="analysis-view-choice"><legend>WIDOK</legend><label [class.selected]="aiVisible()"><input type="radio" name="workflow-analysis-view" value="classification" [checked]="aiVisible()" [disabled]="!hasAiResult()" (change)="setAnalysisView('classification')"> Kategorie</label><label [class.selected]="!aiVisible()"><input type="radio" name="workflow-analysis-view" value="facts" [checked]="!aiVisible()" (change)="setAnalysisView('facts')"> Fakty</label></fieldset>
+      </div>
+      <p class="analysis-disclosure" aria-live="polite">@if (aiResult(); as result) { Analiza AI · {{ result.model }} · kategorie opisują żądane akcje. Wykonania i odbiór wyników potwierdza telemetria. } @else { Przepływ pokazuje fakty. Analiza wyśle do GitHub Copilot definicje, zlecenia, skrócone argumenty i krótkie fragmenty odpowiedzi modelu; zużywa limit konta. }</p>
+    </section>
+
+    @if (creditAttribution(); as attribution) {
+      <section class="action-summary" aria-label="Podział credits według kategorii działań">
+        <header>
+          <div><span class="eyebrow">PODZIAŁ CREDITS WEDŁUG KATEGORII · INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>Gdzie zużyto credits?</h3></div>
+          <p>{{ plural(classifiedRoundCount(), 'odpowiedź przypisana do kategorii', 'odpowiedzi przypisane do kategorii', 'odpowiedzi przypisanych do kategorii') }} · analiza obejmuje {{ attribution.coveredCalls }}/{{ attribution.totalCalls }} wywołań z pomiarem credits.</p>
+        </header>
+        @if (optimizationLead(); as lead) {
+          <article class="optimization-hero">
+            <span class="optimization-icon"><mat-icon>{{ roundCategories[lead.action].icon }}</mat-icon></span>
+            <div class="optimization-copy">
+              <span class="eyebrow">NAJWIĘKSZY OBSZAR DO SPRAWDZENIA</span>
+              <h4>{{ roundCategories[lead.action].label }}</h4>
+              <p><strong>≈ {{ credits(lead.credit?.shareOfKnown ?? 0) }}%</strong> wszystkich credits objętych analizą <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czym są credits objęte analizą" [matTooltip]="analyzedCreditsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon> przypada na tę kategorię.</p>
+            </div>
+            <div class="optimization-guidance"><mat-icon>lightbulb</mat-icon><p><strong>Co warto sprawdzić</strong>{{ optimizationHint(lead.action) }}</p></div>
+          </article>
+        }
+        <div class="credit-share-coverage" aria-label="Pokrycie procentowego podziału credits">
+          <span>Przypisane kategoriom <strong>{{ shareOfKnown(attribution.assignedCredits, attribution.knownCredits) }}</strong></span>
+          <span>Poza kategoriami <strong>{{ shareOfKnown(attribution.unattributedCredits, attribution.knownCredits) }}</strong></span>
+        </div>
+        <div class="action-ranking" role="list" aria-label="Procentowy udział kategorii w credits objętych analizą">
+          @for (item of actionSummary(); track item.action) {
+            <article class="action-ranking-row" role="listitem" [class.unresolved]="!item.credit?.totalCredits">
+              <div class="action-ranking-main">
+                <span class="action-rank">{{ $index + 1 }}</span>
+                <span class="action-summary-icon"><mat-icon>{{ roundCategories[item.action].icon }}</mat-icon></span>
+                <span class="action-summary-copy"><strong>{{ roundCategories[item.action].label }}</strong><span class="action-summary-meter"><i [style.width.%]="item.credit?.shareOfKnown ?? 0"></i></span></span>
+                <span class="action-credit-share"><strong>{{ item.credit?.totalCredits ? '≈ ' + credits(item.credit.shareOfKnown) + '%' : '—' }}</strong><small>{{ item.credit?.totalCredits ? 'credits objętych analizą' : 'brak podstawy do wyliczenia' }}</small></span>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
+    @if (aiResult()) {
+      <section class="phase-panel" aria-label="Zagregowany przebieg pracy">
+        <header class="panel-heading">
+          <div><span class="eyebrow">ZAGREGOWANY PRZEBIEG · AGENT I SUBAGENCI</span><h3>Jak zmieniały się działania modelu?</h3></div>
+          <div class="map-status">{{ plural(aggregatedPhases().length, 'faza', 'fazy', 'faz') }}</div>
+        </header>
+        <div class="phase-overview">
+          <div class="phase-overview-copy"><p>Sąsiednie rundy o tym samym znaczeniu tworzą jedną fazę. Karty pokazują pełne credits wywołań należących do fazy.</p></div>
+          <div class="phase-strip" aria-label="Zagregowane fazy wszystkich rund według kategorii określonych przez AI">
+            @for (phase of aggregatedPhases(); track phase.id) {
+              <div class="phase-step">
+                <mat-icon class="phase-arrow" [class.phase-arrow-placeholder]="$first" aria-hidden="true">arrow_forward</mat-icon>
+                <article class="phase-card" [class.unmapped]="phase.signature === 'UNMAPPED'" [style.--phase-credit-strength]="phase.creditStrength">
+                  <div class="phase-title phase-explained" tabindex="0" [matTooltip]="phaseCategoryTooltip(phase.label)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">
+                    <span class="phase-category-icon" aria-hidden="true"><mat-icon>{{ phase.icon }}</mat-icon></span><strong>{{ phase.label }}</strong>
+                  </div>
+                  <span class="phase-rounds">
+                    <mat-icon class="phase-actor-icon phase-explained" tabindex="0" role="img" [matTooltip]="phase.hasSubagent ? phaseSubagentTooltip() : phaseRoundsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above" [attr.aria-label]="phase.hasSubagent ? 'Faza zawiera pracę subagenta' : 'Faza głównego agenta'">{{ phase.hasSubagent ? 'account_tree' : 'smart_toy' }}</mat-icon>
+                    <span class="phase-round-copy"><strong>{{ phase.actorLabels.join(' + ') }}</strong><span class="phase-round-labels phase-explained" tabindex="0" [matTooltip]="phaseRoundsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">{{ compactRoundLabels(phase.roundLabels) }}</span></span>
+                  </span>
+                  @if (phase.toolShares.length) {
+                    <div class="phase-tool-mix" [class.general-only]="phase.toolShares.length === 1 && phase.toolShares[0].specialization === 'GENERAL_PURPOSE'" [attr.aria-label]="phase.toolMixLabel">
+                      @if (phase.toolShares.length > 1) {
+                        <span class="phase-tool-bar phase-explained" tabindex="0" [matTooltip]="phaseToolMixTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">
+                          @for (share of phase.toolShares; track share.specialization) {
+                            <i [class]="'specialization-' + share.specialization" [style.width.%]="share.percent" aria-hidden="true"></i>
+                          }
+                        </span>
+                      }
+                      <span class="phase-tool-legend">
+                        @for (share of phase.toolShares; track share.specialization) {
+                          <span class="phase-explained" tabindex="0" [matTooltip]="phaseToolSpecializationTooltip(share.specialization)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><i [class]="'specialization-' + share.specialization" aria-hidden="true"></i>{{ share.label }} <b>{{ share.percent }}%</b></span>
+                        }
+                      </span>
+                    </div>
+                  } @else {
+                    <span class="phase-tool-empty phase-explained" tabindex="0" [matTooltip]="phaseWithoutToolsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><mat-icon aria-hidden="true">do_not_disturb_on</mat-icon>Bez żądań narzędzi</span>
+                  }
+                  <span class="phase-credits phase-explained" tabindex="0" [matTooltip]="phaseCreditsTooltip(phase.creditCovered, phase.rounds.length)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><small>Credits wywołań w fazie</small><b>{{ phase.credits === null ? '—' : credits(phase.credits) }}</b>
+                    @if (phase.creditCovered < phase.rounds.length) { <em>{{ phase.creditCovered }}/{{ phase.rounds.length }} rund</em> }
+                  </span>
+                </article>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+    }
+
+    <section class="map-panel" aria-label="Szczegółowy przebieg pracy">
+      <header class="panel-heading">
+        <div><span class="eyebrow">SZCZEGÓŁOWY PRZEBIEG · RUNDY MODELU</span><h3>{{ aiResult() ? 'Rundy modelu i subagentów' : 'Interakcja → model → agent → odpowiedź' }}</h3></div>
+        <div class="panel-heading-actions">
+          <div class="map-status" aria-live="polite">@if (refreshing()) { Aktualizowanie… } @else { {{ plural(columns().length, 'wywołanie M', 'wywołania M', 'wywołań M') }} · {{ plural(lanes().length - 1, 'subagent', 'subagenci', 'subagentów') }} }</div>
+          @if (aiResult()) { <button type="button" class="map-detail-toggle" [attr.aria-expanded]="detailedMapVisible()" (click)="detailedMap.set(!detailedMap())"><mat-icon>{{ detailedMapVisible() ? 'unfold_less' : 'account_tree' }}</mat-icon>{{ detailedMapVisible() ? 'Ukryj diagram' : 'Pokaż diagram' }}</button> }
+        </div>
+      </header>
+      @if (detailedMapVisible()) {
+      <div class="map-toolbar">
+        <p><mat-icon>touch_app</mat-icon> Wybierz rundę, aby zobaczyć jej decyzję i dalszy cykl.</p>
+        <div class="layer-switch" aria-label="Warstwa danych mapy">
+          <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
+          <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
+          <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
+        </div>
+      </div>
+      <div #mapScroll class="map-scroll" [class.dragging]="mapDragging()"
+        (pointerdown)="startMapDrag($event)" (pointermove)="moveMapDrag($event)" (pointerup)="endMapDrag($event)"
+        (pointercancel)="endMapDrag($event)" (lostpointercapture)="endMapDrag($event)" tabindex="0"
+        aria-label="Oś rund modelu; przewiń w poziomie lub przeciągnij tło, aby zobaczyć dalsze kroki">
+        <div class="map-canvas" [style.min-width.px]="chartWidth() + 176">
+          <svg class="delegation-edges" [attr.viewBox]="'0 0 ' + chartWidth() + ' ' + lanes().length * 202" [style.height.px]="lanes().length * 202" preserveAspectRatio="none" aria-hidden="true">
+            <defs><marker id="workflow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+            @for (edge of delegationEdges(); track edge.id) { <path [attr.d]="edge.path" [class.return-edge]="edge.returned" marker-end="url(#workflow-arrow)" /> }
+          </svg>
+          <div class="layer-chart-row">
+            <div class="axis-label" [class.has-series]="layer() === 'tokens'">
+              <span>{{ layerChart().title }}</span><small>{{ layerChart().scope }}</small>
+              @if (layer() === 'tokens') {
+                <span class="chart-series-legend">
+                  @for (series of layerChart().series; track series.id) {
+                    <span [class]="series.tone" [matTooltip]="'Dane dla ' + series.coverage + ' wywołań modelu'" matTooltipClass="scanner-info-tooltip"><i></i><span>{{ series.label }}</span><b>{{ compact(series.total) }}</b></span>
+                  }
+                </span>
+              } @else { <span class="axis-unit">{{ layerChart().unit }}</span> }
+            </div>
+            <svg class="layer-chart" [attr.viewBox]="'0 0 ' + chartWidth() + ' 112'" preserveAspectRatio="none" role="img" [attr.aria-label]="layerChart().ariaLabel">
+              <line x1="0" y1="92" [attr.x2]="chartWidth()" y2="92" class="baseline" />
+              @for (series of layerChart().series; track series.id) {
+                <g [attr.class]="'chart-series ' + series.tone + (layer() === 'tokens' ? ' token-series' : '')">
+                  @for (path of series.paths; track $index) { <path [attr.d]="path" class="chart-path" /> }
+                  @for (point of series.points; track point.round.ref) {
+                    <circle [attr.cx]="point.x" [attr.cy]="point.y" [attr.r]="layer() === 'tokens' ? 2.5 : 4" [class.point-selected]="selected()?.ref === point.round.ref" />
+                    @if (layerChart().showPointLabels) { <text [attr.x]="point.x" [attr.y]="point.y - 10" text-anchor="middle" class="point-value">{{ point.label }}</text> }
+                  }
+                </g>
+              }
+              @for (missingX of layerChart().missingX; track missingX) { <text [attr.x]="missingX" y="82" text-anchor="middle" class="missing-point">—</text> }
+            </svg>
+          </div>
+          @for (lane of lanes(); track lane.stream.id) {
+            <div class="agent-lane" [class.child-lane]="lane.stream.parentId">
+              <div class="lane-label">
+                <div class="agent-symbol"><mat-icon>{{ lane.stream.parentId ? 'account_tree' : 'smart_toy' }}</mat-icon></div>
+                <strong>{{ lane.stream.label }}</strong>
+                <small>{{ lane.stream.parentId ? 'Potwierdzona delegacja' : 'Główna ścieżka' }}</small>
+                @if (aiResult()) { <small class="lane-functions" matTooltip="Akcje z własnych odpowiedzi modelu tego agenta. Jedno wywołanie może zawierać kilka akcji.">@for (item of agentProfile(lane.stream).slice(0, 3); track item.action) { <span>{{ roundCategories[item.action].label }} · {{ item.count }}</span> }</small> }
+                @if (lane.stream.parentId) { <span class="depth-label">Poziom {{ lane.stream.depth }}</span> }
+              </div>
+              <div class="lane-track" [style.grid-template-columns]="'repeat(' + columns().length + ', minmax(88px, 1fr))'">
+                <div class="lane-line"></div>
+                @for (round of lane.rounds; track round.ref) {
+                  <button class="round-node" [class.ai-node]="!!aiResult()" [class.active]="selected()?.ref === round.ref"
+                    [style.grid-column]="column(round)" [attr.aria-pressed]="selected()?.ref === round.ref"
+                    [attr.aria-label]="lane.stream.label + ', ' + roundLabel(round) + ', ' + roundDescription(round)"
+                    [matTooltip]="roundLayerTooltip(round)"
+                    matTooltipClass="scanner-info-tooltip" (click)="openRoundContent(round, $event.currentTarget)">
+                    <span class="round-number">M{{ round.turn.interactionTurnIndex }}</span>
+                    <span class="node-icon"><mat-icon>{{ roundIcon(round) }}</mat-icon></span>
+                    <span class="node-caption">{{ roundCaption(round) }}</span>
+                    @if (!aiResult()) { <span class="cycle-route">{{ cycleFlowLabel(round) }}</span> }
+                    <span class="node-data">
+                      @if (layer() === 'context') {
+                        <span class="mini-bar"><i [style.width.%]="percent(round.occupancy)"></i></span><small>{{ known(round.occupancy) ? value(round.occupancy, '%') : 'brak danych' }}</small>
+                      }
+                      @if (layer() === 'tokens') {
+                        @if (known(round.cache) && known(round.fresh) && known(round.output)) {
+                          <span class="token-bar"><i class="cache-fill" [style.width.%]="bar(round, 'cache')"></i><i class="fresh-fill" [style.width.%]="bar(round, 'fresh')"></i><i class="output-fill" [style.width.%]="bar(round, 'output')"></i></span>
+                          <small>{{ compact(round.input.value) }} → {{ compact(round.output.value) }}</small>
+                        } @else { <span class="missing-bar"></span><small>brak danych</small> }
+                      }
+                      @if (layer() === 'credits') { <span class="mini-bar credit-bar"><i [style.width.%]="creditBar(round)"></i></span><small>{{ known(round.credits) ? value(round.credits) : 'brak danych' }}</small> }
+                    </span>
+                    <span class="node-markers">
+                      @if (round.errors.length) { <mat-icon class="error-marker">error</mat-icon> }
+                      @if (round.markers.includes('DELEGATION')) { <mat-icon>call_split</mat-icon> }
+                      @if (round.markers.includes('POST_ERROR')) { <mat-icon>restart_alt</mat-icon> }
+                      @if (round.markers.includes('MODEL_CHANGE')) { <mat-icon>swap_horiz</mat-icon> }
+                      @if (round.compactionRefs.length) { <mat-icon>compress</mat-icon> }
+                    </span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="map-legend">
+        @if (layer() === 'tokens') { <span><i class="fresh-fill"></i> Nowy input</span><span><i class="cache-fill"></i> Input z cache</span><span><i class="output-fill"></i> Output</span> }
+        @else { <span>{{ layer() === 'context' ? 'Input / całe okno kontekstowe' : 'Wyemitowane credits' }}</span> }
+        <span class="legend-note">Kolejność kroków · szerokość nie oznacza czasu</span>
+      </div>
+      }
+    </section>
+
+    @if (selected(); as round) {
+      @if (selectedStream().parentId) {
+        <section class="delegation-panel">
+          <header class="panel-heading"><div><span class="eyebrow">PRZEPŁYW SUBAGENTA</span><h3>Co weszło, co wróciło?</h3></div><span class="exact-link" matTooltip="Zgodne identyfikatory delegacji; w zagnieżdżonym epizodzie uwzględniamy także relacje rodziców spanów."><mat-icon>link</mat-icon> Potwierdzona relacja delegacji</span></header>
+          @if (aiResult()) { <div class="subagent-profiles">@for (item of agentProfile(selectedStream()); track item.action) { <span>{{ roundCategories[item.action].label }} · {{ plural(item.count, 'runda', 'rundy', 'rund') }}</span> }</div><p class="agent-role-reason">Profil zestawia kategorie jego własnych rund. Jedna runda może mieć kilka akcji.</p> }
+          @if (selectedStream().flow; as flow) {
+            <div class="payload-flow"><div><mat-icon>input</mat-icon><span>Zlecenie</span><strong>{{ compact(flow.delegation.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>account_tree</mat-icon><span>Unikalne wyniki narzędzi</span><strong>{{ compact(flow.results.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>output</mat-icon><span>Zwrot do rodzica</span><strong>{{ compact(flow.returned.value) }} <small>B</small></strong></div></div>
+            <p class="payload-note">Bajty UTF-8 pełnych przechwyconych payloadów. Zlecenie nie jest pełnym inputem modelu; wyniki mogły być skrócone przed odbiorem.</p>
+          }
+          <details class="subagent-details"><summary>Dowody relacji, credits i pełny zwrot</summary>
+            <p><code>{{ selectedStream().launch?.callId }}</code></p>
+            <p>Własne znane credits: <b>{{ compact(selectedStream().credits.known) }}</b> · pokrycie {{ selectedStream().credits.covered }}/{{ selectedStream().credits.total }} wywołań modelu.
+              Poddrzewo: <b>{{ compact(selectedStream().subtreeCredits.known) }}</b> · pokrycie {{ selectedStream().subtreeCredits.covered }}/{{ selectedStream().subtreeCredits.total }} wywołań modelu.</p>
+            @if (selectedStream().launch?.result) { <pre class="full-return">{{ returnText() }}</pre> } @else { <p>Wynik zwrócony rodzicowi nie został wyemitowany.</p> }
+          </details>
+        </section>
+      }
+
+    }
+  } @else {
+    <div class="empty-map"><mat-icon>conversion_path</mat-icon><h3>Mapa czeka na rundy</h3><p>W tej sesji nie ma jeszcze spanów chat, które można ułożyć w przebieg pracy.</p></div>
+  }
+  <footer class="snapshot"><span>Fakty z telemetrii · snapshot #{{ analysis().cutoffSignalId }}</span><span>{{ aiResult() ? 'Analiza AI · ' + aiResult()!.version : 'Kategorie AI nie są wyświetlane' }}</span></footer>
+</section>
+
+<ng-template #catalogDialog>
+  <div class="raw-dialog catalog-dialog">
+    <header><div><span class="eyebrow">ZAKRES ANALIZY AI</span><h2>Definicje i odpowiedzi modelu</h2></div><button class="icon-button" mat-dialog-close aria-label="Zamknij katalog"><mat-icon>close</mat-icon></button></header>
+    <p>Do Copilota trafiają poniższe unikalne definicje, struktura agentów i rund, zlecenia, krótkie fragmenty odpowiedzi oraz argumenty żądań z odpowiedzi modelu. Argumenty tekstowe są ograniczone do 100 znaków, cele do 4000, a odpowiedzi do 1000 znaków. Wyniki narzędzi, pełne requesty modelu i liczniki tokenów pozostają poza zapytaniem.</p>
+    <div class="raw-scroll">
+      @for (agent of catalog().request.agents; track agent.id) { <details><summary>Agent · {{ agent.id }} · {{ plural(agent.contextIds.length, 'zlecenie', 'zlecenia', 'zleceń') }}</summary><pre>{{ definitionText(agent) }}</pre></details> }
+      @for (context of catalog().request.contexts; track context.id) { <details><summary>Zlecenie · {{ context.id }} · {{ plural(context.rounds.length, 'runda', 'rundy', 'rund') }}</summary><pre>{{ context.goal || 'Treść zlecenia niewyemitowana — dopasowanie będzie nieustalone.' }}</pre>@for (round of context.rounds; track round.id) { <pre>{{ definitionText(round) }}</pre> }</details> }
+      @for (tool of catalog().request.tools; track tool.id) { <details><summary>{{ tool.name }} · {{ tool.id }}</summary><pre>{{ definitionText(tool.definition) }}</pre></details> }
+      @if (catalog().missing) { <p>{{ catalog().missing }} żądań bez jednoznacznej definicji — akcje ocenimy po widocznych argumentach; specjalizacja pozostanie nieustalona.</p> }
+    </div>
+  </div>
+</ng-template>

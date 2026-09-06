@@ -1,6 +1,7 @@
 package dev.agentscanner;
 
 import dev.agentscanner.fixture.CopilotTraceFixture;
+import dev.agentscanner.fixture.MixedEpisodeTraceFixture;
 import dev.agentscanner.store.ScannerStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayOutputStream;
+import java.time.Instant;
 import java.util.zip.GZIPOutputStream;
 import com.google.protobuf.util.JsonFormat;
 
@@ -18,6 +20,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -27,6 +30,44 @@ class OtlpFlowIntegrationTest {
 
     @BeforeEach
     void clearDatabase() { store.deleteAll(); }
+
+    @Test
+    void persistsClassificationWithTheSessionAndDeletesItByCascade() throws Exception {
+        mvc.perform(post("/v1/traces").contentType("application/x-protobuf")
+            .content(CopilotTraceFixture.request().toByteArray())).andExpect(status().isOk());
+        long sessionId = store.sessionIdByConversationId(CopilotTraceFixture.CONVERSATION).orElseThrow();
+        String hash = "a".repeat(64);
+        store.saveToolClassification(sessionId, hash, "tool-usage-v2", "test-model", Instant.parse("2026-01-01T00:00:00Z"), "{\"version\":\"tool-usage-v2\"}");
+        assertTrue(store.toolClassification(sessionId, hash).isPresent());
+        store.deleteSession(sessionId);
+        assertTrue(store.toolClassification(sessionId, hash).isEmpty());
+    }
+
+    @Test
+    void preservesPerSpanSessionOwnershipAcrossMixedAndReorderedBatches() throws Exception {
+        var original = MixedEpisodeTraceFixture.spans();
+        for (int mode = 0; mode < 3; mode++) {
+            store.deleteAll();
+            var spans = new java.util.ArrayList<>(original);
+            if (mode > 0) java.util.Collections.reverse(spans);
+            var batches = mode == 2 ? spans.stream().map(java.util.List::of).toList() : java.util.List.of(spans);
+            for (var batch : batches) {
+                mvc.perform(post("/v1/traces").contentType("application/x-protobuf")
+                    .content(MixedEpisodeTraceFixture.request(batch).toByteArray())).andExpect(status().isOk());
+            }
+            assertEquals(2, store.sessions().size());
+            long parentId = store.sessionIdByConversationId(MixedEpisodeTraceFixture.ROOT).orElseThrow();
+            long childId = store.sessionIdByConversationId(MixedEpisodeTraceFixture.CHILD).orElseThrow();
+            assertEquals(3, store.spans(parentId).size());
+            assertEquals(4, store.spans(childId).size());
+            assertEquals(1, store.spans(parentId).stream().filter(row -> "chat".equals(row.get("OPERATION_NAME"))).count());
+            assertEquals(2, store.spans(childId).stream().filter(row -> "chat".equals(row.get("OPERATION_NAME"))).count());
+            // The normalized owner changes, but raw child chat attributes retain the emitted parent ID.
+            mvc.perform(get("/api/sessions/{id}", childId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.signals[0].rawJson", containsString(MixedEpisodeTraceFixture.ROOT)))
+                .andExpect(jsonPath("$.spans", hasSize(4)));
+        }
+    }
 
     @Test
     void ingestsCopilotTraceAndExposesNormalizedSession() throws Exception {

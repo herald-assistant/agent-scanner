@@ -13,7 +13,7 @@
           <div class="session-head">
             <span class="agent-avatar">{{ (session.agentName || 'A').charAt(0).toUpperCase() }}</span>
             <div><strong>{{ title(session) }}</strong><small>{{ time(session.lastSeenAt) }}</small></div>
-            <span class="state" [class.bad]="session.errorCount">{{ session.errorCount ? session.errorCount + ' bł.' : 'OK' }}</span>
+            <span class="state" [class.bad]="session.errorCount" [matTooltip]="session.errorCount ? 'W odebranej telemetrii wystąpiły błędy.' : 'Brak potwierdzonych błędów w podsumowaniu.'">{{ session.errorCount ? 'Błędy' : '—' }}</span>
           </div>
           <p>{{ short(session.conversationId) }}</p>
           <div class="session-meta"><span>{{ model(session) }}</span><span>{{ turnCount(session) }} rund</span><span>{{ tokens(session) }} tok.</span></div>

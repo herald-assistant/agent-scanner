@@ -1,6 +1,7 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {AppComponent} from './app.component';
+import {workflowFixture} from './core/workflow/workflow.fixtures';
 
 const status = {
   paused: false,
@@ -39,6 +40,27 @@ describe('AppComponent', () => {
 
     expect(fixture.componentInstance.status.connected).toBe(true);
     expect(fixture.componentInstance.visibleSessions()).toEqual([]);
+  });
+
+  it('opens the dedicated workflow tab and loads raw candidates for custom-tool linking', async () => {
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    const sources = workflowFixture();
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? sources.map(source => source.session) :
+        sources.find(source => url.endsWith(`/api/sessions/${source.session.id}`));
+      return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
+    }));
+    await fixture.componentInstance.refresh();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const tab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.trim() === 'Mapa pracy');
+    expect(tab).toBeDefined(); tab!.click();
+    await vi.waitFor(() => expect(fixture.componentInstance.workflowState()?.streams).toHaveLength(2));
+    fixture.detectChanges();
+    expect(element.querySelector('as-workflow-view')).not.toBeNull();
+    expect(element.querySelector('as-cost-dashboard')).toBeNull();
+    expect(element.querySelector('as-technical-view')).toBeNull();
   });
 
   it('groups model rounds by the user interaction trace and does not mix tools between interactions', () => {

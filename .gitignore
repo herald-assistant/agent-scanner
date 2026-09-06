@@ -9,3 +9,4 @@ agent-scanner-data/
 .vscode/
 !.vscode/extensions.json
 frontend/.angular/
+config/application.properties
