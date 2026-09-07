@@ -3,8 +3,29 @@
     <div><span class="eyebrow">KOLEJNOŚĆ WYKONANIA</span><h2>Interakcja → cykle model–agent–model → odpowiedź</h2></div>
     <div class="rounds-note"><mat-icon class="info-tip" tabindex="0" role="img" aria-label="Różnica względem VS Code Context Window" matTooltip="Scanner pokazuje tokeny requestów wyemitowane w OTLP. VS Code Session Info pokazuje osobny klientowy stan rozmowy, którego Copilot nie eksportuje." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon><span>Kontekst modelu z OTLP, nie licznik Session Info</span></div>
   </header>
+  <ng-template #compactionRow let-compaction>
+    <article class="timeline-compaction">
+      <div class="detail-trigger" role="button" tabindex="0" aria-label="Pokaż szczegóły kompaktowania sesji" (click)="openCompactionDetails(compactionBody, compaction, $event)" (keydown.enter)="openCompactionDetails(compactionBody, compaction, $event)">
+        <span class="timeline-connector"><i><mat-icon aria-hidden="true">compress</mat-icon></i></span>
+        <span class="timeline-compaction-identity">
+          <small>{{ compactionPositionLabel(compaction) }} · PRACA W OSOBNEJ SESJI</small>
+          <strong>Kompaktowanie sesji</strong>
+          <em>{{ time(compaction.startedAt) }} · {{ duration(compaction.durationMs) }} · {{ compaction.model || 'model nieznany' }} · {{ compactionStatusLabel(compaction) }}</em>
+        </span>
+        <span class="fresh"><small>NOWY INPUT</small><strong>{{ exactTokenLabel(compaction.freshInputTokens) }}</strong></span>
+        <span class="cache"><small>CACHE READ</small><strong>{{ exactTokenLabel(compaction.cacheReadTokens) }}</strong></span>
+        <span><small>INPUT ŁĄCZNIE</small><strong>{{ exactTokenLabel(compaction.inputTokens) }}</strong></span>
+        <span class="output"><small>OUTPUT</small><strong>{{ exactTokenLabel(compaction.outputTokens) }}</strong></span>
+        <span class="cost"><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></small><strong>{{ compactionCreditsLabel(compaction.credits) }}</strong></span>
+        <mat-icon class="round-chevron" aria-hidden="true">visibility</mat-icon>
+      </div>
+    </article>
+  </ng-template>
   <div class="round-list">
     @for (turn of turns(); track turn.model.id) {
+      @for (compaction of compactionsForTurn(turn); track compaction.id) {
+        <ng-container *ngTemplateOutlet="compactionRow; context: {$implicit: compaction}" />
+      }
       @if (turn.interactionTurnIndex === 1) {
         @if (interactionForTurn(turn); as interaction) {
           <article class="interaction-marker">
@@ -86,6 +107,9 @@
         </article>
       }
     }
+    @for (compaction of trailingCompactions(); track compaction.id) {
+      <ng-container *ngTemplateOutlet="compactionRow; context: {$implicit: compaction}" />
+    }
   </div>
   @if (auxiliaryModelCalls(); as auxiliaryCalls) {
     @if (auxiliaryCalls.length) {
@@ -117,6 +141,11 @@
       </details>
     }
   }
+  <ng-template #compactionBody let-compaction>
+    @if (compactionSource(compaction); as source) {
+      <as-context-compaction-details [compaction]="compaction" [source]="source" [creditTooltip]="creditTooltip()" />
+    }
+  </ng-template>
   <ng-template #subagentBody let-tool>
     <div class="inline-subagent">
       <section class="delegation-brief">

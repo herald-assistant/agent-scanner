@@ -116,6 +116,24 @@ Najważniejsze metryki:
 - `credits` — `copilot_chat.copilot_usage_nano_aiu / 1 000 000 000`; jest to
   zużycie GitHub Copilot AI credits, nie kwota pieniężna.
 
+Ręczne kompaktowanie VS Code może zostać wyemitowane w osobnym trace jako
+`summarizeConversationHistory-full`. Scanner przypisuje takie wywołanie do rozmowy
+przede wszystkim po jej dokładnym identyfikatorze obecnym w inputcie kompaktora.
+Jeśli późniejszy request nie został jeszcze wyemitowany, kompaktowanie nadal jest
+widoczne na końcu osi wraz z pełnym kosztem. Kliknięcie zwartej belki otwiera prawy
+panel, w którym „Co zlecono modelowi” obejmuje zarówno systemowe zasady i format
+rezultatu, jak i polecenie konkretnego kompaktowania oraz dodatkową instrukcję
+użytkownika. Dalej dostępne są messages, tools, wynik oraz — gdy da się to
+potwierdzić — jego użycie w kolejnym requeście. Model użyty do kompaktowania jest
+widoczny na belce i w panelu; brak nazwy pozostaje oznaczony jako brak danych.
+Koszt nie jest dodawany do głównych rund.
+
+Górny bilans `Cała sesja` sumuje rozłącznie agenta głównego, jednoznacznie
+powiązanych subagentów oraz kompaktowania. Pod nim znajduje się początkowo zwinięte
+`Rozliczenie kosztu`: agent główny, kolejne subagenty i kolejne kompaktowania mają
+te same kolumny `Nowy input`, `Input z cache`, `Cache write`, `Output`, `Czas modeli`
+i `Credits`. Czas całej sesji wraz z przerwami pozostaje osobno w nagłówku.
+
 Jeżeli co najmniej jedna runda na prezentowanej liście zawiera jawną metrykę
 `cache write`, belki wszystkich rund pokazują jej osobną kolumnę obok outputu.
 Dla rund bez tej metryki widoczny jest znak `—`, a nie domniemane zero.

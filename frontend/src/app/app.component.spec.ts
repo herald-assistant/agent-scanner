@@ -108,6 +108,53 @@ describe('AppComponent', () => {
     expect(component.interactions()[0].turns[0].tools).toEqual([firstTool]);
     expect(component.interactions()[1].turns[0].tools).toEqual([secondTool]);
   });
+
+  it('loads a compaction session created after the selected session ended', async () => {
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    const mainSession = {
+      id: 169, conversationId: 'conversation-main', agentName: 'panel/editAgent', startedAt: '2026-01-01T10:00:00Z',
+      endedAt: '2026-01-01T10:30:00Z', lastSeenAt: '2026-01-01T10:30:00Z', inputTokens: 100, outputTokens: 20,
+      cacheReadTokens: 0, cacheCreationTokens: 0, reasoningTokens: 0, turnCount: 1, toolCount: 0, errorCount: 0, contentCaptured: true
+    };
+    const compactionSession = {
+      ...mainSession, id: 196, conversationId: 'trace:late-compaction', agentName: 'summarizeConversationHistory-full',
+      startedAt: '2026-01-02T14:00:00Z', endedAt: '2026-01-02T14:01:00Z', lastSeenAt: '2026-01-02T14:01:00Z',
+      inputTokens: 12793, outputTokens: 4474
+    };
+    const mainDetail = {
+      session: mainSession,
+      spans: [span({id: 1, traceId: 'main', spanId: 'main-chat', operationName: 'chat', model: 'gpt-main', durationMs: 1000,
+        inputTokens: 100, outputTokens: 20, startedAt: '2026-01-01T10:00:01Z', endedAt: '2026-01-01T10:00:02Z',
+        attributesJson: JSON.stringify({'gen_ai.conversation.id': 'conversation-main', 'copilot_chat.copilot_usage_nano_aiu': 1000000000})})], messages: [], signals: []
+    };
+    const compactionSpan = span({id: 2, traceId: 'compact', spanId: 'compact-chat', operationName: 'chat', model: 'gpt-compact', durationMs: 60000,
+      startedAt: '2026-01-02T14:00:00Z', endedAt: '2026-01-02T14:01:00Z', attributesJson: JSON.stringify({
+        'gen_ai.agent.name': 'summarizeConversationHistory-full', 'gen_ai.usage.input_tokens': 12793,
+        'gen_ai.usage.cache_read.input_tokens': 0, 'gen_ai.usage.output_tokens': 4474,
+        'copilot_chat.copilot_usage_nano_aiu': 8563300000
+      })});
+    const compactionDetail = {
+      session: compactionSession, spans: [compactionSpan],
+      messages: [{id: 1, spanId: 2, direction: 'input', sequenceNo: 0, roleName: 'user',
+        content: JSON.stringify({role: 'user', content: 'transcripts/conversation-main.jsonl'}), sourceKind: 'telemetry'}], signals: []
+    };
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [mainSession, compactionSession] :
+        url.endsWith('/api/sessions/169') ? mainDetail : compactionDetail;
+      return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
+    }));
+
+    await fixture.componentInstance.refresh();
+
+    expect(fixture.componentInstance.relatedDetails.map(detail => detail.session.id)).toContain(196);
+    expect(fixture.componentInstance.contextCompactions()).toHaveLength(1);
+    expect(fixture.componentInstance.contextCompactions()[0].placementBeforeModelId).toBeUndefined();
+    expect(fixture.componentInstance.costDashboard().totals.credits).toBe('9,563');
+    expect(fixture.componentInstance.costDashboard().totals.output).toBe('4494');
+    expect(fixture.componentInstance.costDashboard().breakdown.map(row => row.label)).toEqual(['Agent główny', 'Kompaktowanie 1']);
+    expect(fixture.componentInstance.costDashboard().breakdown[1]).toMatchObject({detail: expect.stringContaining('gpt-compact'), credits: '8,563'});
+  });
 });
 
 function span(overrides: Record<string, unknown> = {}) {

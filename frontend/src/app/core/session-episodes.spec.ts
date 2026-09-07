@@ -39,6 +39,10 @@ describe('copilot-episode-v1', () => {
     expect(view.interactions[0].prompt).toBe('Syntetyczne zlecenie rodzica');
     expect(view.relatedModelCalls).toHaveLength(18);
     expect(new Set(view.billingModelSpans.map(span => span.id)).size).toBe(32);
+    expect(view.costGroups.map(group => group.kind)).toEqual(['main', 'subagent', 'subagent']);
+    expect(view.costGroups.map(group => group.spans.length).reduce((sum, count) => sum + count, 0)).toBe(32);
+    expect(view.costGroups.slice(1).every((group, index, groups) => index === 0 ||
+      Date.parse(groups[index - 1].startedAt ?? '') <= Date.parse(group.startedAt ?? ''))).toBe(true);
   });
 
   it('rejects contradictory parent metadata instead of attributing the child to the main lane', async () => {

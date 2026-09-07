@@ -1,9 +1,11 @@
 import {Injectable} from '@angular/core';
-import {RelatedModelCall, Session, SessionDetail, SessionView, SpanRecord, UserInteraction, ModelTurn} from '../models/scanner.models';
+import {RelatedModelCall, Session, SessionCostGroup, SessionDetail, SessionView, SpanRecord, UserInteraction, ModelTurn} from '../models/scanner.models';
 import {WorkflowAnalysisService} from './workflow-analysis.service';
 import {WorkflowAnalysis} from '../models/workflow.models';
 import {episodeLaunches, sessionEpisodes} from './session-episodes';
 import {TelemetryReader} from './workflow/telemetry';
+import {auxiliaryAgentTitle, isAuxiliaryAgentName, isContextCompactionAgentName, isExecutionSubagentAgentName, separateInlineAuxiliaryCalls} from './auxiliary-model-calls';
+import {findContextCompactions} from './context-compaction';
 
 @Injectable({providedIn: 'root'})
 export class SessionAnalysisService {
@@ -12,14 +14,16 @@ export class SessionAnalysisService {
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
 
   buildWorkflow(source: SessionDetail, related: SessionDetail[]): Promise<WorkflowAnalysis> {
-    return this.workflow.analyze(source, related);
+    const prepared = this.prepareSources(source, related).map(detail => detail.primary);
+    return this.workflow.analyze(prepared[0], prepared.slice(1));
   }
 
   build(source: SessionDetail | undefined, relatedSource: SessionDetail[]): SessionView | undefined {
     if (!source) return undefined;
     if (this.cachedView?.source === source && this.cachedView.relatedSource === relatedSource) return this.cachedView;
 
-    const episodes = sessionEpisodes(source, relatedSource);
+    const prepared = this.prepareSources(source, relatedSource);
+    const episodes = sessionEpisodes(prepared[0].primary, prepared.slice(1).map(item => item.primary));
     const own = episodes[0].source;
     const tools = own.spans
       .filter(span => span.operationName === 'execute_tool' || span.operationName === 'execute_hook')
@@ -77,8 +81,13 @@ export class SessionAnalysisService {
       return {index: interactionIndex, traceId, prompt, startedAt: root?.startedAt ?? calls[0]?.startedAt, turns};
     });
     const modelTurns = interactions.flatMap(interaction => interaction.turns);
+    const contextCompactions = findContextCompactions(own, [source, ...relatedSource], modelTurns);
 
     const relatedCalls = new Map<number, RelatedModelCall>();
+    for (const call of prepared.flatMap(item => item.auxiliary)) {
+      const agentName = this.attributes(call.span)['gen_ai.agent.name'];
+      if (!isContextCompactionAgentName(typeof agentName === 'string' ? agentName : undefined)) relatedCalls.set(call.span.id, call);
+    }
     for (const {source: related} of episodes.slice(1)) {
       for (const span of related.spans.filter(item => item.operationName === 'chat')) {
         relatedCalls.set(span.id, {span, label: this.sessionTitle(related.session)});
@@ -100,18 +109,21 @@ export class SessionAnalysisService {
       } catch { /* Surowa definicja pozostaje dostępna w widoku technicznym. */ }
     }
     const mutating = new Set(['apply_patch', 'create_file', 'create_directory', 'edit_notebook_file', 'vscode_renameSymbol']);
-    const included = new Set([episodes[0].id]);
-    const pending = [episodes[0]];
-    const launches = episodeLaunches(episodes);
-    while (pending.length) {
-      const episode = pending.shift()!;
-      for (const tool of episode.source.spans.filter(span => span.operationName === 'execute_tool')) {
-        const child = launches.get(tool);
-        if (child && !included.has(child.id)) {
-          included.add(child.id); pending.push(child);
-        }
-      }
-    }
+    const {included, launches} = this.linkedEpisodeSelection(episodes);
+    const launchByEpisode = new Map([...launches].map(([tool, episode]) => [episode.id, tool]));
+    const costGroups: SessionCostGroup[] = episodes.filter(episode => included.has(episode.id)).map((episode, index): SessionCostGroup => {
+      const spans = episode.source.spans.filter(span => span.operationName === 'chat')
+        .sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt));
+      const launch = launchByEpisode.get(episode.id);
+      return {
+        id: episode.id,
+        kind: index === 0 ? 'main' : 'subagent',
+        agentName: episode.source.session.agentName,
+        startedAt: launch?.startedAt ?? spans[0]?.startedAt,
+        spans
+      };
+    }).filter(group => group.spans.length > 0).sort((left, right) =>
+      Number(right.kind === 'main') - Number(left.kind === 'main') || this.timestamp(left.startedAt) - this.timestamp(right.startedAt));
 
     this.cachedView = {
       source,
@@ -119,8 +131,10 @@ export class SessionAnalysisService {
       tools,
       primaryModelSpans,
       billingModelSpans: episodes.filter(episode => included.has(episode.id)).flatMap(episode => episode.source.spans.filter(span => span.operationName === 'chat')),
+      costGroups,
       modelTurns,
       interactions,
+      contextCompactions,
       relatedModelCalls: [...relatedCalls.values()].sort((a, b) => this.timestamp(a.span.startedAt) - this.timestamp(b.span.startedAt)),
       assistantAnswer: answerMessage ? this.messageText(answerMessage.content) : 'Odpowiedź nie została wyemitowana.',
       toolDefinitionNames: [...definitionNames].sort(),
@@ -168,22 +182,48 @@ export class SessionAnalysisService {
   }
 
   isAuxiliarySession(session: Session): boolean {
-    const name = (session.agentName ?? '').toLowerCase();
-    const technicalNames = new Set(['title', 'copilot-chat', 'backgroundtodoagent', 'copilotlanguagemodelwrapper',
-      'healapplypatch', 'executionsubagenttool']);
-    return session.conversationId.startsWith('trace:') || session.conversationId.startsWith('call_') || technicalNames.has(name);
+    return session.conversationId.startsWith('trace:') || session.conversationId.startsWith('call_') || isAuxiliaryAgentName(session.agentName);
+  }
+
+  isContextCompactionSession(session: Session): boolean {
+    return isContextCompactionAgentName(session.agentName);
   }
 
   sessionTitle(session: Session): string {
-    const titles: Record<string, string> = {
-      title: 'Generowanie tytułu',
-      'copilot-chat': 'Techniczny wrapper Copilota',
-      backgroundtodoagent: 'Aktualizacja planu w tle',
-      copilotlanguagemodelwrapper: 'Pomocnicze przetwarzanie treści',
-      healapplypatch: 'Naprawa formatu zmiany',
-      executionsubagenttool: 'Subagent wykonawczy'
-    };
-    return titles[(session.agentName ?? '').toLowerCase()] ?? session.agentName ?? 'Sesja agenta';
+    return auxiliaryAgentTitle(session.agentName);
+  }
+
+  private prepareSources(source: SessionDetail, related: SessionDetail[]) {
+    const reader = new TelemetryReader();
+    const rawEpisodes = sessionEpisodes(source, related, reader);
+    const {included, launches} = this.linkedEpisodeSelection(rawEpisodes, reader);
+    const launchByEpisode = new Map([...launches].map(([tool, episode]) => [episode.id, tool]));
+    const preservedModelSpanIds = new Set(rawEpisodes.slice(1)
+      .filter(episode => included.has(episode.id))
+      .flatMap(episode => {
+        const launch = launchByEpisode.get(episode.id);
+        if (!launch || reader.string(launch, 'gen_ai.tool.name') !== 'execution_subagent') return [];
+        return episode.source.spans.filter(span => span.operationName === 'chat' &&
+          isExecutionSubagentAgentName(reader.string(span, 'gen_ai.agent.name'))).map(span => span.id);
+      }));
+    return [source, ...related].map(detail => separateInlineAuxiliaryCalls(detail, reader, preservedModelSpanIds));
+  }
+
+  private linkedEpisodeSelection(episodes: ReturnType<typeof sessionEpisodes>, reader = new TelemetryReader()) {
+    const included = new Set([episodes[0].id]);
+    const pending = [episodes[0]];
+    const launches = episodeLaunches(episodes, reader);
+    while (pending.length) {
+      const episode = pending.shift()!;
+      for (const tool of episode.source.spans.filter(span => span.operationName === 'execute_tool')) {
+        const child = launches.get(tool);
+        if (child && !included.has(child.id)) {
+          included.add(child.id);
+          pending.push(child);
+        }
+      }
+    }
+    return {included, launches};
   }
 
   private attributes(span: SpanRecord): Record<string, unknown> {

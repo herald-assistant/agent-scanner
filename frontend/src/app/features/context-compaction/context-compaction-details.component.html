@@ -1,0 +1,112 @@
+<div class="compaction-details">
+  <section class="compaction-intro">
+    <span>KOMPAKTOWANIE SESJI</span>
+    <h3>Osobny model przygotował krótszy zapis rozmowy</h3>
+    <div class="compaction-model"><mat-icon aria-hidden="true">memory</mat-icon><span><small>MODEL UŻYTY DO KOMPAKTOWANIA</small><strong>{{ compaction().model || 'Model nieznany — telemetria nie podała nazwy' }}</strong></span></div>
+    <p>To wywołanie ma własny input, output i credits. Poniżej widać faktycznie przechwycone polecenie, wiadomości, definicje narzędzi oraz wynik.</p>
+  </section>
+
+  <section class="compaction-section task-section">
+    <header><span>INSTRUKCJE DLA MODELU</span><h3>Co zlecono modelowi</h3></header>
+    <div class="instruction-stack">
+      @if (content().systemInstructions.length) {
+        <article class="instruction-block system-instruction">
+          <span>ZASADY I FORMAT REZULTATU</span>
+          <h4>System instructions</h4>
+          @for (block of content().systemInstructions; track block.id) {
+            <pre>{{ block.content }}</pre>
+          }
+        </article>
+      } @else {
+        <article class="instruction-block"><span>ZASADY I FORMAT REZULTATU</span><p class="missing">Instrukcje systemowe nie zostały wyemitowane.</p></article>
+      }
+
+      <article class="instruction-block task-instruction">
+        <span>ZADANIE W TYM WYWOŁANIU</span>
+        <h4>Polecenie kompaktowania</h4>
+        @if (content().taskInstruction; as instruction) {<pre>{{ instruction }}</pre>}
+        @else {<p class="missing">Treść polecenia nie została wyemitowana.</p>}
+      </article>
+
+      @if (content().userInstruction; as instruction) {
+        <article class="instruction-block user-instruction">
+          <span>DODATKOWE POLECENIE UŻYTKOWNIKA</span>
+          <blockquote>{{ instruction }}</blockquote>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="compaction-section">
+    <header><span>KOSZT OSOBNEGO WYWOŁANIA</span><h3>Tokeny i credits kompaktowania</h3></header>
+    <div class="cost-summary">
+      <span class="fresh"><small>NOWY INPUT</small><strong>{{ exact(compaction().freshInputTokens) }}</strong></span><b aria-hidden="true">+</b>
+      <span class="cache"><small>CACHE READ</small><strong>{{ exact(compaction().cacheReadTokens) }}</strong></span><b aria-hidden="true">=</b>
+      <span><small>INPUT ŁĄCZNIE</small><strong>{{ exact(compaction().inputTokens) }}</strong></span>
+      <span class="output"><small>OUTPUT</small><strong>{{ exact(compaction().outputTokens) }}</strong></span>
+      <span class="credits"><small>CREDITS <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip">info</mat-icon></small><strong>{{ credits(compaction().credits) }}</strong></span>
+    </div>
+    <div class="supporting-metrics">
+      <span><small>INPUT + OUTPUT</small><strong>@if (compaction().inputTokens != null && compaction().outputTokens != null) { {{ exact(compaction().inputTokens! + compaction().outputTokens!) }} tokenów } @else { — }</strong></span>
+      <span><small>REASONING</small><strong>{{ exact(compaction().reasoningTokens) }}</strong></span>
+      <span><small>CZAS MODELU</small><strong>{{ duration(compaction().durationMs) }}</strong></span>
+      <span><small>REZULTAT</small><strong>{{ compact(compaction().resultCharacters) }} znaków</strong></span>
+    </div>
+  </section>
+
+  <section class="compaction-section result-section">
+    <header><span>REZULTAT KOMPAKTOWANIA</span><h3>{{ resultTitle() }}</h3></header>
+    <p class="result-status"><mat-icon aria-hidden="true">subdirectory_arrow_right</mat-icon>{{ resultStatus() }}</p>
+    @if (content().result) {<pre class="result-content">{{ content().result }}</pre>}
+    @else {<p class="missing">Treść wyniku nie została wyemitowana.</p>}
+    @if (content().resultIsSummary && content().rawResult !== content().result) {
+      <details class="raw-result"><summary>Pełna odpowiedź kompaktora <mat-icon aria-hidden="true">expand_more</mat-icon></summary><pre>{{ content().rawResult }}</pre></details>
+    }
+  </section>
+
+  @if (hasMeasuredEffect()) {
+    <section class="compaction-section effect-section">
+      <header><span>EFEKT W KOLEJNYM REQUEŚCIE</span><h3>Jak zmienił się input sesji</h3></header>
+      <div class="effect-flow">
+        <span><small>INPUT PRZED</small><strong>{{ exact(compaction().beforeInputTokens) }}</strong></span>
+        <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+        <span class="after"><small>INPUT PO</small><strong>{{ exact(compaction().afterInputTokens) }}</strong></span>
+        <span><small>ZMIANA INPUTU</small><strong>{{ reductionLabel() }}</strong></span>
+        <span><small>ZAJĘCIE OKNA</small><strong>{{ occupancyLabel() }}</strong></span>
+      </div>
+    </section>
+  }
+
+  <section class="compaction-section request-section">
+    <header><span>REQUEST DO MODELU</span><h3>Co dokładnie wysłano do kompaktowania</h3></header>
+
+    <details class="request-part">
+      <summary><span><i>M</i><strong>Messages / input items</strong><small>{{ content().messages.length }} elementów</small></span><mat-icon aria-hidden="true">expand_more</mat-icon></summary>
+      <div class="part-body">
+        @for (message of content().messages; track message.id) {
+          <details class="content-row">
+            <summary><span><strong>{{ roleLabel(message.role) }}</strong><small>input[{{ message.sequenceNo }}] · {{ compact(message.characters) }} znaków · ≈ {{ compact(estimatedTokens(message.characters)) }} tokenów</small><em>{{ message.preview }}</em></span><mat-icon aria-hidden="true">expand_more</mat-icon></summary>
+            <pre>{{ pretty(message.content) }}</pre>
+          </details>
+        } @empty {<p class="missing">Brak wiadomości wejściowych w przechwyconej telemetrii.</p>}
+      </div>
+    </details>
+
+    <details class="request-part">
+      <summary><span><i>T</i><strong>Tools przekazane modelowi</strong><small>{{ content().tools.length }} definicji</small></span><mat-icon aria-hidden="true">expand_more</mat-icon></summary>
+      <div class="part-body">
+        <p class="tool-choice"><mat-icon aria-hidden="true">info</mat-icon>{{ toolChoiceLabel() }}</p>
+        @for (tool of content().tools; track tool.id) {
+          <details class="content-row tool-row">
+            <summary><span><strong>{{ tool.name }}</strong><small>tool[{{ tool.sequenceNo }}] · {{ compact(tool.characters) }} znaków · ≈ {{ compact(estimatedTokens(tool.characters)) }} tokenów</small></span><mat-icon aria-hidden="true">expand_more</mat-icon></summary>
+            <pre>{{ pretty(tool.content) }}</pre>
+          </details>
+        } @empty {<p class="missing">Do tego wywołania nie dołączono definicji narzędzi.</p>}
+      </div>
+    </details>
+
+    <p class="instruction-reference"><mat-icon aria-hidden="true">arrow_upward</mat-icon>Instrukcje sterujące wywołaniem pokazano wyżej w sekcji „Co zlecono modelowi”.</p>
+    <p class="estimate-note">Wartości „≈” służą tylko do orientacji. Dokładny koszt całego requestu pokazują metryki wyżej; telemetria nie dzieli tokenów na pojedyncze wiadomości i definicje.</p>
+  </section>
+
+</div>

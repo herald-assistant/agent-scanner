@@ -7,9 +7,27 @@ export interface DashboardRecord {
   value: string;
 }
 
+export interface CostBreakdownRow {
+  id: string;
+  kind: 'main' | 'subagent' | 'compaction';
+  label: string;
+  detail: string;
+  freshInput: string;
+  cacheRead: string;
+  cacheWrite: string;
+  output: string;
+  duration: string;
+  durationCoverage: string;
+  credits: string;
+  creditCoverage: string;
+}
+
 export interface CostDashboardView {
-  modelCalls: string;
-  toolActions: string;
+  headingSummary: string;
+  wallDuration: string;
+  totalsScope: string;
+  breakdownSummary: string;
+  breakdown: CostBreakdownRow[];
   totals: {
     freshInput: string;
     cacheRead: string;
@@ -17,6 +35,7 @@ export interface CostDashboardView {
     hasCacheWrite: boolean;
     output: string;
     duration: string;
+    durationCoverage: string;
     credits: string;
     creditCoverage: string;
   };

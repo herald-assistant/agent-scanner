@@ -94,6 +94,7 @@
             <as-interaction-timeline
               [turns]="modelTurns()"
               [interactions]="interactions()"
+              [contextCompactions]="contextCompactions()"
               [messages]="allMessages()"
               [calibrationSpans]="primaryModelSpans()"
               [relatedModelCalls]="relatedModelCalls()"
@@ -108,7 +109,12 @@
         @if (activeTab === 'workflow') {
           @if (workflowState(); as workflow) {
             @if (workflow.source.session.id === detail.session.id) {
-              <as-workflow-view [analysis]="workflow" [refreshing]="workflowLoading()" />
+              <as-workflow-view
+                [analysis]="workflow"
+                [refreshing]="workflowLoading()"
+                [contextCompactions]="contextCompactions()"
+                [relatedDetails]="relatedDetails"
+                [creditTooltip]="creditTooltip" />
             }
           }
           @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {

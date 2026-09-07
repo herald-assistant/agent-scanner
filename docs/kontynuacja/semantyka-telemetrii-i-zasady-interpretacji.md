@@ -74,6 +74,66 @@ zakończenia do rozpoczęcia następnego `chat` w tym samym epizodzie. Wyniki w
 wiadomościach są łączone z żądaniami po call ID. Te dwa mechanizmy rozwiązują
 różne problemy i nie powinny być zastępowane jednym heurystycznym joinem.
 
+Techniczne wywołanie modelu może być osadzone w tym samym trace co główna praca,
+na przykład agent listy zadań. Jawna nazwa agenta oddziela taki `chat` od rund
+głównych. Jego wykonania narzędzi wolno oddzielić tylko po dokładnym call ID albo,
+przy pełnych przechwyconych odpowiedziach, po nazwie występującej wyłącznie w
+odpowiedziach technicznych. Dzięki temu numeracja rund i sumy głównego przepływu
+nie zawierają pracy pomocniczej, która nadal pozostaje widoczna osobno.
+
+Nazwa `executionSubagentTool` nie wystarcza do uznania wywołania za techniczne.
+Jeżeli cały epizod dziecka jest jednoznacznie połączony przez call ID z wykonaniem
+`execution_subagent`, jego wywołania pozostają rundami subagenta i wchodzą do
+drzewa kosztów. To samo rozłączne drzewo musi zasilać mapę, oś przebiegu i bilans.
+
+### Kompaktowanie kontekstu
+
+Ręcznie uruchomione kompaktowanie może pojawić się jako odłączony `chat` agenta
+`summarizeConversationHistory-full`, bez wspólnego trace ID. Podstawowym faktem jest
+samo wywołanie kompaktora, a nie obecność określonego znacznika w późniejszym
+requeście. Przypisanie do głównej rozmowy preferuje dokładny conversation ID obecny
+w inputcie kompaktora lub w jawnych atrybutach spanu. Ostrożny fallback wymaga tej
+samej resource `session.id` emitera oraz jednego dopasowanego późniejszego użycia
+wyniku.
+
+Każde jednoznacznie przypisane wywołanie otrzymuje zwartą belkę z inputem, cache
+read, outputem, credits i nazwą modelu ze spanu. Jeśli brak późniejszego requestu,
+belka pozostaje widoczna na końcu osi i uczciwie opisuje brak potwierdzenia użycia
+wyniku. Brak nazwy modelu jest brakiem danych, a nie podstawą do zgadywania. Prawy aside
+pokazuje:
+
+- dodatkowe tekstowe polecenie użytkownika, jeśli zostało wyemitowane;
+- pełne system instructions określające zasady i format rezultatu;
+- polecenie kompaktowania;
+- pełną listę messages/input items oraz definicji tools wysłanych do modelu;
+- wynik kompaktowania, czyli treść przeznaczoną dla kolejnych tur;
+- wyemitowane input, cache read, output, reasoning, credits i czas modelu;
+- zmianę inputu i zajętości okna tylko wtedy, gdy wynik odnaleziono w późniejszym
+  requeście.
+
+Na dashboardzie koszt kompaktowania wchodzi do bilansu `Cała sesja`, ale pozostaje
+osobną pozycją w zwijanym rozliczeniu. Bilans jest sumą rozłącznych wywołań agenta
+głównego, jednoznacznie powiązanych subagentów i kompaktowań. Wszystkie pozycje
+rozliczenia używają tych samych kolumn; `Czas modeli` jest sumą czasów wywołań,
+natomiast ścienny czas sesji wraz z przerwami pozostaje osobną informacją.
+
+Po włączeniu kategorii AI kompaktowanie nadal nie trafia do zapytania
+klasyfikacyjnego. Frontend dodaje je lokalnie do procentowego podziału jako
+`Kompaktowanie kontekstu`, z udziałem obliczonym z wyemitowanych credits, oraz do
+zagregowanego przebiegu jako osobną kartę w potwierdzonym miejscu osi. Udział ten
+nie ma znaku `≈`; estymowane udziały kategorii działań zachowują `≈` i korzystają
+z tego samego mianownika.
+
+System instructions, polecenie kompaktowania i opcjonalne polecenie użytkownika są
+trzema warstwami rzeczywistego zlecenia dla modelu. UI pokazuje je razem w sekcji
+„Co zlecono modelowi”; nie ukrywa instrukcji systemowych jako drugorzędnych danych
+technicznych ani nie dubluje ich później w inspektorze requestu.
+
+Późniejszy blok streszczenia jest dowodem konsumpcji wyniku, ale nie identyfikatorem
+ani warunkiem pokazania kosztu. Nadal nie jest to dowód zdarzenia
+`compaction_complete`, udanej rehydracji ani dodatkowego czasu orkiestracji poza
+zmierzonym spanem modelu. Sam spadek inputu nie wystarcza.
+
 ### Subagent
 
 Delegacja jest żądaniem narzędzia w odpowiedzi modelu rodzica. Subagent posiada

@@ -1,3 +1,4 @@
+import {NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, signal, TemplateRef, viewChild} from '@angular/core';
 import {MatDialog, MatDialogModule} from '@angular/material/dialog';
 import {MatIconModule} from '@angular/material/icon';
@@ -12,6 +13,8 @@ import {ACTIONS, ActionCategory, RoundCategory, ToolSpecialization} from '../../
 import {actionCategory, actionsByRound, agentActionProfile, modelActionEvidence} from '../../core/model-action-evidence';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 import {estimateActionCredits} from '../../core/action-credit-attribution';
+import {ContextCompactionMeasurement, SessionDetail} from '../../models/scanner.models';
+import {ContextCompactionDetailsComponent} from '../context-compaction/context-compaction-details.component';
 
 const OPTIMIZATION_HINTS: Record<ActionCategory, string> = {
   ACQUIRE_DATA: 'Sprawdź rozmiar wyników narzędzi, możliwość zwracania krótszych wycinków oraz użycie indeksu, repo mapy lub narzędzia wyspecjalizowanego w tym zadaniu.',
@@ -34,7 +37,7 @@ const TOOL_SPECIALIZATION_TOOLTIPS: Record<ToolSpecialization, string> = {
 
 type ChartTone = 'context-series' | 'credits-series' | 'fresh-series' | 'cache-series' | 'output-series' | 'write-series';
 interface ChartPoint { round: RoundObservation; x: number; y: number; label: string; }
-interface ChartSeries { id: string; label: string; tone: ChartTone; paths: string[]; points: ChartPoint[]; total?: number; coverage: string; }
+interface ChartSeries { id: string; label: string; tone: ChartTone; paths: string[]; points: ChartPoint[]; missingX: number[]; total?: number; coverage: string; }
 interface LayerChart {
   title: string;
   scope: string;
@@ -50,27 +53,42 @@ interface AggregatedPhase {
   signature: string;
   label: string;
   icon: string;
+  compaction?: ContextCompactionMeasurement;
   hasSubagent: boolean;
   actorLabels: string[];
   rounds: RoundObservation[];
   roundLabels: string[];
   credits: number | null;
   creditCovered: number;
+  totalCalls: number;
   toolSpecializations: ToolSpecialization[];
   toolShares: PhaseToolShare[];
   toolMixLabel: string;
   creditStrength: string;
 }
+interface CreditCategorySummary {
+  id: string;
+  action?: ActionCategory;
+  label: string;
+  icon: string;
+  totalCredits: number | null;
+  shareOfKnown: number | null;
+  estimated: boolean;
+  hint: string;
+}
 
 @Component({
   selector: 'as-workflow-view',
-  imports: [MatDialogModule, MatIconModule, MatTooltipModule],
+  imports: [NgTemplateOutlet, MatDialogModule, MatIconModule, MatTooltipModule, ContextCompactionDetailsComponent],
   templateUrl: './workflow-view.component.html', styleUrl: './workflow-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class WorkflowViewComponent {
   readonly analysis = input.required<WorkflowAnalysis>();
   readonly refreshing = input(false);
+  readonly contextCompactions = input<ContextCompactionMeasurement[]>([]);
+  readonly relatedDetails = input<SessionDetail[]>([]);
+  readonly creditTooltip = input('GitHub Copilot AI credits wyemitowane w telemetrii. To zużycie kredytów, nie kwota pieniężna.');
   private readonly dialog = inject(MatDialog);
   private readonly detailsPanel = inject(RoundDetailsPanelService);
   private readonly selection = signal<{session: number; ref: string} | undefined>(undefined);
@@ -134,6 +152,24 @@ export class WorkflowViewComponent {
   private readonly notifications = inject(NotificationService);
   readonly roundCategories = ROUND_CATEGORIES;
   readonly catalog = computed(() => flowToolCatalog(this.analysis()));
+  readonly compactionsBeforeInteraction = computed(() => {
+    const interactionIndex = this.interaction()?.round.turn.interactionIndex;
+    return interactionIndex == null ? [] : this.contextCompactions().filter(compaction => compaction.afterInteractionIndex === interactionIndex)
+      .sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt));
+  });
+  readonly trailingCompactions = computed(() => {
+    const currentIndex = this.interaction()?.round.turn.interactionIndex;
+    const lastIndex = this.interactions().at(-1)?.round.turn.interactionIndex;
+    return currentIndex != null && currentIndex === lastIndex
+      ? this.contextCompactions().filter(compaction => compaction.placementBeforeModelId == null)
+        .sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt))
+      : [];
+  });
+  readonly visibleCompactions = computed(() => {
+    const unique = new Map<string, ContextCompactionMeasurement>();
+    [...this.compactionsBeforeInteraction(), ...this.trailingCompactions()].forEach(compaction => unique.set(compaction.id, compaction));
+    return [...unique.values()];
+  });
   readonly classificationEstimate = computed(() => estimateClassificationTokens(this.catalog().request));
   readonly classificationEstimateTooltip = computed(() => {
     const estimate = this.classificationEstimate();
@@ -147,7 +183,7 @@ export class WorkflowViewComponent {
   readonly roundActions = computed(() => actionsByRound(this.catalog(), this.aiResult()));
   readonly actionEvidence = computed(() => modelActionEvidence(this.analysis(), this.catalog()));
   readonly aggregatedPhases = computed<AggregatedPhase[]>(() => {
-    const phases: AggregatedPhase[] = [];
+    const phases: AggregatedPhase[] = this.compactionsBeforeInteraction().map(compaction => this.compactionPhase(compaction));
     const catalog = this.catalog();
     const toolSpecializations = new Map(this.aiResult()?.tools.map(tool => [tool.id, tool.specialization]) ?? []);
     const usagesByRound = new Map<string, ToolSpecialization[]>();
@@ -168,6 +204,7 @@ export class WorkflowViewComponent {
       if (previous?.signature === signature) {
         previous.rounds.push(round);
         previous.roundLabels.push(roundLabel);
+        previous.totalCalls++;
         previous.hasSubagent ||= hasSubagent;
         if (!previous.actorLabels.includes(actorLabel)) previous.actorLabels.push(actorLabel);
         previous.toolSpecializations.push(...(usagesByRound.get(round.ref) ?? []));
@@ -181,9 +218,11 @@ export class WorkflowViewComponent {
           icon: ROUND_CATEGORIES[category].icon, hasSubagent,
           actorLabels: [actorLabel],
           rounds: [round], roundLabels: [roundLabel], credits: roundCredits ?? null, creditCovered: roundCredits === undefined ? 0 : 1,
+          totalCalls: 1,
           toolSpecializations: [...(usagesByRound.get(round.ref) ?? [])], toolShares: [], toolMixLabel: '', creditStrength: '0%'});
       }
     }
+    phases.push(...this.trailingCompactions().map(compaction => this.compactionPhase(compaction)));
     const maxCredits = Math.max(0, ...phases.map(phase => phase.credits ?? 0));
     for (const phase of phases) {
       phase.toolShares = this.phaseToolShares(phase.toolSpecializations);
@@ -212,8 +251,39 @@ export class WorkflowViewComponent {
         credit: credits.get(action)}] : [];
     }).sort((left, right) => (right.credit?.totalCredits ?? -1) - (left.credit?.totalCredits ?? -1) || right.count - left.count || left.order - right.order);
   });
-  readonly optimizationLead = computed(() => this.actionSummary().find(item => item.action !== 'UNKNOWN' && (item.credit?.totalCredits ?? 0) > 0)
-    ?? this.actionSummary().find(item => (item.credit?.totalCredits ?? 0) > 0));
+  readonly compactionCreditSummary = computed(() => {
+    const values = this.visibleCompactions().map(compaction => compaction.credits).filter((value): value is number => value != null && Number.isFinite(value));
+    return {knownCredits: values.length ? values.reduce((total, value) => total + value, 0) : null,
+      coveredCalls: values.length, totalCalls: this.visibleCompactions().length};
+  });
+  readonly analyzedCreditScope = computed(() => {
+    const actions = this.creditAttribution(), compactions = this.compactionCreditSummary();
+    if (!actions) return undefined;
+    const coveredCalls = actions.coveredCalls + compactions.coveredCalls;
+    const compactionCredits = compactions.knownCredits ?? 0;
+    return {knownCredits: coveredCalls ? (actions.knownCredits ?? 0) + compactionCredits : null,
+      assignedCredits: coveredCalls ? (actions.assignedCredits ?? 0) + compactionCredits : null,
+      unattributedCredits: coveredCalls ? actions.unattributedCredits ?? 0 : null,
+      coveredCalls, totalCalls: actions.totalCalls + compactions.totalCalls};
+  });
+  readonly creditCategories = computed<CreditCategorySummary[]>(() => {
+    const knownCredits = this.analyzedCreditScope()?.knownCredits;
+    const rows: CreditCategorySummary[] = this.actionSummary().map(item => {
+      const totalCredits = item.credit?.totalCredits ?? null;
+      return {id: item.action, action: item.action, label: ROUND_CATEGORIES[item.action].label, icon: ROUND_CATEGORIES[item.action].icon,
+        totalCredits, shareOfKnown: totalCredits != null && knownCredits != null && knownCredits > 0 ? totalCredits / knownCredits * 100 : null,
+        estimated: true, hint: OPTIMIZATION_HINTS[item.action]};
+    });
+    if (this.visibleCompactions().length) {
+      const totalCredits = this.compactionCreditSummary().knownCredits;
+      rows.push({id: 'CONTEXT_COMPACTION', label: 'Kompaktowanie kontekstu', icon: 'compress', totalCredits,
+        shareOfKnown: totalCredits != null && knownCredits != null && knownCredits > 0 ? totalCredits / knownCredits * 100 : null,
+        estimated: false, hint: 'Sprawdź koszt wejścia kompaktora, rozmiar utworzonego streszczenia oraz to, czy wynik został wykorzystany w kolejnej interakcji.'});
+    }
+    return rows.sort((left, right) => (right.totalCredits ?? -1) - (left.totalCredits ?? -1));
+  });
+  readonly optimizationLead = computed(() => this.creditCategories().find(item => item.action !== 'UNKNOWN' && (item.totalCredits ?? 0) > 0)
+    ?? this.creditCategories().find(item => (item.totalCredits ?? 0) > 0));
   readonly agentProfiles = computed(() => new Map(this.lanes().map(lane => [lane.stream.id, agentActionProfile(lane.rounds, this.roundActions())])));
   actionLabels(actions: readonly ActionCategory[]): string {
     return actions.length ? actions.map(action => ROUND_CATEGORIES[action].label).join(' + ') : 'Brak kategorii';
@@ -221,7 +291,7 @@ export class WorkflowViewComponent {
   agentProfile(stream: WorkflowStream) { return this.agentProfiles().get(stream.id) ?? []; }
   linkedRoundLabel(round: RoundObservation): string {
     const stream = this.analysis().streams.find(item => item.id === round.streamId);
-    return `${stream?.label ?? 'Agent'} · interakcja ${round.turn.interactionIndex} · ${this.roundLabel(round)}`;
+    return `${stream ? this.streamDisplayLabel(stream) : 'Agent'} · interakcja ${round.turn.interactionIndex} · ${this.roundLabel(round)}`;
   }
   openRoundContent(round: RoundObservation, origin?: EventTarget | null): void {
     const stream = this.analysis().streams.find(item => item.id === round.streamId);
@@ -231,11 +301,20 @@ export class WorkflowViewComponent {
     const index = this.columns().findIndex(item => item.ref === round.ref), rounds = this.columns();
     this.detailsPanel.openRound({turn: next?.turn ?? round.turn, sourceTurn: next ? round.turn : undefined, mode: next ? 'cycle' : 'final',
       messages: stream.source.messages, calibrationSpans: stream.source.spans,
-      headingContext: next ? `${stream.label} · cykl po rundzie ${round.turn.interactionTurnIndex}` : `${stream.label} · odpowiedź końcowa`,
+      headingContext: next ? `${this.streamDisplayLabel(stream)} · cykl po rundzie ${round.turn.interactionTurnIndex}` : `${this.streamDisplayLabel(stream)} · odpowiedź końcowa`,
       subagent: !!stream.parentId}, this.linkedRoundLabel(round), origin, {
         previous: index > 0 ? () => this.openRoundContent(rounds[index - 1]) : undefined,
         next: index >= 0 && index + 1 < rounds.length ? () => this.openRoundContent(rounds[index + 1]) : undefined
       });
+  }
+  openInitialInteraction(origin?: EventTarget | null): void {
+    const round = this.firstPrimaryRound();
+    if (!round) return;
+    this.select(round);
+    const interactionIndex = round.turn.interactionIndex ?? 1;
+    this.detailsPanel.openRound({turn: round.turn, mode: 'request', messages: this.root().source.messages,
+      calibrationSpans: this.root().source.spans, headingContext: `Główny agent · interakcja ${interactionIndex} · start`},
+    `Interakcja ${interactionIndex} · zlecenie użytkownika`, origin, {next: () => this.openRoundContent(round)});
   }
   nextRound(round: RoundObservation): RoundObservation | undefined {
     const stream = this.analysis().streams.find(item => item.id === round.streamId);
@@ -269,8 +348,24 @@ export class WorkflowViewComponent {
   roundDescription(round: RoundObservation): string {
     return this.aiResult() ? this.actionLabels(this.roundActions().get(round.ref) ?? []) : this.plural(round.tools.length, 'zapisane użycie narzędzia', 'zapisane użycia narzędzi', 'zapisanych użyć narzędzi');
   }
+  streamDisplayLabel(stream: WorkflowStream): string {
+    const primary = this.streamPrimaryLabel(stream);
+    const provider = this.streamProviderLabel(stream, primary);
+    return provider ? `${primary} · ${provider}` : primary;
+  }
+  streamPrimaryLabel(stream: WorkflowStream): string {
+    if (!stream.parentId) return 'Główny agent';
+    const index = this.analysis().streams.slice(1).findIndex(item => item.id === stream.id);
+    return index >= 0 ? `Subagent ${index + 1}` : 'Subagent';
+  }
+  streamProviderLabel(stream: WorkflowStream, primary = this.streamPrimaryLabel(stream)): string | undefined {
+    const label = stream.label.trim();
+    return label && label !== primary && label.toLocaleLowerCase('pl-PL') !== 'subagent' ? label : undefined;
+  }
   private readonly numberFormat = new Intl.NumberFormat('pl-PL', {maximumFractionDigits: 2});
   private readonly compactFormat = new Intl.NumberFormat('pl-PL', {notation: 'compact', maximumFractionDigits: 1});
+  private readonly compactionCreditFormat = new Intl.NumberFormat('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 3});
+  private readonly timeFormat = new Intl.DateTimeFormat('pl-PL', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
   readonly root = computed(() => this.analysis().streams[0]);
   readonly interactions = computed(() => [...new Set(this.root().rounds.map(round => round.turn.model.traceId))].map(trace => ({trace,
     round: this.root().rounds.find(round => round.turn.model.traceId === trace)!})));
@@ -289,11 +384,18 @@ export class WorkflowViewComponent {
     return lanes;
   });
   readonly columns = computed(() => this.lanes().flatMap(lane => lane.rounds).sort((a, b) => ordered(a.turn.model, b.turn.model)));
+  readonly firstPrimaryRound = computed(() => this.lanes()[0]?.rounds[0]);
+  readonly finalPrimaryRound = computed(() => this.lanes()[0]?.rounds.at(-1));
   readonly selected = computed<RoundObservation | undefined>(() => this.columns().find(round => this.selection()?.session === this.analysis().source.session.id &&
     round.ref === this.selection()?.ref) ?? this.lanes()[0].rounds[0]);
   readonly selectedStream = computed(() => this.analysis().streams.find(stream => stream.id === this.selected()?.streamId) ?? this.root());
   readonly returnText = computed(() => this.returnedPayload(this.selectedStream()));
-  readonly chartWidth = computed(() => Math.max(1, this.columns().length) * 88);
+  readonly leadingBoundaryCount = computed(() => this.compactionsBeforeInteraction().length + 1);
+  readonly mapColumnCount = computed(() => this.leadingBoundaryCount() + this.columns().length + this.trailingCompactions().length);
+  readonly interactionColumn = computed(() => this.compactionsBeforeInteraction().length + 1);
+  readonly chartWidth = computed(() => Math.max(1, this.mapColumnCount()) * 88);
+  readonly chartRowHeight = 112;
+  readonly layerChartHeight = computed(() => this.layer() === 'tokens' ? this.layerChart().series.length * this.chartRowHeight : this.chartRowHeight);
   readonly delegationEdges = computed(() => this.lanes().slice(1).flatMap((lane, index) => {
     const parentRound = this.columns().find(round => round.ref === lane.stream.launchRoundRef);
     const first = lane.rounds[0], last = lane.rounds.at(-1);
@@ -333,12 +435,11 @@ export class WorkflowViewComponent {
       {id: 'output', label: 'Output', tone: 'output-series', metric: round => known(round.output)},
       {id: 'write', label: 'Cache write', tone: 'write-series', metric: round => known(round.cacheWrite)}
     ];
-    const tokenScale = Math.max(0, ...definitions.map(item => rounds.reduce((total, round) => total + (item.metric(round) ?? 0), 0)));
-    const series = definitions.map(item => this.cumulativeSeries(item.id, item.label, item.tone, rounds, item.metric, value => this.compact(value), tokenScale));
+    const series = definitions.map(item => this.cumulativeSeries(item.id, item.label, item.tone, rounds, item.metric, value => this.compact(value)));
     return {
       title: 'Tokeny narastająco', scope: 'Cały przepływ', unit: 'Suma według rodzaju',
-      ariaLabel: 'Narastające sumy nowego inputu, cache read, outputu i wyemitowanego cache write w kolejnych wywołaniach modeli całego przepływu',
-      series, missingX: [], showPointLabels: false
+      ariaLabel: 'Osobne wykresy narastających sum nowego inputu, cache read, outputu i wyemitowanego cache write w kolejnych wywołaniach modeli całego przepływu; każdy wykres ma własną skalę',
+      series, missingX: [], showPointLabels: true
     };
   });
   plural(count: number, one: string, few: string, many: string): string {
@@ -372,12 +473,12 @@ export class WorkflowViewComponent {
       return range.start === range.end ? first : `${first}–M${range.end}`;
     }).join(' · ');
   }
-  optimizationHint(action: ActionCategory): string { return OPTIMIZATION_HINTS[action]; }
   analyzedCreditsTooltip(): string {
-    return 'Credits objęte analizą pochodzą z telemetrii wywołań uwzględnionych w tym widoku. AI przypisuje działania modelu do kategorii, ale nie wylicza credits ani nie uzupełnia brakujących pomiarów.';
+    return 'Credits objęte zestawieniem pochodzą z telemetrii wywołań widocznego przepływu. AI przypisuje żądania modelu do kategorii, ale nie wylicza credits ani nie uzupełnia brakujących pomiarów. Kompaktowania nie są wysyłane do AI: ich udział jest dodawany lokalnie z wyemitowanych credits.';
   }
-  phaseCategoryTooltip(label: string): string {
-    return `„${label}” to kategoria działania określona przez AI na podstawie akcji żądanych przez model. Faza łączy sąsiednie rundy z takim samym zestawem akcji. Porównaj jej credits z innymi fazami, aby wybrać obszar do sprawdzenia. Etykieta nie ocenia jakości ani poprawności wykonania.`;
+  phaseCategoryTooltip(phase: AggregatedPhase): string {
+    if (phase.compaction) return 'Kompaktowanie jest faktycznym, osobnym wywołaniem modelu rozpoznanym w telemetrii. Nie jest kategorią nadaną przez AI i nie zostało wysłane do analizy.';
+    return `„${phase.label}” to kategoria działania określona przez AI na podstawie akcji żądanych przez model. Faza łączy sąsiednie rundy z takim samym zestawem akcji. Porównaj jej credits z innymi fazami, aby wybrać obszar do sprawdzenia. Etykieta nie ocenia jakości ani poprawności wykonania.`;
   }
   phaseRoundsTooltip(): string {
     return 'M oznacza wywołanie modelu agenta głównego. S1:M2 oznacza drugie wywołanie modelu pierwszego subagenta. Użyj tych oznaczeń, aby odnaleźć i otworzyć konkretne rundy na szczegółowym diagramie.';
@@ -392,9 +493,14 @@ export class WorkflowViewComponent {
   phaseWithoutToolsTooltip(): string {
     return 'W tej fazie odpowiedź modelu nie zawierała żądania narzędzia. Porównaj jej credits, długość odpowiedzi oraz — jeśli istnieje — input następnej rundy.';
   }
-  phaseCreditsTooltip(covered: number, total: number): string {
-    const coverage = covered === total ? 'Wartość jest dostępna dla wszystkich rund fazy.'
-      : `Credits są dostępne dla ${covered} z ${total} rund. Suma obejmuje tylko rundy z wyemitowaną wartością; brak nie oznacza zera.`;
+  phaseCreditsTooltip(phase: AggregatedPhase): string {
+    if (phase.compaction) {
+      return phase.creditCovered
+        ? 'Copilot AI credits wyemitowane dla osobnego wywołania modelu kompaktującego. To fakt z telemetrii, nie estymacja AI ani cena w walucie.'
+        : 'Wywołanie kompaktowania nie wyemitowało pomiaru credits. Brak danych nie oznacza zera.';
+    }
+    const coverage = phase.creditCovered === phase.totalCalls ? 'Wartość jest dostępna dla wszystkich rund fazy.'
+      : `Credits są dostępne dla ${phase.creditCovered} z ${phase.totalCalls} rund. Suma obejmuje tylko rundy z wyemitowaną wartością; brak nie oznacza zera.`;
     return `Suma Copilot AI credits wyemitowanych dla pełnych wywołań modelu należących do tej fazy. Nie musi odpowiadać procentowi kategorii powyżej: karta sumuje całe wywołania, a podział procentowy przypisuje ich części do działań. Nie jest to cena w walucie ani koszt samych narzędzi. ${coverage}`;
   }
   percent(metric: Metric): number { return Math.min(100, Math.max(0, (known(metric) ?? 0) * 100)); }
@@ -403,6 +509,13 @@ export class WorkflowViewComponent {
   private phaseRoundLabel(round: RoundObservation, subagentNumbers: ReadonlyMap<string, number>): string {
     const subagent = subagentNumbers.get(round.streamId);
     return subagent ? `S${subagent}:M${round.turn.interactionTurnIndex}` : `M${round.turn.interactionTurnIndex}`;
+  }
+  private compactionPhase(compaction: ContextCompactionMeasurement): AggregatedPhase {
+    const credits = compaction.credits != null && Number.isFinite(compaction.credits) ? compaction.credits : null;
+    return {id: `compaction:${compaction.id}`, signature: `COMPACTION:${compaction.id}`, label: 'Kompaktowanie kontekstu', icon: 'compress', compaction,
+      hasSubagent: false, actorLabels: [compaction.model || 'Model nieznany'], rounds: [], roundLabels: [`K${this.compactionNumber(compaction)}`],
+      credits, creditCovered: credits === null ? 0 : 1, totalCalls: 1, toolSpecializations: [], toolShares: [],
+      toolMixLabel: 'Fakt z telemetrii, poza zakresem analizy AI', creditStrength: '0%'};
   }
   private phaseToolShares(values: readonly ToolSpecialization[]): PhaseToolShare[] {
     if (!values.length) return [];
@@ -419,8 +532,15 @@ export class WorkflowViewComponent {
     }
     return shares.filter(share => share.count).map(({specialization, label, percent}) => ({specialization, label, percent}));
   }
-  column(round: RoundObservation): number { return this.columns().indexOf(round) + 1; }
+  leadingCompactionColumn(compaction: ContextCompactionMeasurement): number { return this.compactionsBeforeInteraction().findIndex(item => item.id === compaction.id) + 1; }
+  trailingCompactionColumn(compaction: ContextCompactionMeasurement): number {
+    return this.leadingBoundaryCount() + this.columns().length + this.trailingCompactions().findIndex(item => item.id === compaction.id) + 1;
+  }
+  column(round: RoundObservation): number { return this.leadingBoundaryCount() + this.columns().indexOf(round) + 1; }
   x(round: RoundObservation): number { return (this.column(round) - .5) * 88; }
+  isFinalResponseRound(round: RoundObservation): boolean {
+    return round.streamId === this.root().id && round.ref === this.finalPrimaryRound()?.ref;
+  }
   y(value: number): number { return 92 - value * 70; }
   roundLayerTooltip(round: RoundObservation): string {
     const description = this.roundDescription(round);
@@ -435,6 +555,45 @@ export class WorkflowViewComponent {
   }
   select(round: RoundObservation): void { this.selection.set({session: this.analysis().source.session.id, ref: round.ref}); this.revealSelected(); }
   selectInteraction(trace: string): void { this.interactionSelection.set({session: this.analysis().source.session.id, trace}); }
+  scrollMap(direction: -1 | 1): void {
+    const element = this.mapScroll()?.nativeElement;
+    if (!element) return;
+    element.scrollBy({left: direction * Math.max(352, element.clientWidth - 176), behavior: 'smooth'});
+  }
+  openCompactionDetails(template: TemplateRef<unknown>, compaction: ContextCompactionMeasurement, event: Event): void {
+    this.detailsPanel.openTemplate(template, {$implicit: compaction}, `KOMPAKTOWANIE · ${this.compactionPlacementLabel(compaction)}`,
+      'Kompaktowanie sesji', 'Szczegóły kompaktowania sesji', event.currentTarget);
+  }
+  compactionSource(compaction: ContextCompactionMeasurement): SessionDetail | undefined {
+    return [this.analysis().source, ...this.relatedDetails()].find(detail => detail.session.id === compaction.sessionId);
+  }
+  compactionNumber(compaction: ContextCompactionMeasurement): number {
+    return [...this.contextCompactions()].sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt))
+      .findIndex(item => item.id === compaction.id) + 1;
+  }
+  compactionPlacementLabel(compaction: ContextCompactionMeasurement): string {
+    return compaction.afterInteractionIndex != null ? `PRZED INTERAKCJĄ ${compaction.afterInteractionIndex}` : 'PO OSTATNIEJ INTERAKCJI';
+  }
+  compactionNodeMetricLabel(compaction: ContextCompactionMeasurement): string {
+    if (this.layer() === 'credits') return 'credits';
+    if (this.layer() === 'tokens') return 'input / output';
+    return compaction.beforeInputTokens != null && compaction.afterInputTokens != null ? 'input przed → po' : 'zmiana kontekstu';
+  }
+  compactionNodeMetric(compaction: ContextCompactionMeasurement): string {
+    if (this.layer() === 'credits') return this.compactionCredits(compaction.credits);
+    if (this.layer() === 'tokens') return `${this.compact(compaction.inputTokens)} / ${this.compact(compaction.outputTokens)}`;
+    return compaction.beforeInputTokens != null && compaction.afterInputTokens != null
+      ? `${this.compact(compaction.beforeInputTokens)} → ${this.compact(compaction.afterInputTokens)}` : '—';
+  }
+  compactionNodeTooltip(compaction: ContextCompactionMeasurement): string {
+    return `Kompaktowanie ${this.compactionNumber(compaction)} · ${compaction.model || 'model nieznany'} · input ${this.compact(compaction.inputTokens)} · output ${this.compact(compaction.outputTokens)} · credits ${this.compactionCredits(compaction.credits)}`;
+  }
+  compactionStatusLabel(compaction: ContextCompactionMeasurement): string {
+    if (compaction.resultObservedInModelId != null) return `wynik użyty w interakcji ${compaction.afterInteractionIndex}`;
+    return compaction.placementBeforeModelId != null ? 'brak potwierdzonego użycia wyniku' : 'brak kolejnego requestu w telemetrii';
+  }
+  compactionCredits(value?: number): string { return value == null ? '—' : this.compactionCreditFormat.format(value); }
+  compactionTime(value?: string): string { return value ? this.timeFormat.format(new Date(value)) : '—'; }
   open(template: TemplateRef<unknown>, label: string): void {
     this.dialog.open(template, {ariaLabel: label, panelClass: 'scanner-detail-dialog', width: '95vw', maxWidth: '95vw', height: '95vh', maxHeight: '95vh', autoFocus: 'dialog', restoreFocus: true});
   }
@@ -471,10 +630,10 @@ export class WorkflowViewComponent {
       previousSequence = round.sequence;
     }
     if (path) paths.push(path);
-    return {id, label, tone, paths, points, total: covered ? total : undefined, coverage: `${covered}/${rounds.length}`};
+    return {id, label, tone, paths, points, missingX: rounds.filter(round => metric(round) === undefined).map(round => this.x(round)), total: covered ? total : undefined, coverage: `${covered}/${rounds.length}`};
   }
   private cumulativeSeries(id: string, label: string, tone: ChartTone, rounds: RoundObservation[], metric: (round: RoundObservation) => number | undefined,
-                           format: (value: number) => string, scaleMax?: number): ChartSeries {
+                           format: (value: number) => string): ChartSeries {
     const values: {round: RoundObservation; value?: number; cumulative: number}[] = [];
     let cumulative = 0, covered = 0;
     for (const round of rounds) {
@@ -487,13 +646,14 @@ export class WorkflowViewComponent {
     let path = '';
     for (const item of values) {
       if (item.value === undefined) { if (path) paths.push(path); path = ''; continue; }
-      const point = {round: item.round, x: this.x(item.round), y: this.chartY(item.cumulative, scaleMax ?? max), label: format(item.cumulative)};
+      const point = {round: item.round, x: this.x(item.round), y: this.chartY(item.cumulative, max), label: format(item.cumulative)};
       points.push(point);
       path += `${path ? ' L' : 'M'} ${point.x} ${point.y}`;
     }
     if (path) paths.push(path);
-    return {id, label, tone, paths, points, total: covered ? cumulative : undefined, coverage: `${covered}/${rounds.length}`};
+    return {id, label, tone, paths, points, missingX: values.filter(item => item.value === undefined).map(item => this.x(item.round)), total: covered ? cumulative : undefined, coverage: `${covered}/${rounds.length}`};
   }
   private chartY(value: number, max: number): number { return max > 0 ? 92 - Math.min(1, Math.max(0, value / max)) * 70 : 92; }
   private percentLabel(value: number): string { return this.numberFormat.format(value * 100) + '%'; }
+  private timestamp(value?: string): number { return value ? new Date(value).getTime() : 0; }
 }

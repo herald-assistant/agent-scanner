@@ -30,6 +30,17 @@ Stan dokumentu: 2026-09-06.
 - podsumowanie sesji;
 - interakcje i cykle model–agent–model;
 - główne i pomocnicze wywołania modelu;
+- oddzielenie technicznych wywołań osadzonych w tym samym trace od numeracji i
+  sum głównych rund;
+- zwartą belkę kosztową każdego jednoznacznie przypisanego wywołania
+  `summarizeConversationHistory-full`, wraz z nazwą użytego modelu, także bez
+  późniejszego requestu;
+- łączny bilans kosztu agenta głównego, subagentów i kompaktowań oraz zwijane
+  rozliczenie tych pozycji w identycznych kolumnach;
+- aside kompaktowania z systemowymi zasadami i formatem rezultatu, poleceniem
+  kompaktowania, opcjonalnym poleceniem użytkownika, messages, tools i rezultatem;
+  wpływ na następny input jest
+  pokazywany tylko po potwierdzonym użyciu wyniku;
 - subagenci z własnymi wywołaniami i credits;
 - prawy panel szczegółów rundy z rzeczywistym requestem i response;
 - korelacja odpowiedzi narzędzia ze wcześniejszym żądaniem po call ID;
@@ -41,12 +52,22 @@ Stan dokumentu: 2026-09-06.
 - wyemitowane zlecenie użytkownika;
 - szczegółowy diagram rund głównego agenta i subagentów;
 - warstwa `Kontekst` pokazująca zajętość okna w chwili wysłania;
-- warstwa `Tokeny` z osobnymi seriami nowego inputu, cache read, outputu i
-  cache write;
+- warstwa `Tokeny` z ułożonymi pionowo wykresami nowego inputu, cache read,
+  outputu i cache write; każdy ma własną skalę oraz wartości narastające przy
+  punktach, aby duży cache nie spłaszczał pozostałych pomiarów;
 - warstwa `Credits` z narastającą sumą wyemitowanych credits;
 - wybór rundy otwierający uniwersalny panel `M → A → M`;
 - domyślnie rozwinięty diagram, możliwość ukrycia i poziome przewijanie przez
-  przeciąganie tła.
+  przeciąganie tła oraz widoczne przyciski nawigacji dla długich przebiegów;
+- jawne rozdzielenie liczników całej sesji agentów od liczników wybranej
+  interakcji oraz numerowane pasy subagentów;
+- limonkowy przycisk interakcji i cyjanowe przyciski dokładnie powiązanych
+  kompaktowań bezpośrednio na głównej osi; ostatni węzeł `M…` jest pomarańczową
+  odpowiedzią końcową bez dodatkowego, dublującego węzła końca;
+  otwierają te same faktograficzne panele co zakładka kosztowa, a kompaktowania
+  pozostają poza rundami agenta i klasyfikacją AI;
+- stała szerokość kolumn wykresu, także dla jednoelementowych interakcji, bez
+  deformowania elementów SVG.
 
 ### Mapa pracy — tryb kategorii
 
@@ -58,9 +79,12 @@ Stan dokumentu: 2026-09-06.
 - profil każdego agenta na podstawie jego własnych rund;
 - zapis zwalidowanego wyniku w H2 i automatyczne przywrócenie bez kolejnego
   zapytania;
-- procentowy podział credits według kategorii z resztą `Poza kategoriami`;
+- procentowy podział credits według kategorii z resztą `Poza kategoriami` oraz
+  lokalnie dodanym `Kompaktowaniem kontekstu`; jego wyemitowane credits wchodzą do
+  wspólnego mianownika bez wysyłania kompaktowania do AI;
 - dominujący obszar i ostrożna wskazówka do sprawdzenia;
-- fazy tworzone z sąsiednich rund o identycznym zestawie kategorii;
+- fazy tworzone z sąsiednich rund o identycznym zestawie kategorii oraz osobne,
+  chronologiczne karty kompaktowań oparte na telemetrii;
 - oznaczenia `M1–M3` i `S2:M1–M15`;
 - udział typów narzędzi w każdej fazie;
 - pełne credits wywołań należących do fazy i pokrycie braków;
@@ -113,8 +137,8 @@ kontroli nie wolno przypisywać spadku credits jednej zmianie.
 
 - bardzo długie sesje nadal tworzą szeroki szczegółowy diagram;
 - zagregowane karty są skrótem, ale wieloetykietowe fazy mogą mieć długie nazwy;
-- initial bundle Angulara przy ostatniej weryfikacji miał 776,34 kB i przekraczał
-  budżet 750 kB o 26,34 kB;
+- initial bundle Angulara przy ostatniej weryfikacji miał 827,62 kB i przekraczał
+  budżet 750 kB o 77,61 kB;
 - CSS komponentu mapy jest duży i mocno skompresowany, co utrudnia dalsze zmiany.
 
 ## Priorytet P0 — utrwalenie poprawności

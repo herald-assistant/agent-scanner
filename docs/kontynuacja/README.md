@@ -23,6 +23,9 @@ najpierw ustalić, czy zmiana jest niedokończona, a następnie zaktualizować o
 
 Dokumenty specjalistyczne:
 
+- [Strategia optymalizacji kosztów pracy agentowej](../optymalizacja-kosztow-pracy-agentowej.md)
+  — model kosztu, portfel interwencji, kontrakt rekomendacji, metodyka „przed/po”
+  i plan dedykowanych stron;
 - [Klasyfikacja odpowiedzi modelu](../klasyfikacja-narzedzi-ai.md) — dokładny
   kontrakt `model-actions-v5`, zakres promptu, walidacja i estymacja credits;
 - [Playbook GitHub Copilot SDK Java](../github-copilot-sdk-local-java-spring-ai.md)
@@ -91,9 +94,11 @@ wywołania. Nawigacja `<` i `>` przechodzi po rundach sekwencji.
 - GitHub Copilot Java SDK 1.0.11; wymagany zgodny Copilot CLI.
 - Kontrakt analizy AI: `model-actions-v5`.
 - Kontrakt rekonstrukcji epizodów: `copilot-episode-v1`.
-- Frontend: 106 testów przechodziło po ostatniej zmianie wizualnej.
-- `npm run build` przechodził; initial bundle miał 776,34 kB i przekraczał budżet
-  750 kB o 26,34 kB.
+- Frontend: 121 testów przechodzi po identyfikacji kompaktowania po conversation
+  ID, dodaniu inspektora requestu i rezultatu w prawym aside, włączeniu kompaktowań
+  do rozliczenia kosztu oraz pokazaniu ich na granicach interakcji w mapie pracy.
+- `npm run build` przechodzi; initial bundle ma 846,36 kB i przekracza budżet
+  750 kB o 96,36 kB.
 - Working tree zawiera szeroki, niezatwierdzony zestaw zmian tej funkcji. Nie
   wykonywać resetu ani automatycznego formatowania całego repozytorium.
 

@@ -1,9 +1,11 @@
+import {NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectionStrategy, Component, computed, inject, input, TemplateRef} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
-import {MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
+import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
 import {episodeLaunches, sessionEpisodes} from '../../core/session-episodes';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
+import {ContextCompactionDetailsComponent} from '../context-compaction/context-compaction-details.component';
 
 interface ConfirmedProblem {
   title: string;
@@ -19,7 +21,7 @@ interface RoundPanelItem {
 
 @Component({
   selector: 'as-interaction-timeline',
-  imports: [MatIconModule, MatTooltipModule],
+  imports: [NgTemplateOutlet, MatIconModule, MatTooltipModule, ContextCompactionDetailsComponent],
   templateUrl: './interaction-timeline.component.html',
   styleUrl: './interaction-timeline.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,6 +29,7 @@ interface RoundPanelItem {
 export class InteractionTimelineComponent {
   readonly turns = input.required<ModelTurn[]>();
   readonly interactions = input.required<UserInteraction[]>();
+  readonly contextCompactions = input<ContextCompactionMeasurement[]>([]);
   readonly messages = input.required<MessageRecord[]>();
   readonly calibrationSpans = input.required<SpanRecord[]>();
   readonly relatedModelCalls = input<RelatedModelCall[]>([]);
@@ -97,6 +100,12 @@ export class InteractionTimelineComponent {
     this.detailsPanel.openTemplate(template, {$implicit: tool}, eyebrow, this.friendlyToolTitle(tool), 'Szczegóły pracy subagenta', event.currentTarget);
   }
 
+  openCompactionDetails(template: TemplateRef<unknown>, compaction: ContextCompactionMeasurement, event: Event): void {
+    const target = compaction.afterInteractionIndex ? `PRZED INTERAKCJĄ ${compaction.afterInteractionIndex}` : 'PO OSTATNIEJ INTERAKCJI';
+    this.detailsPanel.openTemplate(template, {$implicit: compaction}, `KOMPAKTOWANIE · ${target}`,
+      'Kompaktowanie sesji', 'Szczegóły kompaktowania sesji', event.currentTarget);
+  }
+
   private showRoundDetails(items: RoundPanelItem[], selected: RoundPanelItem, calibrationSpans: SpanRecord[], subagent: boolean,
                            origin?: EventTarget | null): void {
     const index = items.indexOf(selected);
@@ -131,6 +140,34 @@ export class InteractionTimelineComponent {
 
   interactionForTurn(turn: ModelTurn): UserInteraction | undefined {
     return this.interactions().find(interaction => interaction.index === turn.interactionIndex);
+  }
+
+  compactionsForTurn(turn: ModelTurn): ContextCompactionMeasurement[] {
+    return this.contextCompactions().filter(compaction => compaction.placementBeforeModelId === turn.model.id);
+  }
+
+  trailingCompactions(): ContextCompactionMeasurement[] {
+    return this.contextCompactions().filter(compaction => compaction.placementBeforeModelId == null);
+  }
+
+  compactionPositionLabel(compaction: ContextCompactionMeasurement): string {
+    return compaction.afterInteractionIndex ? `PRZED INTERAKCJĄ ${compaction.afterInteractionIndex}` :
+      compaction.placementBeforeModelId != null ? 'PRZED KOLEJNYM WYWOŁANIEM MODELU' : 'PO OSTATNIEJ INTERAKCJI';
+  }
+
+  compactionStatusLabel(compaction: ContextCompactionMeasurement): string {
+    if (compaction.resultObservedInModelId != null) return `wynik użyty w interakcji ${compaction.afterInteractionIndex}`;
+    return compaction.placementBeforeModelId != null ? 'brak potwierdzonego użycia wyniku' : 'brak kolejnego requestu w telemetrii';
+  }
+
+  compactionSource(compaction: ContextCompactionMeasurement): SessionDetail | undefined {
+    return [this.detail(), ...this.relatedDetails()].find(detail => detail.session.id === compaction.sessionId);
+  }
+
+  exactTokenLabel(value?: number): string { return value == null ? '—' : this.standardNumberFormat.format(value); }
+
+  compactionCreditsLabel(value?: number): string {
+    return value == null ? '—' : this.callCreditFormat.format(value);
   }
 
   interactionFreshInputTokens(interaction: UserInteraction): number {

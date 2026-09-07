@@ -116,14 +116,52 @@ export interface RelatedModelCall {
   label: string;
 }
 
+export interface SessionCostGroup {
+  id: string;
+  kind: 'main' | 'subagent';
+  agentName?: string;
+  startedAt?: string;
+  spans: SpanRecord[];
+}
+
+export interface ContextCompactionMeasurement {
+  id: string;
+  sessionId: number;
+  spanId: number;
+  agentName: string;
+  model?: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  inputTokens?: number;
+  freshInputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  credits?: number;
+  resultCharacters: number;
+  placementBeforeModelId?: number;
+  resultObservedInModelId?: number;
+  beforeInteractionIndex?: number;
+  afterInteractionIndex?: number;
+  observedAt?: string;
+  beforeInputTokens?: number;
+  afterInputTokens?: number;
+  beforeOccupancy?: number;
+  afterOccupancy?: number;
+}
+
 export interface SessionView {
   source: SessionDetail;
   relatedSource: SessionDetail[];
   tools: SpanRecord[];
   primaryModelSpans: SpanRecord[];
   billingModelSpans: SpanRecord[];
+  costGroups: SessionCostGroup[];
   modelTurns: ModelTurn[];
   interactions: UserInteraction[];
+  contextCompactions: ContextCompactionMeasurement[];
   relatedModelCalls: RelatedModelCall[];
   assistantAnswer: string;
   toolDefinitionNames: string[];

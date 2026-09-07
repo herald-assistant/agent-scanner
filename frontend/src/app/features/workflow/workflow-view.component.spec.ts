@@ -41,16 +41,21 @@ describe('WorkflowViewComponent', () => {
 
   it('leads with the actual user request and a selectable map without duplicated round measurements', () => {
     const element: HTMLElement = fixture.nativeElement;
-    expect(element.querySelector('.prompt-copy')?.textContent).toContain('Porównaj dwa warianty');
+    expect(element.querySelector('.interaction-node')?.textContent).toContain('Porównaj dwa warianty');
     expect(element.querySelectorAll('.agent-lane')).toHaveLength(2);
-    expect(element.querySelectorAll('.round-node')).toHaveLength(9);
+    expect(element.querySelectorAll('.model-round-node')).toHaveLength(9);
+    expect(element.querySelectorAll('.boundary-node')).toHaveLength(1);
+    expect(element.querySelectorAll('.final-response-node')).toHaveLength(1);
     expect(element.querySelector('.measurements')).toBeNull();
     expect(element.querySelector('.bottom-grid')).toBeNull();
     expect(element.querySelector('.rules-scroll')).toBeNull();
     expect(element.querySelectorAll('.delegation-edges > path')).toHaveLength(2);
-    expect(element.querySelector('.analysis-menu-copy')?.textContent).toContain('9 rund · 2 agentów');
+    expect(element.querySelector('.analysis-scope')?.textContent).toContain('CAŁA SESJA AGENTÓW');
+    expect(element.querySelector('.analysis-menu-copy')?.textContent).toContain('9 rund pracy · 2 agentów');
+    expect(element.querySelector('.map-status')?.textContent).toContain('ZAKRES: INTERAKCJA 1');
     expect([...element.querySelectorAll('.child-lane .round-number')].map(node => node.textContent?.trim())).toEqual(['M1', 'M2']);
     expect(element.querySelector('.child-lane .lane-label')?.textContent).toContain('Potwierdzona delegacja');
+    expect(element.querySelector('.child-lane .lane-label strong')?.textContent).toContain('Subagent 1');
     expect(element.querySelector('.handoff-caption')).toBeNull();
     expect(element.querySelector('.axis-label')?.textContent).toContain('Okno kontekstowe');
     expect(element.textContent).not.toContain('Presja promptu');
@@ -65,23 +70,27 @@ describe('WorkflowViewComponent', () => {
     const switches = element.querySelectorAll<HTMLButtonElement>('.layer-switch button');
     switches[1].click(); fixture.detectChanges();
     expect(element.querySelector('.axis-label')?.textContent).toContain('Tokeny narastająco');
-    expect(element.querySelector('.chart-series-legend')?.textContent).toContain('Nowy input');
-    expect(element.querySelector('.chart-series-legend')?.textContent).toContain('Input z cache');
-    expect(element.querySelector('.chart-series-legend')?.textContent).toContain('Output');
-    expect(element.querySelector('.chart-series-legend')?.textContent).toContain('Cache write');
+    expect([...element.querySelectorAll('.token-axis-title')].map(label => label.textContent?.trim())).toEqual(['Nowy input', 'Input z cache', 'Output', 'Cache write']);
+    expect(element.querySelectorAll('.token-chart-row')).toHaveLength(4);
+    expect(element.querySelectorAll('.token-layer-chart')).toHaveLength(4);
     expect(element.querySelectorAll('.token-series')).toHaveLength(4);
-    expect(element.querySelectorAll('.layer-chart .point-value')).toHaveLength(0);
+    expect(element.querySelectorAll('.token-layer-chart .point-value').length).toBeGreaterThan(0);
+    expect(fixture.componentInstance.layerChartHeight()).toBe(448);
     const tokenSeries = new Map(fixture.componentInstance.layerChart().series.map(series => [series.id, series]));
     const sum = (key: 'fresh' | 'cache' | 'output' | 'cacheWrite' | 'credits') => fixture.componentInstance.columns()
       .reduce((total, round) => total + (known(round[key]) ?? 0), 0);
     expect(tokenSeries.get('fresh')?.total).toBe(sum('fresh'));
     expect(tokenSeries.get('cache')?.total).toBe(sum('cache'));
     expect(tokenSeries.get('output')?.total).toBe(sum('output'));
+    for (const id of ['fresh', 'cache', 'output']) {
+      expect(tokenSeries.get(id)?.points.at(-1)?.y).toBe(22);
+    }
     switches[2].click(); fixture.detectChanges();
     expect(element.querySelector('.axis-label')?.textContent).toContain('Credits narastająco');
     expect(element.querySelector('.axis-label')?.textContent).toContain('Suma wyemitowanych credits');
     expect(element.querySelectorAll('.credits-series .point-value').length).toBeGreaterThan(0);
     expect(fixture.componentInstance.layerChart().series[0].total!).toBeCloseTo(sum('credits'));
+    expect(fixture.componentInstance.layerChartHeight()).toBe(112);
     switches[0].click(); fixture.detectChanges();
     expect(element.querySelector('.axis-label')?.textContent).toContain('Okno kontekstowe');
   });
@@ -104,7 +113,7 @@ describe('WorkflowViewComponent', () => {
   });
 
   it('opens the clicked workflow round directly in the universal factual panel', () => {
-    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.round-node')!;
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.model-round-node')!;
     button.click();
     const panel = TestBed.inject(RoundDetailsPanelService).panel();
     expect(panel?.kind).toBe('round');
@@ -121,6 +130,18 @@ describe('WorkflowViewComponent', () => {
     expect(nextPanel?.kind === 'round' ? nextPanel.data.turn.model.id : undefined).toBe(3);
   });
 
+  it('opens the initial request and final response from their colored flow nodes', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    element.querySelector<HTMLButtonElement>('.interaction-node')!.click();
+    const initial = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(initial?.kind === 'round' ? initial.data.mode : undefined).toBe('request');
+    expect(initial?.kind === 'round' ? initial.data.headingContext : '').toContain('start');
+    element.querySelector<HTMLButtonElement>('.final-response-node')!.click();
+    const response = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(response?.kind === 'round' ? response.data.mode : undefined).toBe('final');
+    expect(response?.kind === 'round' ? response.data.headingContext : '').toContain('odpowiedź końcowa');
+  });
+
   it('keeps an unknown context window measurement as a gap instead of zero', async () => {
     fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([span(1)]), []));
     fixture.detectChanges();
@@ -130,9 +151,44 @@ describe('WorkflowViewComponent', () => {
     expect(fixture.componentInstance.selected()).toBeTruthy();
   });
 
+  it('keeps a one-round chart and node on the same fixed-width column without stretching svg geometry', async () => {
+    fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([chat(91)]), []));
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const chart = element.querySelector<SVGElement>('.layer-chart')!;
+    expect(chart.style.width).toBe('176px');
+    expect(chart.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet');
+    expect(element.querySelector<HTMLElement>('.lane-track')?.style.gridTemplateColumns).toBe('repeat(2, 88px)');
+    expect(element.querySelector('.layer-chart circle')?.getAttribute('cx')).toBe('132');
+    expect([...element.querySelectorAll('.primary-lane .round-number')].map(node => node.textContent?.trim())).toEqual(['START', 'M1']);
+    expect(element.querySelector('.final-response-node .node-caption')?.textContent).toContain('Odpowiedź');
+  });
+
+  it('shows compaction at the interaction boundary and opens its existing factual details panel', () => {
+    fixture.componentRef.setInput('contextCompactions', [{
+      id: '192/865', sessionId: 192, spanId: 865, agentName: 'summarizeConversationHistory-full', model: 'gpt-5.6-terra',
+      startedAt: '2026-01-01T10:58:30Z', inputTokens: 96_756, outputTokens: 6_081, credits: 29.672,
+      resultCharacters: 15_000, placementBeforeModelId: 1, resultObservedInModelId: 1, afterInteractionIndex: 1,
+      beforeInputTokens: 120_243, afterInputTokens: 28_831
+    }]);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const marker = element.querySelector<HTMLButtonElement>('.compaction-node')!;
+    expect(marker.closest('.primary-lane')).not.toBeNull();
+    expect(marker.textContent).toContain('Kompaktowanie');
+    expect(marker.textContent).toContain('120,2\u00a0tys. → 28,8\u00a0tys.');
+    element.querySelectorAll<HTMLButtonElement>('.layer-switch button')[2].click(); fixture.detectChanges();
+    expect(marker.textContent).toContain('29,672');
+    expect(element.querySelector('.analysis-menu-copy')?.textContent).toContain('1 kompaktowanie pokazane na osi');
+    marker.click();
+    const panel = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(panel?.kind).toBe('template');
+    expect(panel?.ariaLabel).toBe('Szczegóły kompaktowania sesji');
+  });
+
   it('renders only the universal M to A to M content in the aside', () => {
     const element: HTMLElement = fixture.nativeElement;
-    element.querySelector<HTMLButtonElement>('.round-node')!.click();
+    element.querySelector<HTMLButtonElement>('.model-round-node')!.click();
     const aside = TestBed.createComponent(RoundDetailsAsideComponent);
     try {
       aside.detectChanges();
@@ -174,13 +230,23 @@ describe('WorkflowViewComponent', () => {
     expect(scroll.releasePointerCapture).toHaveBeenCalledWith(7);
   });
 
+  it('offers visible horizontal navigation for a long interaction', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const scroll = element.querySelector<HTMLDivElement>('.map-scroll')!;
+    scroll.scrollBy = vi.fn();
+    expect(element.querySelector('.map-navigation-hint')?.textContent).toContain('10 kroków');
+    element.querySelector<HTMLButtonElement>('button[aria-label="Przewiń mapę w prawo"]')!.click();
+    expect(scroll.scrollBy).toHaveBeenCalledWith(expect.objectContaining({left: expect.any(Number), behavior: 'smooth'}));
+  });
+
   it('changes interaction scope and resets selection when the session changes', async () => {
     fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([chat(1), chat(2, 1000, 800, 50, {}, {traceId: 'second'})]), []));
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
     element.querySelectorAll<HTMLButtonElement>('.interaction-switch button')[1].click(); fixture.detectChanges();
-    expect(element.querySelectorAll('.round-node')).toHaveLength(1);
-    expect(element.querySelector('.prompt-copy')?.textContent).toContain('INTERAKCJA 2');
+    expect(element.querySelectorAll('.model-round-node')).toHaveLength(1);
+    expect(element.querySelectorAll('.round-node')).toHaveLength(2);
+    expect(element.querySelector('.interaction-node .node-caption')?.textContent).toContain('Interakcja 2');
     fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([], 42, 'empty'), []));
     fixture.detectChanges();
     expect(element.querySelector('.empty-map')?.textContent).toContain('Mapa czeka');
@@ -197,6 +263,15 @@ describe('WorkflowViewComponent', () => {
         toolId: invocation.toolId, actions: [invocation.name === 'delegate' ? 'DELEGATE' : 'ACQUIRE_DATA'], fit: context.goal ? 'SUPPORTING' : 'UNKNOWN', reason: 'Żądanie pozyskania danych lub delegacji.'})))),
       rounds: request.contexts.flatMap(context => context.rounds.map(round => ({roundId: round.id, actions: actions(round),
         evidenceInvocationIds: round.invocations.map(invocation => invocation.id), reason: 'Żądana akcja wynika z odpowiedzi modelu.'})))}));
+    fixture.componentRef.setInput('contextCompactions', [
+      {id: 'compaction-before', sessionId: 192, spanId: 865, agentName: 'summarizeConversationHistory-full', model: 'gpt-5.6-terra',
+        startedAt: '2026-01-01T10:58:30Z', inputTokens: 96_756, outputTokens: 6_081, credits: .3,
+        resultCharacters: 15_000, placementBeforeModelId: 1, resultObservedInModelId: 1, afterInteractionIndex: 1},
+      {id: 'compaction-after', sessionId: 193, spanId: 866, agentName: 'summarizeConversationHistory-full', model: 'gpt-5.6-terra',
+        startedAt: '2026-01-01T11:15:00Z', inputTokens: 12_793, outputTokens: 4_474, credits: .2,
+        resultCharacters: 11_000}
+    ]);
+    fixture.detectChanges();
     await fixture.componentInstance.classifyTools(); fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
     expect(classify).toHaveBeenCalledTimes(1);
@@ -207,8 +282,10 @@ describe('WorkflowViewComponent', () => {
     expect(element.querySelector('.action-summary')?.textContent).toContain('PODZIAŁ CREDITS');
     expect(element.querySelector('.action-summary')?.textContent).toContain('Pozyskanie danych');
     expect(element.querySelector('.action-summary')?.textContent).toContain('Żądanie delegacji');
-    expect(element.querySelector('.action-summary')?.textContent).toContain('Przypisane kategoriom');
+    expect(element.querySelector('.action-summary')?.textContent).toContain('Ujęte w kategoriach');
     expect(element.querySelector('.action-summary')?.textContent).toContain('Poza kategoriami');
+    expect(element.querySelector('.action-summary')?.textContent).toContain('Kompaktowanie kontekstu');
+    expect(element.querySelector('.compaction-category .action-credit-share strong')?.textContent).not.toContain('≈');
     expect(element.querySelector('.optimization-hero')?.textContent).toContain('NAJWIĘKSZY OBSZAR DO SPRAWDZENIA');
     expect(element.querySelector('.optimization-hero')?.textContent).toContain('Co warto sprawdzić');
     expect(element.querySelectorAll('.action-ranking-row').length).toBeGreaterThan(1);
@@ -216,45 +293,53 @@ describe('WorkflowViewComponent', () => {
     expect(element.querySelector('.action-summary details')).toBeNull();
     expect(element.querySelector('.action-credit-total')).toBeNull();
     expect(element.querySelector('.action-credit-share')?.textContent).toContain('%');
-    expect(element.querySelector('.action-summary')?.textContent).toContain('credits objętych analizą');
+    expect(element.querySelector('.action-summary')?.textContent).toContain('credits objętych zestawieniem');
     expect(element.querySelector('.action-summary .info-tip')).not.toBeNull();
     expect(fixture.componentInstance.analyzedCreditsTooltip()).toContain('nie wylicza credits');
+    expect(fixture.componentInstance.analyzedCreditsTooltip()).toContain('nie są wysyłane do AI');
     expect(element.querySelector('.classification-ready')?.textContent).toContain('Analiza gotowa');
     expect(element.querySelector('.map-scroll')).not.toBeNull();
-    expect(element.querySelector('.phase-panel')?.textContent).toContain('ZAGREGOWANY PRZEBIEG · AGENT I SUBAGENCI');
+    expect(element.querySelector('.phase-panel')?.textContent).toContain('ZAGREGOWANY PRZEBIEG · AGENT, SUBAGENCI I KOMPAKTOWANIA');
     expect(element.querySelector('.map-panel')?.textContent).toContain('SZCZEGÓŁOWY PRZEBIEG · RUNDY MODELU');
     expect([...element.querySelectorAll('.action-summary, .phase-panel, .map-panel')].map(node => node.className)).toEqual([
       'action-summary', 'phase-panel', 'map-panel'
     ]);
     const phases = fixture.componentInstance.aggregatedPhases();
+    const roundPhases = phases.filter(phase => !phase.compaction);
     expect(phases.flatMap(phase => phase.rounds.map(round => round.ref))).toEqual(fixture.componentInstance.columns().map(round => round.ref));
+    expect(phases[0]).toMatchObject({label: 'Kompaktowanie kontekstu', credits: .3, totalCalls: 1});
+    expect(phases.at(-1)).toMatchObject({label: 'Kompaktowanie kontekstu', credits: .2, totalCalls: 1});
     expect(phases.flatMap(phase => phase.roundLabels)).toContain('S1:M1');
     expect(phases.flatMap(phase => phase.roundLabels)).toContain('S1:M2');
-    expect(phases.at(-1)?.roundLabels).toEqual(['M4', 'M5', 'M6', 'M7']);
-    expect(phases.at(-1)).toMatchObject({credits: .4, creditCovered: 4});
-    expect([...element.querySelectorAll('.phase-card')].at(-1)?.textContent).toContain('M4–M7');
-    expect([...element.querySelectorAll('.phase-card')].at(-1)?.textContent).toContain('Credits wywołań w fazie0,4');
+    expect(roundPhases.at(-1)?.roundLabels).toEqual(['M4', 'M5', 'M6', 'M7']);
+    expect(roundPhases.at(-1)).toMatchObject({credits: .4, creditCovered: 4});
+    expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('M4–M7');
+    expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('Credits wywołań w fazie0,4');
+    expect(element.querySelectorAll('.compaction-phase')).toHaveLength(2);
+    expect(element.querySelector('.compaction-phase')?.textContent).toContain('Fakt z telemetrii · poza analizą AI');
     expect(element.querySelectorAll('.phase-category-icon')).toHaveLength(phases.length);
     expect(element.querySelectorAll('.phase-actor-icon')).toHaveLength(phases.length);
-    expect(element.querySelector('.phase-round-copy')?.textContent).toContain('Główny agent');
+    expect(element.querySelector('.phase-card:not(.compaction-phase) .phase-round-copy')?.textContent).toContain('Główny agent');
     expect(phases.filter(phase => phase.toolShares.length).every(phase => phase.toolShares.reduce((total, share) => total + share.percent, 0) === 100)).toBe(true);
     expect(element.querySelector('.phase-tool-mix')?.textContent).toContain('Uniwersalne 100%');
     expect(element.querySelector('.phase-tool-mix.general-only')).not.toBeNull();
     expect(element.querySelectorAll('.phase-tool-bar').length).toBe(phases.filter(phase => phase.toolShares.length > 1).length);
-    expect(element.querySelector('.phase-tool-empty')?.textContent).toContain('Bez żądań narzędzi');
+    expect(element.querySelector('.phase-card:not(.compaction-phase) .phase-tool-empty')?.textContent).toContain('Bez żądań narzędzi');
     expect(element.querySelectorAll('.phase-title[tabindex="0"]')).toHaveLength(phases.length);
-    expect(fixture.componentInstance.phaseCategoryTooltip('Pozyskanie danych')).toContain('kategoria działania');
+    expect(fixture.componentInstance.phaseCategoryTooltip(roundPhases[0])).toContain('kategoria działania');
+    expect(fixture.componentInstance.phaseCategoryTooltip(phases[0])).toContain('Nie jest kategorią nadaną przez AI');
     expect(fixture.componentInstance.phaseRoundsTooltip()).toContain('S1:M2');
     expect(fixture.componentInstance.phaseToolMixTooltip()).toContain('nie unikalne nazwy');
     expect(fixture.componentInstance.phaseToolSpecializationTooltip('GENERAL_PURPOSE')).toContain('Sam udział nie dowodzi nieefektywności');
-    expect(fixture.componentInstance.phaseCreditsTooltip(0, 1)).toContain('brak nie oznacza zera');
-    expect(fixture.componentInstance.phaseCreditsTooltip(1, 1)).toContain('Nie musi odpowiadać procentowi kategorii');
+    expect(fixture.componentInstance.phaseCreditsTooltip({...roundPhases[0], creditCovered: 0})).toContain('brak nie oznacza zera');
+    expect(fixture.componentInstance.phaseCreditsTooltip(roundPhases[0])).toContain('Nie musi odpowiadać procentowi kategorii');
+    expect(fixture.componentInstance.phaseCreditsTooltip(phases[0])).toContain('fakt z telemetrii');
     expect(phases.every(phase => phase.creditStrength.endsWith('%'))).toBe(true);
     expect(element.querySelector('.phase-strip button')).toBeNull();
     expect(element.querySelectorAll('.phase-step')).toHaveLength(phases.length);
     expect(element.querySelectorAll('.phase-arrow')).toHaveLength(phases.length);
     expect(element.querySelectorAll('.phase-arrow-placeholder')).toHaveLength(1);
-    const expandedLabels = [...element.querySelectorAll('.round-node .node-caption')].map(node => node.textContent?.trim());
+    const expandedLabels = [...element.querySelectorAll('.model-round-node .node-caption')].map(node => node.textContent?.trim());
     expect(expandedLabels).toContain('Pozyskanie danych');
     expect(expandedLabels).toContain('Żądanie delegacji');
     expect(element.querySelector('.lane-functions')?.textContent).toContain('Pozyskanie danych');
@@ -265,6 +350,10 @@ describe('WorkflowViewComponent', () => {
     const creditAttribution = fixture.componentInstance.creditAttribution()!;
     expect(creditAttribution.knownCredits).toBeCloseTo(.9);
     expect(creditAttribution.assignedCredits! + creditAttribution.unattributedCredits!).toBeCloseTo(.9);
+    expect(fixture.componentInstance.analyzedCreditScope()?.knownCredits).toBeCloseTo(1.4);
+    expect(fixture.componentInstance.analyzedCreditScope()?.totalCalls).toBe(11);
+    expect(fixture.componentInstance.creditCategories().find(item => item.id === 'CONTEXT_COMPACTION')).toMatchObject({totalCredits: .5, estimated: false});
+    expect(fixture.componentInstance.creditCategories().find(item => item.id === 'CONTEXT_COMPACTION')?.shareOfKnown).toBeCloseTo(35.714, 3);
     expect(fixture.componentInstance.compactRoundLabels(['S2:M1', 'S2:M2', 'S2:M3', 'M5', 'M7'])).toBe('S2:M1–M3 · M5 · M7');
     expect(element.querySelector('.category-credits')).toBeNull();
     fixture.componentInstance.setAnalysisView('facts'); fixture.detectChanges();
@@ -285,7 +374,7 @@ describe('WorkflowViewComponent', () => {
     await fixture.componentInstance.classifyTools(); fixture.detectChanges();
     expect(notifyError).toHaveBeenCalledWith('Ustaw token w konfiguracji.');
     expect(fixture.nativeElement.querySelector('.phase-strip')).toBeNull();
-    expect(fixture.nativeElement.querySelectorAll('.round-node')).toHaveLength(9);
+    expect(fixture.nativeElement.querySelectorAll('.model-round-node')).toHaveLength(9);
     expect(fixture.componentInstance.classifying()).toBe(false);
   });
 });

@@ -6,9 +6,10 @@ błędy i wyemitowane pomiary. AI uruchamia wyłącznie przycisk
 przełącznik „Kategorie / Fakty” nie uruchamia modelu.
 
 Po włączeniu kategorii ekran najpierw pokazuje dominującą kategorię według
-estymacji credits i ostrożny kierunek do sprawdzenia. Niżej znajduje się statyczny
-ranking procentowy, zagregowany przebieg głównego agenta i subagentów oraz osobny,
-domyślnie rozwinięty szczegółowy graf wywołań, który użytkownik może ukryć.
+lokalnego podziału credits i ostrożny kierunek do sprawdzenia. Niżej znajduje się
+statyczny ranking procentowy, zagregowany przebieg głównego agenta, subagentów i
+kompaktowań oraz osobny, domyślnie rozwinięty szczegółowy graf wywołań, który
+użytkownik może ukryć.
 
 ## Przedmiot klasyfikacji
 
@@ -18,6 +19,12 @@ pozyskania danych. Wynik wykonania,
 następna runda, uruchomiony subagent ani zdarzenie kompaktowania nie służą
 do klasyfikacji tej odpowiedzi. Żądanie delegacji jest oceniane również wtedy,
 gdy wykonanie lub dziecko nie zostało przechwycone.
+
+Jednoznacznie powiązane wywołania kompaktora pozostają całkowicie poza zapytaniem
+AI. Po otrzymaniu klasyfikacji frontend dodaje je lokalnie jako faktyczną kategorię
+`Kompaktowanie kontekstu`, korzystając wyłącznie z ich wyemitowanych credits i
+położenia na granicy interakcji. W zagregowanym przebiegu każde kompaktowanie jest
+osobną kartą i nie łączy się z sąsiednimi fazami AI.
 
 AI zwraca:
 - możliwości i specjalizację każdej unikalnej definicji;
@@ -134,7 +141,8 @@ koszt kolejnych requestów przez obecność w ich kontekście.
 
 ### Estymacja przypisania credits do kategorii
 
-Mapa może pokazać proporcjonalne przypisanie, ale zawsze oznacza je znakiem `≈`.
+Mapa może pokazać proporcjonalne przypisanie kategorii AI, ale zawsze oznacza je
+znakiem `≈`.
 Dla wywołania z wyemitowanymi credits `C`, inputem `I` i outputem `O` najpierw
 liczymy `C_input = C × I / (I + O)` oraz `C_output = C - C_input`. Nie dodajemy
 osobno reasoning ani cache read. Jeżeli brakuje inputu, outputu albo credits,
@@ -152,10 +160,13 @@ szacujemy jako `liczba znaków / 4,25`, a następnie normalizujemy tak, aby raze
 otrzymały 100% odpowiedniej części credits. Gdy jedno żądanie ma kilka kategorii,
 jego udział dzielimy między nie równo; AI nie wyznacza wag kosztowych.
 
-`Poza kategoriami` pozostaje tylko część wywołania, dla której nie ma dowodu
+`Poza kategoriami` pozostaje tylko część wywołania agenta, dla której nie ma dowodu
 pozwalającego przypisać kategorię, na przykład input pierwszego wywołania agenta.
-Dzięki temu zachodzi: `wyemitowane credits = kategorie + poza kategoriami`.
-Brak danych nie jest zerem.
+Credits jednoznacznie powiązanych kompaktowań są następnie dodawane do wspólnego
+mianownika jako osobna, deterministyczna kategoria. Jej procent nie ma znaku `≈`,
+ponieważ jest ilorazem wyemitowanych credits kompaktora i wszystkich znanych
+credits zestawienia. Dzięki temu zachodzi: `wyemitowane credits = estymowane
+kategorie działań + kompaktowanie + poza kategoriami`. Brak danych nie jest zerem.
 
 Credits wywołań subagentów są rozdzielane według ich własnych sklasyfikowanych
 akcji. Przy kategorii delegacji pokazujemy dodatkowo dokładną znaną sumę drzewa

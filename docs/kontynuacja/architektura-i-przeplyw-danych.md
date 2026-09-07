@@ -150,6 +150,9 @@ wyspecjalizowane role:
 
 | Moduł | Odpowiedzialność |
 |---|---|
+| `auxiliary-model-calls.ts` | Wspólne rozpoznawanie nazw agentów technicznych oraz deterministyczne oddzielanie ich inline wywołań i powiązanych narzędzi. |
+| `context-compaction.ts` | Powiązanie wywołania kompaktującego z rozmową po dokładnych ID, opcjonalne wykrycie późniejszego użycia wyniku oraz odczyt requestu, rezultatu i kosztów. |
+| `CostDashboardComponent` | Łączny bilans całej sesji oraz zwijane, kolumnowo porównywalne rozliczenie agenta głównego, kolejnych subagentów i kompaktowań. |
 | `session-episodes.ts` | Rekonstrukcja epizodów agenta i subagentów z raw ID i drzewa spanów. |
 | `workflow/telemetry.ts` | Bezpieczny odczyt atrybutów, wartości trójstanowe, sortowanie i hashowanie. |
 | `workflow/observations.ts` | Obserwacje rund, narzędzi, tokenów i markerów. |
@@ -200,6 +203,13 @@ Właściciele:
 - `RoundDetailsPanelService` — stan, fokus i nawigacja wspólnego panelu;
 - `RoundDetailsAsideComponent` — prawy panel o minimalnej szerokości desktopowej;
 - `RoundDetailsDialogComponent` — właściwa, faktograficzna treść cyklu.
+
+`InteractionTimelineComponent` korzysta z wariantu szablonowego tego samego panelu
+dla pracy subagenta i kompaktowania. Belka kompaktowania pozostaje krótkim
+zestawieniem kosztów, a `ContextCompactionDetailsComponent` pokazuje razem
+systemowe zasady i format, polecenie konkretnego kompaktowania oraz opcjonalne
+polecenie użytkownika, a następnie messages, tools, rezultat i opcjonalny wpływ na
+kolejny request; nie powstaje drugi, konkurencyjny mechanizm panelu.
 
 Panel przedstawia `M → A → M`:
 

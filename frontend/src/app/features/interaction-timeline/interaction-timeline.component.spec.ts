@@ -129,6 +129,99 @@ describe('InteractionTimelineComponent', () => {
     expect(section.textContent).toContain('Generowanie tytułu');
   });
 
+  it('shows compaction as a cost bar and opens user-facing request and result details', () => {
+    const model = span({id: 18, traceId: 'trace-2', spanId: 'after-summary', startedAt: '2026-01-01T11:00:00Z'});
+    const turn = {index: 2, interactionIndex: 2, interactionTurnIndex: 1, model, tools: []};
+    const compactionSpan = span({id: 865, traceId: 'compact-trace', spanId: 'compact', model: 'gpt-5.6-terra', startedAt: '2026-01-01T10:58:30Z', durationMs: 52435,
+      attributesJson: JSON.stringify({
+        'gen_ai.agent.name': 'summarizeConversationHistory-full',
+        'copilot_chat.user_request': 'Summarize the conversation history.',
+        'gen_ai.system_instructions': 'Compaction rules\n## Additional instructions from the user:\nnie pomijaj szczegółów',
+        'copilot_chat.request.options': JSON.stringify({tool_choice: 'none'})
+      })});
+    const compactionSource = detail();
+    compactionSource.session = {...compactionSource.session, id: 192, agentName: 'summarizeConversationHistory-full'};
+    compactionSource.spans = [compactionSpan];
+    compactionSource.messages = [
+      {id: 1, spanId: 865, direction: 'input', sequenceNo: 0, roleName: 'user', content: JSON.stringify({role: 'user', content: 'Historia rozmowy'}), sourceKind: 'telemetry'},
+      {id: 2, spanId: 865, direction: 'definition', sequenceNo: 0, content: JSON.stringify({name: 'read_file'}), sourceKind: 'telemetry'},
+      {id: 3, spanId: 865, direction: 'output', sequenceNo: 0, roleName: 'assistant', content: JSON.stringify({role: 'assistant', content: '<summary>Skrócony stan pracy</summary>'}), sourceKind: 'telemetry'}
+    ];
+    fixture.componentRef.setInput('turns', [turn]);
+    fixture.componentRef.setInput('interactions', [{index: 2, traceId: 'trace-2', prompt: 'kontynuuj', turns: [turn]}]);
+    fixture.componentRef.setInput('relatedDetails', [compactionSource]);
+    fixture.componentRef.setInput('contextCompactions', [{
+      id: '192/865', sessionId: 192, spanId: 865, agentName: 'summarizeConversationHistory-full',
+      model: 'gpt-5.6-terra',
+      startedAt: '2026-01-01T10:58:30Z', durationMs: 52435, placementBeforeModelId: model.id,
+      resultObservedInModelId: model.id, beforeInteractionIndex: 1, afterInteractionIndex: 2,
+      beforeInputTokens: 120243, afterInputTokens: 28831, beforeOccupancy: .3006075, afterOccupancy: .0720775,
+      inputTokens: 96756, freshInputTokens: 88884, cacheReadTokens: 7872, outputTokens: 6081,
+      reasoningTokens: 54, credits: 29.67189, resultCharacters: 19
+    }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.timeline-compaction') as HTMLElement;
+    expect(marker.textContent).toContain('Kompaktowanie sesji');
+    expect(marker.textContent).toContain('PRACA W OSOBNEJ SESJI');
+    expect(marker.textContent).toContain('96 756');
+    expect(marker.textContent).toContain('6081');
+    expect(marker.textContent).toContain('29,672');
+    expect(marker.textContent).toContain('gpt-5.6-terra');
+    expect(marker.textContent).not.toContain('76,0% mniej');
+
+    marker.querySelector<HTMLElement>('.detail-trigger')!.click();
+    const panel = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(panel?.kind).toBe('template');
+    if (panel?.kind === 'template') {
+      expect(panel.title).toBe('Kompaktowanie sesji');
+      expect(panel.context).toEqual({$implicit: component.contextCompactions()[0]});
+      const view = panel.template.createEmbeddedView(panel.context ?? {});
+      view.detectChanges();
+      const host = document.createElement('div');
+      for (const node of view.rootNodes) host.append(node);
+      expect(host.textContent).toContain('Osobny model przygotował krótszy zapis rozmowy');
+      expect(host.textContent).toContain('MODEL UŻYTY DO KOMPAKTOWANIA');
+      expect(host.textContent).toContain('gpt-5.6-terra');
+      expect(host.textContent).toContain('ZASADY I FORMAT REZULTATU');
+      expect(host.textContent).toContain('System instructions');
+      expect(host.textContent).toContain('Compaction rules');
+      expect(host.textContent).toContain('ZADANIE W TYM WYWOŁANIU');
+      expect(host.textContent).toContain('nie pomijaj szczegółów');
+      expect(host.textContent).toContain('Summarize the conversation history.');
+      expect(host.textContent).toContain('Messages / input items');
+      expect(host.textContent).toContain('read_file');
+      expect(host.textContent).toContain('Skrócony stan pracy');
+      expect(host.textContent).toContain('102 837 tokenów');
+      expect(host.textContent).toContain('76,0% mniej');
+      expect(host.textContent).toContain('30,1% → 7,2%');
+      expect(host.textContent).not.toContain('Jak Scanner powiązał');
+      expect(host.textContent).not.toContain('conversation-summary');
+      expect(host.textContent?.match(/Compaction rules/g)).toHaveLength(1);
+      view.destroy();
+    }
+  });
+
+  it('shows a later compaction even when telemetry has no following model request', () => {
+    const model = span({id: 19, traceId: 'trace-3', spanId: 'after-summary'});
+    const turn = {index: 1, interactionIndex: 2, interactionTurnIndex: 1, model, tools: []};
+    fixture.componentRef.setInput('turns', [turn]);
+    fixture.componentRef.setInput('interactions', [{index: 2, traceId: 'trace-3', prompt: 'dalej', turns: [turn]}]);
+    fixture.componentRef.setInput('contextCompactions', [{
+      id: '196/872', sessionId: 196, spanId: 872, agentName: 'summarizeConversationHistory-full',
+      startedAt: '2026-01-02T14:00:21Z', durationMs: 68000, inputTokens: 12793, freshInputTokens: 12793,
+      cacheReadTokens: 0, outputTokens: 4474, reasoningTokens: 76, credits: 8.5633, resultCharacters: 12000
+    }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.timeline-compaction') as HTMLElement;
+    expect(marker.textContent).toContain('Kompaktowanie sesji');
+    expect(marker.textContent).toContain('PO OSTATNIEJ INTERAKCJI');
+    expect(marker.textContent).toContain('brak kolejnego requestu w telemetrii');
+    expect(marker.textContent).toContain('12 793');
+    expect(marker.textContent).toContain('8,563');
+  });
+
   it('opens a main model round in the shared right panel', () => {
     const model = span({id: 21, spanId: 'round-21'});
     const nextModel = span({id: 22, spanId: 'round-22'});

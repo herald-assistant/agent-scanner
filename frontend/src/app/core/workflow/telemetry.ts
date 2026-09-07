@@ -9,7 +9,16 @@ export const RULES = {
   threshold: 50, mixedMargin: 10
 } as const;
 export const spanRef = (span: SpanRecord): string => `${span.traceId}/${span.spanId}`;
-export const time = (value?: string): number => value && Number.isFinite(Date.parse(value)) ? Date.parse(value) : NaN;
+export const time = (value?: string): number => {
+  if (!value) return NaN;
+  const direct = Date.parse(value);
+  if (Number.isFinite(direct)) return direct;
+  // The backend preserves database timestamps with microseconds while ECMAScript's ISO grammar
+  // only guarantees milliseconds. Truncate excess fractional digits without changing the instant.
+  const milliseconds = value.replace(/(\.\d{3})\d+(?=(?:Z|[+-]\d{2}:\d{2})$)/, '$1');
+  const parsed = Date.parse(milliseconds);
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
 export const compareText = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
 const orderingTime = (value?: string): number => Number.isFinite(time(value)) ? time(value) : Infinity;
 export const ordered = (a: SpanRecord, b: SpanRecord): number =>

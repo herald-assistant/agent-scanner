@@ -196,11 +196,36 @@ assignment within an episode. No database rewrite is required for old sessions.
 Cost totals include the main episode and uniquely linked descendants once;
 auxiliary requests remain separate. Never use a cumulative session error counter
 as proof of the session's final outcome; label emitted cancellation separately.
+An exact child episode linked from `execution_subagent` remains a subagent even
+when its chat spans use the technical agent name `executionSubagentTool`; do not
+strip those spans as auxiliary calls before building workflow or cost totals.
+
+A manually triggered context compaction may be emitted as a detached
+`summarizeConversationHistory-full` chat without trace linkage to the primary
+session. Treat the actual compaction call as the UI entity: prefer an exact primary
+conversation ID present in the compactor input or explicit span IDs. A later
+summary-shaped request is only evidence that the result was consumed, never the
+identity or display gate for the compaction. The conservative fallback requires a
+matching VS Code resource `session.id` and one uniquely matching later receipt.
+Keep measured tokens, duration and credits in a separate compaction row rather than
+adding them silently to primary round totals. Show calls without a later request at
+the end of the timeline. Show the normalized span model on the row and in the
+aside, with an explicit unknown fallback when it was not emitted. Clicking the row
+opens the shared right-side aside with
+the emitted system instructions as the rules and result format, the per-call
+compaction instruction, optional manual user instruction, emitted messages and tool
+definitions, result, and before/after context only when receipt is confirmed. Keep
+those three instruction layers together under the user-facing “Co zlecono
+modelowi” section instead of presenting system instructions as incidental raw data.
 
 Known technical/auxiliary agent names are centralized in
-`SessionAnalysisService.isAuxiliarySession`. Keep them hidden from the primary
-session list but available under the owning session. Auxiliary requests below the
-interaction list start collapsed.
+`frontend/src/app/core/auxiliary-model-calls.ts`. Apply the same separation to
+standalone auxiliary sessions and inline calls embedded in a primary trace. Keep
+them out of primary round numbering and workflow totals, but available under the
+owning session. A tool execution may move with an inline auxiliary call only when
+an exact call ID proves the link, or when complete captured responses prove that
+the tool name occurs exclusively in auxiliary output. Auxiliary requests below
+the interaction list start collapsed.
 
 ### Token and cost formulas
 
@@ -455,6 +480,22 @@ Preserve these product decisions unless the user explicitly changes them:
 - the main view contains `Koszt i przebieg`, `Mapa pracy` and `Dane techniczne` tabs;
 - the workflow map leads with the emitted user request and a visual round/agent
   path; numeric tables and raw payloads start collapsed;
+- workflow summary counters explicitly distinguish the whole linked agent session
+  from the currently selected interaction. Compaction model calls are not agent
+  rounds and remain outside the action-classification count; show their number
+  separately and render exactly linked compactions as cyan event buttons at the
+  relevant interaction boundary on the detailed map. The same primary lane starts
+  with a lime user-interaction button, while its last `M…` node is styled orange
+  and represents the final response without a duplicate end node. These nodes open
+  the same factual request, compaction and response asides as the execution timeline;
+- long workflow maps expose visible horizontal navigation in addition to drag and
+  native scrolling. Subagent lanes use stable `Subagent N` labels with the emitted
+  agent name as supporting text. Short maps keep fixed-width columns and must not
+  stretch SVG points, text or paths to fill the viewport;
+- the workflow `Tokeny` layer shows fresh input, cache read, output and emitted
+  cache write as vertically stacked cumulative charts. Each metric has its own
+  vertical scale and visible values at measured points; do not flatten smaller
+  series by sharing the cache-dominated scale;
 - no input/output heuristic profiles or bands are shown in the map; AI is invoked
   only by an explicit button. `model-actions-v5` classifies requested tool
   definitions into capabilities/specialization and each M→A request into fixed
@@ -481,16 +522,34 @@ Preserve these product decisions unless the user explicitly changes them:
   category evidence as `Poza kategoriami`, expose call coverage and reconcile
   estimated categories plus remainder to known credits.
   Child calls are allocated to their own actions; delegation may show their exact
-  known subtree total only as a non-additive roll-up;
+  known subtree total only as a non-additive roll-up. Exactly linked compaction
+  calls remain outside the AI request and action classification, but the category
+  view adds them locally as `Kompaktowanie kontekstu`: their emitted credits enter
+  the common denominator without `≈`, and each call appears chronologically as a
+  factual compaction card in the aggregated flow. AI-derived action shares remain
+  marked `≈` and are rescaled against that same denominator;
 - definitions/goals have an inspectable preview. Missing or conflicting definition
   versions leave specialization unknown, but visible request arguments can still
   support an action classification. Generic capability does not imply poor fit, and fit
   never proves execution quality or savings. See docs/klasyfikacja-narzedzi-ai.md;
 - successful compaction/rehydration classification remains gated on an anonymized
   emitter fixture; the map may show the emitted compaction event without claiming
-  success or rehydration;
+  success or rehydration. A uniquely linked detached compaction call contributes
+  its emitted input, cache, output, reasoning, duration and credits even when no
+  later main request exists. The main row stays cost-focused; the shared aside
+  leads with all emitted instruction layers, then shows the actual compaction
+  request parts and result. Deterministic before/after
+  measurements appear only when the result is observed in a later request. Do not
+  present an input drop alone as proof or infer any missing cost component;
 - session KPI dashboard is shown in the cost/execution view, not duplicated in the
   technical view;
+- the dashboard's `Cała sesja` row is the disjoint sum of the main agent, uniquely
+  linked subagents and compaction calls. Below it, an initially collapsed cost
+  breakdown lists the main agent, then subagents chronologically, then compactions
+  chronologically, using identical fresh input, cache read, cache write, output,
+  model time and credits columns. Do not restore a separate compaction summary with
+  redundant `Input + output` and `Input łącznie` cards. Wall-clock session duration
+  stays in the header; the comparable time column sums emitted model-call durations;
 - request details and round token facts are not duplicated when already visible on
   the round bar;
 - round bars show `CACHE WRITE` beside output when at least one round in that

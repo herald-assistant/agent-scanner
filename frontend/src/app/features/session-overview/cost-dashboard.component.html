@@ -1,17 +1,42 @@
 <section class="cost-dashboard">
   <header class="cost-heading">
     <div><span class="eyebrow">KOSZT I PRZEBIEG SESJI</span><h2>Koszt, tokeny i rekordy rund</h2></div>
-    <p>{{ view().modelCalls }} głównego · {{ view().toolActions }}</p>
+    <p><span>{{ view().headingSummary }}</span><small>Czas sesji: {{ view().wallDuration }}</small></p>
   </header>
-  <div class="dashboard-row-title"><span>Cała sesja</span><small>główny agent i powiązani subagenci</small></div>
+  <div class="dashboard-row-title"><span>Cała sesja</span><small>{{ view().totalsScope }}</small></div>
   <div class="session-totals dashboard-grid">
     <article class="fresh"><span>Nowy input <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Nowy input całej sesji" matTooltip="Suma input_tokens minus cache read dla każdego wywołania modelu w sesji. Jest to wartość wyliczona z dwóch dokładnych metryk." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.freshInput }}</strong><small>poza cache read</small></article>
     <article class="cache"><span>Input z cache</span><strong>{{ view().totals.cacheRead }}</strong><small>cache read</small></article>
     <article class="write"><span>Cache write <mat-icon class="info-tip warning" tabindex="0" role="img" aria-label="Informacja o cache write" matTooltip="Jeżeli Copilot nie wyemituje gen_ai.usage.cache_creation.input_tokens, nie odtwarzamy tej wartości z ceny ani estymacji." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.cacheWrite }}</strong><small>{{ view().totals.hasCacheWrite ? 'z telemetrii' : 'niewyemitowane' }}</small></article>
     <article class="output"><span>Output modelu</span><strong>{{ view().totals.output }}</strong><small>tekst i tool calle</small></article>
-    <article><span>Czas trwania sesji <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czas trwania sesji" matTooltip="Czas od początku pierwszej interakcji do ostatniego sygnału sesji; obejmuje również przerwy pomiędzy promptami użytkownika." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.duration }}</strong><small>łącznie z przerwami</small></article>
+    <article><span>Czas modeli <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Łączny czas wywołań modeli" matTooltip="Suma zmierzonych czasów wywołań modeli agenta głównego, subagentów i kompaktowania. Czas całej sesji wraz z przerwami pokazano w nagłówku." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.duration }}</strong><small>{{ view().totals.durationCoverage }}</small></article>
     <article class="cost"><span>Suma credits <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><strong>{{ view().totals.credits }}</strong><small>{{ view().totals.creditCoverage }}</small></article>
   </div>
+  <details class="cost-breakdown">
+    <summary>
+      <span><mat-icon aria-hidden="true">receipt_long</mat-icon><span><strong>Rozliczenie kosztu</strong><small>{{ view().breakdownSummary }}</small></span></span>
+      <mat-icon class="breakdown-chevron" aria-hidden="true">expand_more</mat-icon>
+    </summary>
+    <div class="breakdown-table" role="table" aria-label="Rozliczenie kosztów sesji">
+      <div class="breakdown-header" role="row">
+        <span role="columnheader">Odcinek pracy</span><span role="columnheader">Nowy input</span><span role="columnheader">Input z cache</span><span role="columnheader">Cache write</span><span role="columnheader">Output</span><span role="columnheader">Czas modeli</span><span role="columnheader">Credits</span>
+      </div>
+      @for (row of view().breakdown; track row.id) {
+        <div class="breakdown-row" [class.main]="row.kind === 'main'" [class.subagent]="row.kind === 'subagent'" [class.compaction]="row.kind === 'compaction'" role="row">
+          <span class="breakdown-identity" role="cell">
+            <i>@switch (row.kind) {@case ('main') {<mat-icon aria-hidden="true">smart_toy</mat-icon>} @case ('subagent') {<mat-icon aria-hidden="true">account_tree</mat-icon>} @case ('compaction') {<mat-icon aria-hidden="true">compress</mat-icon>}}</i>
+            <span><strong>{{ row.label }}</strong><small>{{ row.detail }}</small></span>
+          </span>
+          <span class="fresh" role="cell"><strong>{{ row.freshInput }}</strong></span>
+          <span class="cache" role="cell"><strong>{{ row.cacheRead }}</strong></span>
+          <span class="write" role="cell"><strong>{{ row.cacheWrite }}</strong><small>{{ row.cacheWrite === '—' ? 'niewyemitowane' : 'z telemetrii' }}</small></span>
+          <span class="output" role="cell"><strong>{{ row.output }}</strong></span>
+          <span role="cell"><strong>{{ row.duration }}</strong><small>{{ row.durationCoverage }}</small></span>
+          <span class="cost" role="cell"><strong>{{ row.credits }}</strong><small>{{ row.creditCoverage }}</small></span>
+        </div>
+      }
+    </div>
+  </details>
   <div class="dashboard-row-title records"><span>Rekordy rund</span><small>pojedyncze rundy agenta głównego</small></div>
   <div class="round-records dashboard-grid">
     @if (view().records.freshInput; as record) {<article class="fresh"><span>Największy nowy input</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
@@ -21,5 +46,5 @@
     @if (view().records.longest; as record) {<article><span>Najdłuższa runda</span><strong>{{ record.reference }}</strong><b>{{ record.value }}</b></article>}
     <article class="cost"><span>Najdroższa runda <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Koszt w AI credits" [matTooltip]="creditTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span>@if (view().records.mostExpensive; as record) {<strong>{{ record.reference }}</strong><b>{{ record.value }}</b>} @else {<strong>Brak danych</strong><b>koszt niewyemitowany</b>}</article>
   </div>
-  <p class="billing-boundary"><b>Jakość danych:</b> input z cache, output, czasy i koszt pochodzą z telemetrii Copilota. „Nowy input” jest różnicą input − cache read. Cache write pokazujemy wyłącznie wtedy, gdy został wyemitowany. Sum tokenów z wielu rund nie należy porównywać z bieżącym Context Window w VS Code.</p>
+  <p class="billing-boundary"><b>Jakość danych:</b> input z cache, output, czasy i credits pochodzą z telemetrii Copilota. „Nowy input” jest różnicą input − cache read. Suma całej sesji obejmuje agenta głównego, jednoznacznie powiązane subagenty i kompaktowania; rozwijane rozliczenie pokazuje te składniki bez nakładania ich na siebie. Cache write obejmuje tylko wartości jawnie wyemitowane. Sum tokenów z wielu rund nie należy porównywać z bieżącym Context Window w VS Code.</p>
 </section>
