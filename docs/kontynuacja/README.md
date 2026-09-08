@@ -1,6 +1,6 @@
 # Agent Scanner — punkt startowy do kontynuacji
 
-Stan dokumentu: 2026-09-06.
+Stan dokumentu: 2026-09-08.
 
 Ten katalog przekazuje kontekst potrzebny do kontynuowania rozwoju Agent Scanner
 w nowym zadaniu Codexa. Opisuje aktualny kierunek produktu i implementacji. Nie
@@ -26,6 +26,12 @@ Dokumenty specjalistyczne:
 - [Strategia optymalizacji kosztów pracy agentowej](../optymalizacja-kosztow-pracy-agentowej.md)
   — model kosztu, portfel interwencji, kontrakt rekomendacji, metodyka „przed/po”
   i plan dedykowanych stron;
+- [Plan wdrożenia technik bez AI i z AI](../plan-technik-optymalizacji-bez-ai-i-z-ai.md)
+  — szczegółowy plan G0–G12: 16 technik, objaśnienia dla początkujących, wejścia
+  z kategorii/fazy/kompaktowania, doradztwo na żądanie oraz stan rozmowy o jednym
+  ciągłym zakresie rund (G9/G10). G12 planuje osobny, opcjonalny tryb analizy
+  z zatwierdzonym lokalnym projektem i narzędziami wyłącznie do odczytu; dokument
+  obejmuje kontrakty, migawki dowodów, pozostały hardening i testy;
 - [Klasyfikacja odpowiedzi modelu](../klasyfikacja-narzedzi-ai.md) — dokładny
   kontrakt `model-actions-v5`, zakres promptu, walidacja i estymacja credits;
 - [Playbook GitHub Copilot SDK Java](../github-copilot-sdk-local-java-spring-ai.md)
@@ -94,11 +100,21 @@ wywołania. Nawigacja `<` i `>` przechodzi po rundach sekwencji.
 - GitHub Copilot Java SDK 1.0.11; wymagany zgodny Copilot CLI.
 - Kontrakt analizy AI: `model-actions-v5`.
 - Kontrakt rekonstrukcji epizodów: `copilot-episode-v1`.
-- Frontend: 121 testów przechodzi po identyfikacji kompaktowania po conversation
-  ID, dodaniu inspektora requestu i rezultatu w prawym aside, włączeniu kompaktowań
-  do rozliczenia kosztu oraz pokazaniu ich na granicach interakcji w mapie pracy.
-- `npm run build` przechodzi; initial bundle ma 846,36 kB i przekracza budżet
-  750 kB o 96,36 kB.
+- Frontend: 151 testów przechodzi po dodaniu pakietu dowodowego
+  `optimization-advice-v1`, jego redakcji, fingerprintu, podglądu oraz wcześniejszego
+  poradnika i nawigacji do dokładnego dowodu. Dane wejściowe używają teraz kontraktu
+  `guidance-evidence-v2`: każda wybrana runda ma jeden zweryfikowany skrót kosztu,
+  natomiast surowa treść jest reprezentatywną próbką pierwszej, ostatniej,
+  najdroższej i najbardziej narzędziowej/problemowej rundy. Definicje są
+  deduplikowane, a pominięcia grupowane. Lokalne liczby elementów i znaków nie
+  blokują wysłania; jedyną bramką rozmiaru jest okno kontekstowe wybranego modelu
+  egzekwowane przez dostawcę. Podgląd jest potwierdzany przez lokalny
+  backend względem raw signal i rekordu znormalizowanego, a następnie zamrażany na
+  30 minut bez uruchamiania modelu. Jawny przycisk może następnie uruchomić izolowane
+  doradztwo `optimization-advice-v1`; wynik jest walidowany, cache'owany i połączony
+  z dokładnymi dowodami. Klasyfikacja i doradztwo współdzielą jeden slot wykonania AI.
+- `npm run build` przechodzi; initial bundle ma 944,30 kB i przekracza budżet
+  750 kB o 194,30 kB.
 - Working tree zawiera szeroki, niezatwierdzony zestaw zmian tej funkcji. Nie
   wykonywać resetu ani automatycznego formatowania całego repozytorium.
 

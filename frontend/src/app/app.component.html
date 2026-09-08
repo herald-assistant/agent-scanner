@@ -1,5 +1,5 @@
 <div class="shell">
-  <as-topbar [status]="status" (configure)="setConfigVisible(!showConfig)" (pauseToggle)="togglePause()" />
+  <as-topbar [status]="status" (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.currentTarget)" (configure)="setConfigVisible(!showConfig)" (pauseToggle)="togglePause()" />
 
   @if (showConfig) {
     <section class="config-panel">
@@ -81,6 +81,7 @@
           <div class="session-actions">
             <button class="button quiet" (click)="exportSession()">Eksport JSON</button>
             <button class="icon-button danger" matTooltip="Usuń sesję" matTooltipClass="scanner-info-tooltip" aria-label="Usuń sesję" (click)="deleteSession()"><mat-icon>delete</mat-icon></button>
+            <button class="button quiet" (click)="closeSession()">Zamknij sesję</button>
           </div>
         </div>
         <nav class="tabs">
@@ -114,7 +115,8 @@
                 [refreshing]="workflowLoading()"
                 [contextCompactions]="contextCompactions()"
                 [relatedDetails]="relatedDetails"
-                [creditTooltip]="creditTooltip" />
+                [creditTooltip]="creditTooltip"
+                (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.origin, $event.context)" />
             }
           }
           @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
@@ -170,4 +172,15 @@
     </mat-drawer-content>
   </mat-drawer-container>
 </div>
+<ng-template #optimizationGuideTemplate>
+  <as-optimization-guidance
+    [context]="optimizationGuideContext()"
+    [advicePreview]="optimizationAdvicePreview()"
+    [advicePreviewLoading]="optimizationAdvicePreviewLoading()"
+    [adviceResult]="optimizationAdviceResult()"
+    [adviceLoading]="optimizationAdviceLoading()"
+    (evidenceSelected)="openOptimizationEvidence($event)"
+    (advicePreviewRequested)="prepareOptimizationAdvicePreview($event)"
+    (adviceRequested)="requestOptimizationAdvice($event)" />
+</ng-template>
 <as-round-details-aside />

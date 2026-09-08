@@ -378,7 +378,8 @@ together.
 
 ### Existing component ownership
 
-- `TopbarComponent`: receiver status, configuration trigger and pause action.
+- `TopbarComponent`: receiver status, configuration trigger, local optimization
+  guide entry point and pause action.
 - `SessionSidebarComponent`: primary session selection, import and destructive
   cleanup entry points.
 - `CostDashboardComponent`: session totals and per-round records.
@@ -392,6 +393,13 @@ together.
   missing links. Keep this as one flat card; the duplicate raw message starts
   collapsed under `Surowa wiadomość`.
 - `TechnicalViewComponent`: filterable span tree and raw signal/span inspection.
+- `OptimizationGuidanceComponent`: the no-AI technique
+  catalog. It reads the validated `techniques-v1` resource through the local API,
+  owns topic filtering, contextual measurement explanation, technique detail and
+  the copyable trial plan, and opens in the shared right-side aside.
+  `optimization-technique-matcher.ts` owns the deterministic category-to-technique
+  mapping and deduplication. Keep editorial content in the versioned catalog, not
+  duplicated in templates.
 - `WorkflowViewComponent`: factual flow map, context pressure, exact delegation
   lanes, tool definitions and optional AI capability mapping. Its pure analysis lives
   in `WorkflowAnalysisService` and `core/workflow`, called through
@@ -478,6 +486,55 @@ metric in one isolated component.
 Preserve these product decisions unless the user explicitly changes them:
 
 - the main view contains `Koszt i przebieg`, `Mapa pracy` and `Dane techniczne` tabs;
+- the general `Techniki optymalizacji` guide is available from the topbar without
+  a session or AI configuration. Opening, filtering and copying a trial plan must
+  not invoke Copilot or send session data. Techniques are hypotheses to test and
+  include quality checks, setup and maintenance costs rather than promised savings;
+- category and phase `Poznaj techniki` actions reuse that guide with an explicit
+  scope, provenance, credits and coverage. They use only a saved classification
+  and the static matcher; opening them never invokes AI. Category credit shares
+  remain marked `≈`, phase credits are full emitted model-call credits, and
+  compaction offers a separate telemetry-based entry even without classification;
+- contextual optimization guidance links only to exact round or compaction
+  evidence already present in the session. Evidence opens in the existing factual
+  aside above the guide; `Wróć do techniki` must preserve the selected technique,
+  disclosure state and guide scroll. Do not turn the phase card itself into an
+  inspection control;
+- a phase or exactly one compaction can prepare a local, frozen
+  `optimization-advice-v1` preview without invoking AI. The frontend evidence
+  builder keeps emitted, derived, prior-AI and missing values distinct; records
+  truncation/omission, strips system/developer messages and explicit reasoning,
+  redacts recognized secrets and hashes the canonical package. The current source
+  pointers refer to normalized records and must be validated against retained raw
+  signals on the backend before any send action is enabled. Preview, refresh and
+  inspecting exact JSON never invoke Copilot. For a multi-round phase,
+  `guidance-evidence-v2` represents every selected round with one compact,
+  backend-validated cost summary and optional field-level AI classification.
+  Raw content is a deterministic sample across the phase: first, last, highest
+  known credits and the most tool-heavy or confirmed-error round; definitions are
+  deduplicated and omissions are grouped by content kind. Never return to taking
+  the first N fragments or counting repeated fields on one span as separate source
+  references. Local counts of rounds, observations, references, fragments or
+  characters are not analysis eligibility gates. They may drive deterministic
+  sampling and remain visible in the preview, but only the configured model/provider's
+  actual context-window enforcement may reject the complete advisory prompt as too
+  large. Do not reintroduce character-count proxies for a tokenized context window;
+- the detailed workflow map can select one continuous range between a start and
+  end round in the same interaction and agent stream, even without classification.
+  Opening the dedicated discussion modal freezes `round-discussion-evidence-v1`
+  locally and does not invoke AI. It shows the initial user request, selected
+  rounds, emitted credits with coverage, captured request/response/tool boundaries,
+  an informational size estimate and a model selected from the Copilot SDK catalog.
+  Only an explicit first question or follow-up invokes the model. The first turn
+  creates a persistent, text-only SDK session and later turns resume it; Agent
+  Scanner stores the frozen snapshot, SDK session id and audit history, while the
+  Copilot client process is stopped after every turn. Tools, skills, MCP, memory,
+  repository access and discovery remain disabled. The backend revalidates raw and
+  normalized source membership and continuity before and after inference. Answer
+  blocks distinguish evidence-backed explanation, hypothesis and general guidance;
+  the last does not require or imply telemetry evidence. Local character counts or
+  fragment counts never gate sending; only the selected model/provider's actual
+  context-window enforcement may reject the complete prompt;
 - the workflow map leads with the emitted user request and a visual round/agent
   path; numeric tables and raw payloads start collapsed;
 - workflow summary counters explicitly distinguish the whole linked agent session
@@ -532,6 +589,23 @@ Preserve these product decisions unless the user explicitly changes them:
   versions leave specialization unknown, but visible request arguments can still
   support an action classification. Generic capability does not imply poor fit, and fit
   never proves execution quality or savings. See docs/klasyfikacja-narzedzi-ai.md;
+- preparing optimization advice is a local, non-inference step. The frontend builds
+  one `optimization-advice-v1` package for an exact phase or one compaction, and
+  `POST /api/ai/optimization-advice/prepare` validates versions, limits, techniques,
+  source metrics, raw-signal membership, the full normalized-source hash and the
+  source-session relationship before freezing it for 30 minutes. The UI must say
+  that this is locally verified and not sent to AI; preparation must never call
+  `CopilotCompletion`;
+- optimization advice runs only after the explicit `Wyślij do AI` action on a
+  backend-verified, unexpired preview. The execution request contains only the
+  `previewId`; the backend reloads the frozen package, revalidates source
+  immutability before inference and before persistence, and validates the strict
+  `optimization-advice-v1` result. Classification and advice share the single
+  global `AiExecutionCoordinator`. Advice has no tools, skills, repository access,
+  discovery, memory or automatic retry. Present proposals as experiments with
+  conditions, setup, maintenance, quality checks, comparison and limitations;
+  never promise savings. `INSUFFICIENT_EVIDENCE` and `NO_SUITABLE_TECHNIQUE` are
+  valid outcomes. Status and cache lookup never invoke AI;
 - successful compaction/rehydration classification remains gated on an anonymized
   emitter fixture; the map may show the emitted compaction event without claiming
   success or rehydration. A uniquely linked detached compaction call contributes

@@ -101,11 +101,12 @@ class ToolClassificationTest {
         assertFalse(service.prompt(request).contains("confirmedDelegation"));
         assertFalse(service.prompt(request).contains("confirmedError"));
     }
-    @Test void rejectsDuplicateDefinitionsAndOversizedPromptsBeforeCallingCopilot() throws Exception {
+    @Test void rejectsDuplicateDefinitionsButDoesNotUseACharacterThresholdAsAContextProxy() throws Exception {
         var normal = request("Cel");
         assertThrows(IllegalArgumentException.class, () -> service.classify(42, new Request(List.of(normal.tools().get(0), normal.tools().get(0)), normal.agents(), normal.contexts())));
         var huge = mapper.createObjectNode().put("name", "large").put("description", "a".repeat(180_001));
-        assertThrows(IllegalArgumentException.class, () -> service.classify(42, new Request(List.of(new Definition("tool-1", "large", huge)), normal.agents(), normal.contexts())));
+        var largeRequest = new Request(List.of(new Definition("tool-1", "large", huge)), normal.agents(), normal.contexts());
+        assertTrue(service.prompt(largeRequest).length() > 180_000);
         verifyNoInteractions(completion);
     }
     @Test void rejectsInvocationTextThatBypassesTheFrontendLimit() throws Exception {
@@ -146,17 +147,19 @@ class ToolClassificationTest {
     }
     @Test void exposesNoCredentialAndDoesNotStartSdkWhenUnconfigured() throws Exception {
         var empty = new CopilotProperties(null, null, null, null, 30);
-        var controller = new ToolClassificationController(empty, service);
+        var coordinator = new AiExecutionCoordinator();
+        var controller = new ToolClassificationController(empty, service, coordinator);
         try {
             var mvc = MockMvcBuilders.standaloneSetup(controller).build();
             mvc.perform(get("/api/ai/tool-classification/status")).andExpect(status().isOk()).andExpect(jsonPath("$.configured").value(false)).andExpect(jsonPath("$.githubToken").doesNotExist());
             var pending = mvc.perform(post("/api/ai/tool-classification").param("sessionId", "42").contentType("application/json").content(mapper.writeValueAsBytes(request("Cel")))).andReturn();
             mvc.perform(asyncDispatch(pending)).andExpect(status().isServiceUnavailable());
             verifyNoInteractions(completion);
-        } finally { controller.close(); }
+        } finally { coordinator.close(); }
     }
     @Test void returnsValidatedResultThroughAsyncHttpAndSanitizesSdkErrors() throws Exception {
-        var controller = new ToolClassificationController(properties, service);
+        var coordinator = new AiExecutionCoordinator();
+        var controller = new ToolClassificationController(properties, service, coordinator);
         try {
             var mvc = MockMvcBuilders.standaloneSetup(controller).build();
             when(completion.complete(anyString())).thenReturn(ANSWER);
@@ -166,17 +169,18 @@ class ToolClassificationTest {
             var failed = mvc.perform(post("/api/ai/tool-classification").param("sessionId", "42").contentType("application/json").content(mapper.writeValueAsBytes(request("Cel")))).andReturn();
             String body = mvc.perform(asyncDispatch(failed)).andExpect(status().isBadGateway()).andReturn().getResponse().getContentAsString();
             assertFalse(body.contains("synthetic-secret"));
-        } finally { controller.close(); }
+        } finally { coordinator.close(); }
     }
-    @Test void exposesSafeActionableCopilotRuntimeFailure() throws Exception {
-        var controller = new ToolClassificationController(properties, service);
+    @Test void exposesSafeActionableAiExecutionFailure() throws Exception {
+        var coordinator = new AiExecutionCoordinator();
+        var controller = new ToolClassificationController(properties, service, coordinator);
         try {
             var mvc = MockMvcBuilders.standaloneSetup(controller).build();
-            when(completion.complete(anyString())).thenThrow(new CopilotCompletion.RuntimeFailure("Model „test-model” nie jest dostępny."));
+            when(completion.complete(anyString())).thenThrow(new AiExecutionException(AiExecutionException.Code.RUNTIME, "Model „test-model” nie jest dostępny."));
             var pending = mvc.perform(post("/api/ai/tool-classification").param("sessionId", "42").contentType("application/json")
                 .content(mapper.writeValueAsBytes(request("Cel")))).andReturn();
             mvc.perform(asyncDispatch(pending)).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error").value("Model „test-model” nie jest dostępny."));
-        } finally { controller.close(); }
+        } finally { coordinator.close(); }
     }
 }

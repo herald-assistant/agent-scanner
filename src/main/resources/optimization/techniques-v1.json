@@ -1,0 +1,394 @@
+{
+  "version": "techniques-v1",
+  "techniques": [
+    {
+      "id": "T04",
+      "revision": 1,
+      "title": "Zacznij od mapy projektu",
+      "explanation": "Duże repozytorium nie musi trafiać do kontekstu w całości. Krótka mapa projektu pomaga wskazać moduły, symbole i dokumenty, które warto sprawdzić jako pierwsze.",
+      "mechanism": "Stały indeks kieruje wyszukiwanie do małego zbioru prawdopodobnie istotnych plików. Kod, test lub dokument nadal pozostaje źródłem prawdy.",
+      "firstExperimentGoal": "Sprawdzić, czy mapa zmniejszy liczbę odczytanych plików bez pogorszenia trafności wyniku.",
+      "simplerAlternative": "Zamiast mapować cały projekt, przygotuj krótką listę punktów wejścia tylko dla jednego często zmienianego modułu.",
+      "topics": ["ACQUIRE_DATA"],
+      "whenUseful": [
+        "Repozytorium jest duże albo ma wiele modułów.",
+        "Podobne zadania regularnie zaczynają się od szerokiego wyszukiwania.",
+        "Struktura projektu jest na tyle stabilna, że mapę można utrzymać."
+      ],
+      "whenNotUseful": [
+        "Projekt jest mały i właściwy plik jest oczywisty.",
+        "Mapa szybko się dezaktualizuje, a nikt nie będzie jej utrzymywał.",
+        "Zadanie dotyczy nowego obszaru, którego mapa jeszcze nie obejmuje."
+      ],
+      "prerequisites": [
+        "Lista głównych modułów lub katalogów.",
+        "Sposób potwierdzania informacji w kodzie, testach albo dokumentacji.",
+        "Właściciel albo automatyczny proces aktualizacji mapy."
+      ],
+      "applyAt": ["PROJECT_MAP", "SKILL", "PROJECT_INSTRUCTIONS"],
+      "firstExperiment": [
+        "Wybierz jeden powtarzalny typ zadania, który zwykle wymaga wielu odczytów.",
+        "Utwórz małą mapę tylko dla obszaru potrzebnego w tym zadaniu.",
+        "Dodaj zasadę: najpierw użyj mapy, a potem otwieraj wyłącznie wskazane źródła.",
+        "Porównaj z podobnym zadaniem wykonanym bez mapy."
+      ],
+      "example": {
+        "before": "Przeszukaj repozytorium i znajdź obsługę endpointu POST /analysis/jobs.",
+        "after": "Najpierw sprawdź endpoint-inventory. Następnie otwórz wskazany kontroler, serwis i test; potwierdź każdy fakt w źródle."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Zdefiniuj format mapy i zakres pierwszego indeksu.",
+          "Dodaj sposób aktualizacji po zmianach w strukturze projektu.",
+          "Dodaj kontrolę, że mapa wskazuje źródło, ale go nie zastępuje."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj tylko fragmenty dotknięte zmianą.",
+          "Okresowo sprawdzaj kilka losowych odwołań do plików i symboli."
+        ],
+        "triggers": [
+          "Zmiana struktury modułów lub publicznych punktów wejścia.",
+          "Wzrost liczby nietrafionych odwołań z mapy."
+        ]
+      },
+      "qualityChecks": [
+        "Agent potwierdził w źródle fakty wskazane przez mapę.",
+        "Wynik obejmuje ten sam wymagany zakres co wariant bez mapy.",
+        "Nie pominięto nowego obszaru tylko dlatego, że nie ma go jeszcze w indeksie."
+      ],
+      "compare": [
+        "Liczba odczytanych plików i wyszukiwań.",
+        "Input łącznie oraz Credits dla porównywalnych zadań.",
+        "Kompletność i poprawność wyniku."
+      ],
+      "relatedTechniqueIds": ["T03", "T15"]
+    },
+    {
+      "id": "T01",
+      "revision": 1,
+      "title": "Doprecyzuj cel i warunek zakończenia",
+      "explanation": "Agent działa sprawniej, gdy od początku zna oczekiwany rezultat, granice zadania i sposób sprawdzenia, że praca jest zakończona.",
+      "mechanism": "Mniej niejednoznaczności ogranicza dodatkowe rundy przeznaczone na odkrywanie intencji, poprawianie zakresu i ponowne wyjaśnienia.",
+      "firstExperimentGoal": "Sprawdzić, czy lepszy brief zmniejszy liczbę korekt i rund bez utraty jakości.",
+      "simplerAlternative": "Dopisz tylko oczekiwany rezultat i jeden warunek zakończenia; nie twórz rozbudowanego szablonu.",
+      "topics": ["GENERAL", "RESPOND", "OTHER", "UNKNOWN"],
+      "whenUseful": [
+        "Pierwsze odpowiedzi regularnie mijają się z oczekiwanym zakresem.",
+        "Użytkownik musi dopowiadać format albo warunek akceptacji.",
+        "Zadanie ma wyraźny rezultat, który można opisać przed rozpoczęciem."
+      ],
+      "whenNotUseful": [
+        "Rozmowa jest celowo eksploracyjna i nie ma jeszcze jednego rezultatu.",
+        "Nie da się ustalić kryterium akceptacji bez krótkiego researchu.",
+        "Długi szablon polecenia byłby droższy niż pojedyncze doprecyzowanie."
+      ],
+      "prerequisites": [
+        "Krótki opis oczekiwanego rezultatu.",
+        "Znane ograniczenia i elementy poza zakresem.",
+        "Jeden lub kilka sprawdzalnych warunków zakończenia."
+      ],
+      "applyAt": ["PROMPT", "SKILL"],
+      "firstExperiment": [
+        "Wybierz zadanie podobne do wcześniej wykonanego.",
+        "Dopisz rezultat, zakres, ograniczenia i warunek zakończenia.",
+        "Nie dodawaj niepotrzebnej historii ani pełnej dokumentacji projektu.",
+        "Porównaj liczbę rund i korekt z poprzednim wykonaniem."
+      ],
+      "example": {
+        "before": "Popraw ekran sesji.",
+        "after": "Na ekranie sesji dodaj filtr modeli. Nie zmieniaj API. Gotowe, gdy filtr działa klawiaturą, ma test komponentu i przechodzi build."
+      },
+      "setup": {
+        "level": "NONE",
+        "tasks": [
+          "Przygotuj krótką checklistę: rezultat, zakres, ograniczenia, walidacja.",
+          "Użyj jej tylko dla zadań z wyraźnym rezultatem."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Usuwaj z szablonu pola, które nie wpływają na decyzje agenta.",
+          "Aktualizuj przykłady, gdy zmienia się sposób odbioru pracy."
+        ],
+        "triggers": [
+          "Częste pytania o ten sam brakujący element briefu.",
+          "Wzrost długości polecenia bez spadku liczby korekt."
+        ]
+      },
+      "qualityChecks": [
+        "Wynik spełnia jawny warunek zakończenia.",
+        "Agent nie wyszedł poza wskazany zakres.",
+        "Skrócenie rozmowy nie ukryło potrzebnej weryfikacji."
+      ],
+      "compare": [
+        "Liczba rund do pierwszego akceptowalnego wyniku.",
+        "Liczba korekt zakresu lub formatu.",
+        "Input łącznie i jakość końcowego wyniku."
+      ],
+      "relatedTechniqueIds": ["T14"]
+    },
+    {
+      "id": "T03",
+      "revision": 1,
+      "title": "Zawęź wyniki wyszukiwania i odczytu",
+      "explanation": "Zamiast pobierać wszystko związane z szerokim hasłem, wskaż obszar potrzebny do bieżącej decyzji i rozszerzaj zakres dopiero wtedy, gdy brakuje dowodu.",
+      "mechanism": "Mniejszy, celowany wynik ogranicza treść wchodzącą do bieżącego i późniejszych requestów. Krótszy wynik musi jednak zachować informacje potrzebne do poprawnej decyzji.",
+      "firstExperimentGoal": "Sprawdzić, czy celowany zakres zmniejszy liczbę odczytów bez pominięcia wymaganych zależności.",
+      "simplerAlternative": "W samym poleceniu wskaż jeden moduł, symbol lub endpoint i dodaj warunek rozszerzenia zakresu, jeśli dowody okażą się niewystarczające.",
+      "topics": ["ACQUIRE_DATA", "MANAGE_CONTEXT", "CONTEXT_COMPACTION"],
+      "whenUseful": [
+        "Wyszukiwanie zwraca wiele wyników niezwiązanych z aktualną decyzją.",
+        "Zadanie ma znany punkt wejścia, moduł, symbol albo typ dokumentu.",
+        "Duże wyniki narzędzi pojawiają się ponownie w kolejnych requestach."
+      ],
+      "whenNotUseful": [
+        "Analiza jest celowo przekrojowa i zależności nie są jeszcze znane.",
+        "Wąski zakres ukryłby ważne wywołania, konfigurację lub testy integracyjne.",
+        "Nie ma bezpiecznego warunku, po którym agent może rozszerzyć research."
+      ],
+      "prerequisites": [
+        "Punkt startowy związany z celem zadania.",
+        "Jawny zakres pierwszego odczytu.",
+        "Warunek rozszerzenia wyszukiwania, gdy brakuje zależności lub dowodu."
+      ],
+      "applyAt": ["PROMPT", "SKILL", "PROJECT_INSTRUCTIONS"],
+      "firstExperiment": [
+        "Wybierz jedno porównywalne zadanie, które wcześniej zaczynało się od szerokiego researchu.",
+        "Wskaż pierwszy moduł, symbol lub endpoint oraz potrzebne bezpośrednie zależności i testy.",
+        "Dodaj warunek rozszerzenia zakresu, jeśli dowody nie wystarczą.",
+        "Porównaj odczyty, cały input, Credits i kompletność wyniku."
+      ],
+      "example": {
+        "before": "Znajdź w repozytorium wszystko związane z obsługą zamówień.",
+        "after": "Znajdź handler GET /orders/{id}; odczytaj jego implementację, bezpośrednie zależności i testy. Jeśli to nie wystarcza, rozszerz zakres."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Dodaj do promptu lub skilla wzorzec: punkt startowy, zakres i fallback.",
+          "Wybierz mierzalny, powtarzalny typ zadania.",
+          "Nie ustawiaj sztywnego limitu plików dla zadań przekrojowych."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj przykładowe punkty startowe po zmianach struktury projektu.",
+          "Sprawdzaj, czy warunki rozszerzenia nie stały się zbyt restrykcyjne."
+        ],
+        "triggers": [
+          "Nowy typ zależności regularnie pomijany w wynikach.",
+          "Wzrost liczby późniejszych korekt spowodowanych brakującym kontekstem."
+        ]
+      },
+      "qualityChecks": [
+        "Wynik zachowuje informacje potrzebne do poprawnej decyzji.",
+        "Sprawdzono bezpośrednie zależności i odpowiednie testy.",
+        "Agent rozszerzył zakres, gdy pierwszy wynik nie zawierał wystarczających dowodów."
+      ],
+      "compare": [
+        "Liczba wywołań wyszukiwania i odczytu.",
+        "Input łącznie i Credits całego porównywalnego przebiegu.",
+        "Kompletność, poprawność i liczba późniejszych korekt."
+      ],
+      "relatedTechniqueIds": ["T04", "T15"]
+    },
+    {
+      "id": "T11",
+      "revision": 1,
+      "title": "Przekazuj duży wynik przez artefakt",
+      "explanation": "Duży research lub analiza może zostać zapisana do pliku. Kolejna faza otrzymuje referencję i czyta tylko potrzebne fragmenty zamiast przenosić pełną treść przez każdy handoff.",
+      "mechanism": "Trwały artefakt ogranicza ponowne generowanie i przepisywanie tej samej wiedzy, a jednocześnie umożliwia review oraz ponowne użycie.",
+      "firstExperimentGoal": "Sprawdzić, czy referencja do artefaktu zmniejszy koszt handoffu przy zachowaniu kompletności dokumentu końcowego.",
+      "simplerAlternative": "Jeśli wynik jest średniej wielkości, zacznij od krótkiego streszczenia z odnośnikami do istniejących źródeł zamiast tworzyć nowy artefakt.",
+      "topics": ["WRITE_INTERMEDIATE", "WRITE_FINAL", "DELEGATE"],
+      "whenUseful": [
+        "Pośredni wynik jest duży i trafia do kolejnej fazy albo agenta.",
+        "Research ma być weryfikowalny lub używany ponownie.",
+        "Orkiestrator nie musi interpretować pełnej treści, tylko przekazać ją dalej."
+      ],
+      "whenNotUseful": [
+        "Wynik jest krótki i zostanie wykorzystany tylko raz.",
+        "Kolejna faza i tak musi przeczytać artefakt w całości.",
+        "Repozytorium nie jest właściwym miejscem dla treści tymczasowej lub wrażliwej."
+      ],
+      "prerequisites": [
+        "Jawne miejsce i format zapisu.",
+        "Zasada, kto tworzy, czyta i usuwa artefakt.",
+        "Sposób wskazywania potrzebnych sekcji zamiast pełnego odczytu."
+      ],
+      "applyAt": ["ARTIFACT_PIPELINE", "SKILL", "AGENT_ROLE"],
+      "firstExperiment": [
+        "Wybierz jeden duży wynik przekazywany między dwiema fazami.",
+        "Zapisz go w uporządkowanym pliku z krótkim spisem sekcji.",
+        "W handoffie przekaż ścieżkę, cel oraz sekcje potrzebne odbiorcy.",
+        "Porównaj koszt komunikacji i łatwość weryfikacji."
+      ],
+      "example": {
+        "before": "Wklej pełny research do odpowiedzi orkiestratora, a potem do promptu dokumentera.",
+        "after": "Zapisz research w docs/research.md; dokumenter otrzymuje referencję oraz listę sekcji do odczytu."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Ustal format artefaktu i nazewnictwo plików.",
+          "Dodaj szablon handoffu z referencją, celem i zakresem odczytu.",
+          "Ustal zasady retencji i danych wrażliwych."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Usuwaj przestarzałe artefakty tymczasowe.",
+          "Aktualizuj szablon, gdy odbiorcy potrzebują innego podziału sekcji."
+        ],
+        "triggers": [
+          "Zmiana przepływu między rolami albo fazami.",
+          "Artefakty rosną, ale odbiorcy nadal czytają je w całości."
+        ]
+      },
+      "qualityChecks": [
+        "Artefakt zawiera źródła lub dowody potrzebne do review.",
+        "Odbiorca otrzymał wystarczający zakres bez utraty ważnych szczegółów.",
+        "Dane tymczasowe i wrażliwe mają właściwą retencję."
+      ],
+      "compare": [
+        "Input i output na granicach faz.",
+        "Liczba powtórzeń tej samej treści.",
+        "Koszt zapisu, odczytu i utrzymania artefaktu."
+      ],
+      "relatedTechniqueIds": ["T15"]
+    },
+    {
+      "id": "T14",
+      "revision": 1,
+      "title": "Weryfikuj etapami",
+      "explanation": "Zamiast odkładać sprawdzenie na koniec, uruchom najmniejszą wiarygodną walidację tuż po zmianie lub decyzji, którą ma potwierdzić.",
+      "mechanism": "Wcześnie wykryty błąd ogranicza kolejne rundy zbudowane na złym założeniu i zmniejsza koszt diagnozy dużego zestawu zmian.",
+      "firstExperimentGoal": "Sprawdzić, czy wąska walidacja skróci drogę do wykrycia błędu bez osłabienia kontroli końcowej.",
+      "simplerAlternative": "Po jednej ryzykownej zmianie uruchom pojedynczy istniejący test, ale nie rezygnuj z obowiązkowej walidacji końcowej.",
+      "topics": ["VALIDATE", "MODIFY"],
+      "whenUseful": [
+        "Błędy są odkrywane dopiero po wielu kolejnych krokach.",
+        "Istnieje szybki test lub kontrola obejmująca właśnie zmieniany fragment.",
+        "Pełny zestaw testów jest kosztowny i nie musi być uruchamiany po każdym kroku."
+      ],
+      "whenNotUseful": [
+        "Nie istnieje wąska kontrola o wystarczającej sile.",
+        "Ryzyko dotyczy integracji, której nie potwierdzi test fragmentu.",
+        "Częste uruchamianie kontroli byłoby droższe niż pojedyncza walidacja końcowa."
+      ],
+      "prerequisites": [
+        "Mapa zmiany do najwęższego wiarygodnego testu.",
+        "Znany warunek sukcesu i czytelny wynik błędu.",
+        "Końcowy zestaw walidacji dla ryzyk przekrojowych."
+      ],
+      "applyAt": ["SKILL", "PROJECT_INSTRUCTIONS", "TOOL_CODE"],
+      "firstExperiment": [
+        "Wybierz typ zmiany, który ma szybki test jednostkowy lub kontraktowy.",
+        "Uruchom tę kontrolę bezpośrednio po minimalnej zmianie.",
+        "Pełną walidację zachowaj na koniec.",
+        "Porównaj moment wykrycia błędu i liczbę rund naprawczych."
+      ],
+      "example": {
+        "before": "Po wielu zmianach uruchom cały zestaw testów i analizuj wszystkie błędy naraz.",
+        "after": "Po zmianie parsera uruchom jego test kontraktowy; po zakończeniu wykonaj pełny zestaw wymagany dla wydania."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Powiąż typowe obszary zmian z najwęższymi testami.",
+          "Zapisz regułę, kiedy potrzebna jest pełna walidacja.",
+          "Upewnij się, że błąd testu jest zachowany jako obserwacja."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj mapowanie po zmianach struktury testów.",
+          "Usuwaj kontrole, które są szybkie, ale nie wykrywają realnych regresji."
+        ],
+        "triggers": [
+          "Nowy typ regresji pominięty przez wąską walidację.",
+          "Znaczący wzrost czasu wykonania testu."
+        ]
+      },
+      "qualityChecks": [
+        "Wąski test rzeczywiście pokrywa zmienione zachowanie.",
+        "Walidacja końcowa nadal obejmuje ryzyka integracyjne.",
+        "Nie zmieniono testu tylko po to, aby ukryć błąd produkcyjny."
+      ],
+      "compare": [
+        "Czas i runda pierwszego wykrycia błędu.",
+        "Liczba zmian wykonanych przed pierwszą walidacją.",
+        "Łączny czas testów oraz jakość końcowa."
+      ],
+      "relatedTechniqueIds": ["T01", "T04"]
+    },
+    {
+      "id": "T15",
+      "revision": 1,
+      "title": "Przygotuj kontekst do kompaktowania",
+      "explanation": "Przy długim zadaniu utrzymuj krótki stan: aktualny cel, podjęte decyzje, otwarte pytania i miejsca, w których znajdują się szczegóły. Sprawdź, czy runtime potrafi go wykorzystać.",
+      "mechanism": "Zwięzła reprezentacja ważnego stanu może ułatwić kontynuację po kompaktowaniu i ograniczyć ponowne odkrywanie. Samo wywołanie kompaktora ani spadek inputu nie dowodzą jednak sukcesu.",
+      "firstExperimentGoal": "Sprawdzić, czy jawny stan zmniejsza ponowne odczyty i pomaga poprawnie kontynuować po kompaktowaniu.",
+      "simplerAlternative": "Przed dłuższą przerwą zapisz tylko cel, trzy najważniejsze decyzje, otwarte pytania i odnośniki do źródeł.",
+      "topics": ["MANAGE_CONTEXT", "CONTEXT_COMPACTION"],
+      "whenUseful": [
+        "Długie zadanie zbliża się do granicy kontekstu lub już zawiera kompaktowanie.",
+        "Po kompaktowaniu agent ponownie odczytuje te same pliki albo pyta o wcześniejsze decyzje.",
+        "Wiedza robocza jest rozproszona między historią, wynikami narzędzi i artefaktami."
+      ],
+      "whenNotUseful": [
+        "Zadanie jest krótkie i nie zbliża się do ograniczeń kontekstu.",
+        "Runtime nie pozwala wykorzystać przygotowanego stanu przy kompaktowaniu.",
+        "Aktualizowanie stanu po każdej drobnej czynności kosztowałoby więcej niż możliwy efekt."
+      ],
+      "prerequisites": [
+        "Miejsce na zwięzły stan lub artefakt roboczy.",
+        "Odnośniki do źródeł zamiast kopiowania pełnych treści.",
+        "Możliwość obserwacji wywołania kompaktora i późniejszego odbioru wyniku."
+      ],
+      "applyAt": ["SESSION_STRATEGY", "SKILL", "ARTIFACT_PIPELINE"],
+      "firstExperiment": [
+        "Wybierz jedno dłuższe zadanie, w którym spodziewasz się kompaktowania.",
+        "Utrzymuj krótki stan celu, decyzji, otwartych pytań i referencji.",
+        "Po kompaktowaniu sprawdź, czy wynik został odebrany w późniejszym requeście.",
+        "Porównaj koszt kompaktora, późniejsze wywołania, ponowne odczyty i poprawność kontynuacji."
+      ],
+      "example": {
+        "before": "W historii pozostają duże surowe wyniki, a ważne decyzje są rozproszone między wieloma rundami.",
+        "after": "Stan roboczy zawiera aktualny cel, decyzje, otwarte pytania i referencje; szczegóły pozostają w źródłach."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Ustal krótki format stanu roboczego.",
+          "Wskaż momenty aktualizacji po istotnych decyzjach, a nie po każdej czynności.",
+          "Dodaj sposób potwierdzenia późniejszego odbioru wyniku kompaktowania."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj stan po zmianie celu, decyzji lub ważnej lokalizacji źródła.",
+          "Usuwaj nieaktualne wpisy i nie kopiuj dużych wyników narzędzi."
+        ],
+        "triggers": [
+          "Zmiana sposobu kompaktowania lub możliwości runtime'u.",
+          "Wzrost liczby ponownych odczytów albo błędnych kontynuacji."
+        ]
+      },
+      "qualityChecks": [
+        "Późniejszy request faktycznie odebrał wynik kompaktowania, jeśli oceniasz jego wpływ.",
+        "Agent potrafi wskazać aktualny cel, decyzje i źródła po kompaktowaniu.",
+        "Brak odbioru nie jest przedstawiany jako dowód sukcesu ani oszczędności."
+      ],
+      "compare": [
+        "Emisja kompaktora: input, output, czas i Credits.",
+        "Input oraz ponowne odczyty w potwierdzonych późniejszych requestach.",
+        "Poprawność kontynuacji i zachowanie ważnych decyzji."
+      ],
+      "relatedTechniqueIds": ["T03", "T11"]
+    }
+  ]
+}

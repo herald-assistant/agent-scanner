@@ -1,6 +1,6 @@
 # Stan funkcji i plan rozwoju
 
-Stan dokumentu: 2026-09-06.
+Stan dokumentu: 2026-09-08.
 
 ## Co działa obecnie
 
@@ -137,8 +137,8 @@ kontroli nie wolno przypisywać spadku credits jednej zmianie.
 
 - bardzo długie sesje nadal tworzą szeroki szczegółowy diagram;
 - zagregowane karty są skrótem, ale wieloetykietowe fazy mogą mieć długie nazwy;
-- initial bundle Angulara przy ostatniej weryfikacji miał 827,62 kB i przekraczał
-  budżet 750 kB o 77,61 kB;
+- initial bundle Angulara przy ostatniej weryfikacji miał 943,11 kB i przekraczał
+  budżet 750 kB o 193,11 kB;
 - CSS komponentu mapy jest duży i mocno skompresowany, co utrudnia dalsze zmiany.
 
 ## Priorytet P0 — utrwalenie poprawności
@@ -190,8 +190,77 @@ sekcji — te elementy zmieniały się w trakcie prac.
 
 ## Priorytet P1 — rekomendacje optymalizacyjne
 
-Następny duży krok produktu to rekomendacje, ale powinny powstawać lokalnie z
-połączenia kategorii i faktów. Sama odpowiedź AI nie może być rekomendacją.
+Pierwszy przekrój poradnika bez AI jest wdrożony: topbar otwiera wspólny prawy
+panel, a wersjonowany katalog `techniques-v1` udostępnia pełne T01, T03, T04,
+T11, T14 i T15 przez lokalne `GET /api/optimization/techniques`. Użytkownik może
+wybrać temat, poznać warunki, prostszy wariant, pierwszy eksperyment, nakład oraz
+utrzymanie i skopiować plan próby bez sesji oraz wywołania modelu.
+
+Integracja G3 jest wdrożona: ranking i dominujący obszar, karty faz oraz
+faktyczne kompaktowanie otwierają ten sam poradnik z zakresem, pochodzeniem
+pomiaru, pokryciem i statycznie dobranymi technikami. Samo otwarcie nie wykonuje
+nowej analizy AI ani nie wysyła danych sesji. Fazy korzystają ze wspólnego,
+czystego grupowania. Poradnik pokazuje klikalne rundy lub kompaktowania jako
+dowody; ich szczegóły otwierają się w istniejącym panelu faktów, a powrót zachowuje
+wybraną technikę, rozwinięcia i pozycję przewijania.
+
+Pierwszy przekrój G4 także jest wdrożony bez inferencji: dla konkretnej fazy lub
+jednego kompaktowania aplikacja buduje lokalny, zamrożony pakiet
+`optimization-advice-v1`. Użytkownik widzi dokładny JSON, zakres, fingerprint,
+pochodzenie obserwacji, braki, pominięcia, rozmiar i szacowany input. Pakiet ma
+reguły próbkowania i redakcji sekretów oraz nie zawiera ról system/developer ani jawnego
+reasoning. Aktualne wskaźniki prowadzą do rekordów znormalizowanych, dlatego
+lokalny backend porównuje ich pełny hash, sprawdza raw signal, metryki, wersje,
+allowlistę technik i relację sesji. Zweryfikowana migawka jest zapisywana na 30
+minut, ale model nie jest uruchamiany.
+
+Pakiet fazy korzysta z `guidance-evidence-v2`: wszystkie rundy zachowują zwarty,
+weryfikowalny rekord metryk i kategorii, natomiast duże treści są wybierane z
+reprezentatywnych miejsc całej fazy zamiast z pierwszych 16 fragmentów. Definicje
+narzędzi są deduplikowane, pominięcia zgrupowane, a frontend i backend liczą
+referencje jako unikalne spany. Lokalne liczby rund, obserwacji, referencji,
+fragmentów i znaków nie blokują analizy. Są widoczne w podglądzie i sterują
+próbkowaniem, ale jedyną bramką rozmiaru pełnego promptu pozostaje rzeczywiste okno
+kontekstowe skonfigurowanego modelu, egzekwowane przez dostawcę.
+
+Jawne doradztwo dla tej migawki jest już wdrożone: **Wyślij do AI** przekazuje
+tylko `previewId`, backend ponownie kontroluje źródła, współdzieli globalny slot
+inferencji z klasyfikacją, uruchamia izolowany prompt bez narzędzi i waliduje
+odpowiedź. UI pokazuje propozycje jako hipotezy do próby wraz z nakładem,
+utrzymaniem, jakością, porównaniem i linkami do dowodów. Cache obejmuje model,
+wersję promptu, request hash i fingerprint. Nie wykonano jeszcze ręcznego testu
+na rzeczywistym koncie Copilot ani edycji fragmentów pakietu przed wysłaniem.
+Kolejność określa
+[plan G0–G12](../plan-technik-optymalizacji-bez-ai-i-z-ai.md). Pierwszy przyrost
+G9/G10 jest wdrożony: w szczegółowej mapie użytkownik wybiera początek i koniec
+jednego ciągłego zakresu tej samej interakcji i agenta, widzi jego credits oraz
+pokrycie, a następnie otwiera dedykowany modal. Modal pokazuje zamrożony materiał,
+pozwala wybrać model z katalogu GitHub Copilot SDK i rozpocząć rozmowę własnym
+pytaniem albo podpowiedzią. Starter nie wysyła danych automatycznie.
+
+Pierwsza tura tworzy trwałą sesję SDK, a kolejne używają `resumeSession`; własna
+historia i migawka są zapisywane lokalnie w H2, zaś klient/CLI jest zamykany po
+każdej turze. Narzędzia, skills, MCP, pamięć, repo i discovery pozostają wyłączone.
+Odpowiedź rozdziela wyjaśnienia oparte na referencjach, hipotezy oraz wiedzę
+ogólną. Migawka zachowuje przechwycone granice wejść, odpowiedzi, wykonań i
+następnego requestu, a backend przed i po inferencji kontroluje ich przynależność
+do raw telemetry. Lokalne liczby znaków i fragmentów nie blokują wysyłki; jedyną
+bramką rozmiaru jest rzeczywiste okno wybranego modelu egzekwowane przez providera.
+
+Pozostały: klikalny powrót z odpowiedzi do dokładnego dowodu, ręczna redakcja,
+podgląd każdej kolejnej wysyłki, obsługa niepewnego wyniku/retencji i przypadki
+kompaktowania wewnątrz zakresu. G11 — nieciągłe segmenty i kilka ścieżek agentów —
+pozostaje planowane. G12 dodaje po jawnym wyborze osobny tryb `Telemetria + projekt`:
+zatwierdzone mapowanie repozytorium na lokalny katalog, kontrolę zgodności stanu,
+cztery celowane narzędzia tylko do odczytu i osobne cytowania plików. Domyślna
+rozmowa telemetryczna nadal nie ma dostępu do projektu. Rozmowa jest osobnym
+kontraktem od wyboru technik i nie
+zamienia hipotez AI ani deklaracji użytkownika w fakty telemetryczne.
+
+Poniższy kontrakt dotyczy automatycznych findingów powstających lokalnie z
+połączenia kategorii i faktów. Sama odpowiedź AI nie tworzy dowodu problemu.
+Nie blokuje to statycznego poradnika ani propozycji AI oznaczonej jako hipoteza
+do przetestowania, z warunkami, nakładem i obowiązkami utrzymania.
 
 ### Kontrakt pojedynczej rekomendacji
 
@@ -272,9 +341,10 @@ może być wymagana i nie jest automatycznie stratą.
 2. Pokazać jedną rekomendację dla dominującej fazy z pełnym audytem.
 3. Przetestować język na osobach, które nie znają OTLP.
 4. Dopiero potem rozszerzać katalog reguł.
-5. AI wykorzystać do formułowania opisu dopiero wtedy, gdy dane wejściowe i
-   ograniczenia są jawne; decyzja o wyświetleniu rekomendacji powinna pozostać
-   deterministyczna.
+5. AI wykorzystać do formułowania opisu findingu dopiero wtedy, gdy dane wejściowe
+   i ograniczenia są jawne; jego automatyczne wykrycie pozostaje deterministyczne.
+   Osobne doradztwo na żądanie realizować według planu G4–G6, nie uzależniając
+   udostępnienia poradnika od wcześniejszego wdrożenia wszystkich findingów.
 
 ## Priorytet P2 — porównania i ocena efektu
 

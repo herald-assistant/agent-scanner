@@ -41,6 +41,9 @@
               [matTooltip]="classificationEstimateTooltip()" matTooltipClass="scanner-info-tooltip"><mat-icon>{{ classifying() ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>{{ classifying() ? 'Analizowanie działań…' : 'Przeanalizuj działania modelu' }}</button>
           }
           <button class="catalog-button" (click)="open(catalogDialog, 'Zakres wysyłany do AI')"><mat-icon>visibility</mat-icon> Zakres analizy</button>
+          @if (visibleCompactions().length) {
+            <button class="catalog-button compaction-guide-button" (click)="openCompactionGuidance($event.currentTarget)" matTooltip="Pokaż lokalne techniki bez uruchamiania analizy AI" matTooltipClass="scanner-info-tooltip"><mat-icon>lightbulb</mat-icon> Techniki dla kompaktowania</button>
+          }
         </div>
         <fieldset class="analysis-view-choice"><legend>WIDOK</legend><label [class.selected]="aiVisible()"><input type="radio" name="workflow-analysis-view" value="classification" [checked]="aiVisible()" [disabled]="!hasAiResult()" (change)="setAnalysisView('classification')"> Kategorie</label><label [class.selected]="!aiVisible()"><input type="radio" name="workflow-analysis-view" value="facts" [checked]="!aiVisible()" (change)="setAnalysisView('facts')"> Fakty</label></fieldset>
       </div>
@@ -61,7 +64,7 @@
               <h4>{{ lead.label }}</h4>
               <p><strong>{{ lead.estimated ? '≈ ' : '' }}{{ credits(lead.shareOfKnown ?? 0) }}%</strong> wszystkich credits objętych zestawieniem <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czym są credits objęte zestawieniem" [matTooltip]="analyzedCreditsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon> przypada na tę kategorię.</p>
             </div>
-            <div class="optimization-guidance"><mat-icon>lightbulb</mat-icon><p><strong>Co warto sprawdzić</strong>{{ lead.hint }}</p></div>
+            <div class="optimization-guidance"><mat-icon>lightbulb</mat-icon><p><strong>Co warto sprawdzić</strong>{{ lead.hint }}</p><button type="button" (click)="openCategoryGuidance(lead, $event.currentTarget)">Poznaj techniki</button></div>
           </article>
         }
         <div class="credit-share-coverage" aria-label="Pokrycie procentowego podziału credits">
@@ -76,6 +79,7 @@
                 <span class="action-summary-icon"><mat-icon>{{ item.icon }}</mat-icon></span>
                 <span class="action-summary-copy"><strong>{{ item.label }}</strong><span class="action-summary-meter"><i [style.width.%]="item.shareOfKnown ?? 0"></i></span></span>
                 <span class="action-credit-share"><strong>{{ item.shareOfKnown === null ? '—' : (item.estimated ? '≈ ' : '') + credits(item.shareOfKnown) + '%' }}</strong><small>{{ item.shareOfKnown === null ? 'brak podstawy do wyliczenia' : item.estimated ? 'lokalna estymacja udziału' : 'wyemitowane credits' }}</small></span>
+                <button type="button" class="category-guide-button" [attr.aria-label]="'Poznaj techniki dla: ' + item.label" (click)="openCategoryGuidance(item, $event.currentTarget)"><mat-icon>lightbulb</mat-icon><span>Poznaj techniki</span></button>
               </div>
             </article>
           }
@@ -126,6 +130,7 @@
                   <span class="phase-credits phase-explained" tabindex="0" [matTooltip]="phaseCreditsTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><small>{{ phase.compaction ? 'Credits kompaktowania' : 'Credits wywołań w fazie' }}</small><b>{{ phase.credits === null ? '—' : credits(phase.credits) }}</b>
                     @if (phase.creditCovered < phase.totalCalls) { <em>{{ phase.creditCovered }}/{{ phase.totalCalls }} wywołań</em> }
                   </span>
+                  <button type="button" class="phase-guide-button" [attr.aria-label]="'Poznaj techniki dla fazy: ' + phase.label" (click)="openPhaseGuidance(phase, $event.currentTarget)"><mat-icon>lightbulb</mat-icon>Poznaj techniki</button>
                 </article>
               </div>
             }
@@ -161,6 +166,10 @@
               <button type="button" aria-label="Przewiń mapę w prawo" matTooltip="Dalsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(1)"><mat-icon>chevron_right</mat-icon></button>
             </span>
           }
+          <button type="button" class="round-range-toggle" [class.selected]="roundRangeMode()"
+            [attr.aria-pressed]="roundRangeMode()" (click)="toggleRoundRange()">
+            <mat-icon>{{ roundRangeMode() ? 'close' : 'forum' }}</mat-icon>{{ roundRangeMode() ? 'Anuluj wybór' : 'Zapytaj o rundy' }}
+          </button>
           <div class="layer-switch" aria-label="Warstwa danych mapy">
             <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
             <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
@@ -168,6 +177,24 @@
           </div>
         </div>
       </div>
+      @if (roundRangeMode()) {
+        <div class="round-range-bar" role="status">
+          <mat-icon>linear_scale</mat-icon>
+          @if (!discussionRounds().length) {
+            <p><strong>Wybierz początek.</strong> Kliknij pierwszą rundę ciągłego zakresu.</p>
+          } @else if (!discussionRangeReady()) {
+            <p><strong>Początek: M{{ discussionRounds()[0].turn.interactionTurnIndex }}.</strong> Teraz kliknij rundę końcową tego samego agenta. Aby wybrać jedną rundę, kliknij ją ponownie.</p>
+          } @else {
+            <p><strong>{{ streamDisplayLabel(discussionStream()!) }} · {{ discussionRangeLabel() }}</strong>
+              {{ plural(discussionRounds().length, 'runda', 'rundy', 'rund') }} bez przerw ·
+              credits {{ discussionCreditSummary().credits === null ? '—' : credits(discussionCreditSummary().credits!) }} ·
+              pokrycie {{ discussionCreditSummary().covered }}/{{ discussionCreditSummary().total }}.</p>
+            <button type="button" [disabled]="buildingDiscussion()" (click)="openRoundDiscussion()">
+              <mat-icon>{{ buildingDiscussion() ? 'hourglass_top' : 'chat' }}</mat-icon>Przejdź do rozmowy
+            </button>
+          }
+        </div>
+      }
       <div #mapScroll class="map-scroll" [class.dragging]="mapDragging()"
         (pointerdown)="startMapDrag($event)" (pointermove)="moveMapDrag($event)" (pointerup)="endMapDrag($event)"
         (pointercancel)="endMapDrag($event)" (lostpointercapture)="endMapDrag($event)" tabindex="0"
@@ -255,11 +282,12 @@
                   </button>
                 }
                 @for (round of lane.rounds; track round.ref) {
-                  <button class="round-node model-round-node" [class.ai-node]="!!aiResult()" [class.final-response-node]="isFinalResponseRound(round)" [class.active]="selected()?.ref === round.ref"
-                    [style.grid-column]="column(round)" [attr.aria-pressed]="selected()?.ref === round.ref"
-                    [attr.aria-label]="isFinalResponseRound(round) ? 'Otwórz końcową odpowiedź ' + roundLabel(round) + ' z interakcji ' + round.turn.interactionIndex : streamDisplayLabel(lane.stream) + ', ' + roundLabel(round) + ', ' + roundDescription(round)"
-                    [matTooltip]="roundLayerTooltip(round)"
-                    matTooltipClass="scanner-info-tooltip" (click)="openRoundContent(round, $event.currentTarget)">
+                  <button class="round-node model-round-node" [class.ai-node]="!!aiResult()" [class.final-response-node]="isFinalResponseRound(round)" [class.active]="selected()?.ref === round.ref && !roundRangeMode()"
+                    [class.range-selected]="roundInDiscussionRange(round)" [class.range-endpoint]="roundRangeEndpoint(round)"
+                    [style.grid-column]="column(round)" [attr.aria-pressed]="roundRangeMode() ? roundInDiscussionRange(round) : selected()?.ref === round.ref"
+                    [attr.aria-label]="roundRangeMode() ? 'Wybierz ' + roundLabel(round) + ' jako granicę rozmowy' : isFinalResponseRound(round) ? 'Otwórz końcową odpowiedź ' + roundLabel(round) + ' z interakcji ' + round.turn.interactionIndex : streamDisplayLabel(lane.stream) + ', ' + roundLabel(round) + ', ' + roundDescription(round)"
+                    [matTooltip]="roundRangeMode() ? 'Wybierz granicę ciągłego zakresu' : roundLayerTooltip(round)"
+                    matTooltipClass="scanner-info-tooltip" (click)="handleRoundClick(round, $event.currentTarget)">
                     <span class="round-number">M{{ round.turn.interactionTurnIndex }}</span>
                     <span class="node-icon"><mat-icon>{{ isFinalResponseRound(round) ? 'output' : roundIcon(round) }}</mat-icon></span>
                     <span class="node-caption">{{ isFinalResponseRound(round) ? 'Odpowiedź' : roundCaption(round) }}</span>

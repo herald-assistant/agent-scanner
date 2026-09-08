@@ -148,6 +148,11 @@ public class ScannerStore {
             String.class, sessionId, requestHash).stream().findFirst();
     }
 
+    public List<String> toolClassifications(long sessionId) {
+        return jdbc.queryForList("SELECT result_json FROM tool_classification_result WHERE session_id=?",
+                String.class, sessionId);
+    }
+
     public void saveToolClassification(long sessionId, String requestHash, String version, String model,
                                        Instant analyzedAt, String resultJson) {
         jdbc.update("""
@@ -155,6 +160,169 @@ public class ScannerStore {
               (session_id, request_hash, version, model, analyzed_at, result_json)
             KEY(session_id, request_hash) VALUES (?,?,?,?,?,?)
             """, sessionId, requestHash, version, model, ts(analyzedAt), resultJson);
+    }
+
+    public Optional<GuidanceSpanSource> guidanceSpanSource(long sessionId, long spanRecordId) {
+        List<GuidanceSpanSource> rows = jdbc.query("""
+            SELECT s.id, s.session_id, s.signal_id, s.trace_id, s.span_id, s.operation_name,
+              s.agent_name, s.conversation_id, s.duration_ms, s.input_tokens, s.output_tokens,
+              s.cache_read_tokens, s.cache_creation_tokens, s.reasoning_tokens,
+              s.attributes_json, s.events_json, t.raw_json
+            FROM span_record s JOIN telemetry_signal t ON t.id=s.signal_id
+            WHERE s.session_id=? AND s.id=?
+            """, (rs, row) -> new GuidanceSpanSource(
+                rs.getLong("id"), rs.getLong("session_id"), rs.getLong("signal_id"),
+                rs.getString("trace_id"), rs.getString("span_id"), rs.getString("operation_name"),
+                rs.getString("agent_name"), rs.getString("conversation_id"),
+                nullableDouble(rs.getObject("duration_ms")), rs.getLong("input_tokens"),
+                rs.getLong("output_tokens"), rs.getLong("cache_read_tokens"),
+                rs.getLong("cache_creation_tokens"), rs.getLong("reasoning_tokens"),
+                rs.getString("attributes_json"), rs.getString("events_json"), rs.getString("raw_json")
+            ), sessionId, spanRecordId);
+        return rows.stream().findFirst();
+    }
+
+    public List<GuidanceMessageSource> guidanceMessages(long spanRecordId) {
+        return jdbc.query("""
+            SELECT id, span_id, direction, sequence_no, role_name, content, source_kind
+            FROM message_record WHERE span_id=? ORDER BY direction, sequence_no, id
+            """, (rs, row) -> new GuidanceMessageSource(
+                rs.getLong("id"), rs.getLong("span_id"), rs.getString("direction"),
+                rs.getInt("sequence_no"), rs.getString("role_name"), rs.getString("content"),
+                rs.getString("source_kind")
+            ), spanRecordId);
+    }
+
+    public void saveOptimizationAdvicePreview(String id, long sessionId, String requestHash,
+                                              String dataFingerprint, Instant preparedAt,
+                                              Instant expiresAt, String previewJson) {
+        jdbc.update("DELETE FROM optimization_advice_preview WHERE expires_at < ?", ts(preparedAt));
+        jdbc.update("""
+            INSERT INTO optimization_advice_preview
+              (id, session_id, request_hash, data_fingerprint, prepared_at, expires_at, preview_json)
+            VALUES (?,?,?,?,?,?,?)
+            """, id, sessionId, requestHash, dataFingerprint, ts(preparedAt), ts(expiresAt), previewJson);
+    }
+
+    public Optional<String> optimizationAdvicePreview(String id) {
+        return jdbc.queryForList("SELECT preview_json FROM optimization_advice_preview WHERE id=?",
+            String.class, id).stream().findFirst();
+    }
+
+    public Optional<OptimizationAdvicePreviewSource> optimizationAdvicePreview(long sessionId, String id) {
+        return jdbc.query("""
+            SELECT id, session_id, request_hash, data_fingerprint, prepared_at, expires_at, preview_json
+            FROM optimization_advice_preview WHERE session_id=? AND id=?
+            """, (rs, row) -> new OptimizationAdvicePreviewSource(
+                rs.getString("id"), rs.getLong("session_id"), rs.getString("request_hash"),
+                rs.getString("data_fingerprint"), rs.getTimestamp("prepared_at").toInstant(),
+                rs.getTimestamp("expires_at").toInstant(), rs.getString("preview_json")
+            ), sessionId, id).stream().findFirst();
+    }
+
+    public Optional<String> optimizationAdviceResult(long sessionId, String adviceHash) {
+        return jdbc.queryForList("SELECT result_json FROM optimization_advice_result WHERE session_id=? AND advice_hash=?",
+                String.class, sessionId, adviceHash).stream().findFirst();
+    }
+
+    public void saveOptimizationAdviceResult(long sessionId, String adviceHash, String requestHash,
+                                             String dataFingerprint, String version, String catalogVersion,
+                                             String promptVersion, String model, Instant analyzedAt, String resultJson) {
+        jdbc.update("""
+            MERGE INTO optimization_advice_result
+              (session_id, advice_hash, request_hash, data_fingerprint, version, catalog_version,
+               prompt_version, model, analyzed_at, result_json)
+            KEY(session_id, advice_hash) VALUES (?,?,?,?,?,?,?,?,?,?)
+            """, sessionId, adviceHash, requestHash, dataFingerprint, version, catalogVersion,
+                promptVersion, model, ts(analyzedAt), resultJson);
+    }
+
+    public void saveRoundDiscussion(String id, long sessionId, String version, String model,
+                                    String evidenceHash, String snapshotJson, Instant createdAt) {
+        jdbc.update("""
+            INSERT INTO round_discussion
+              (id, session_id, version, model, evidence_hash, snapshot_json, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?)
+            """, id, sessionId, version, model, evidenceHash, snapshotJson, ts(createdAt), ts(createdAt));
+    }
+
+    public Optional<RoundDiscussionSource> roundDiscussion(String id) {
+        return jdbc.query("""
+            SELECT id, session_id, version, model, evidence_hash, snapshot_json,
+              copilot_session_id, revision, created_at, updated_at
+            FROM round_discussion WHERE id=?
+            """, (rs, row) -> new RoundDiscussionSource(
+                rs.getString("id"), rs.getLong("session_id"), rs.getString("version"),
+                rs.getString("model"), rs.getString("evidence_hash"), rs.getString("snapshot_json"),
+                rs.getString("copilot_session_id"), rs.getInt("revision"),
+                rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant()
+            ), id).stream().findFirst();
+    }
+
+    public List<RoundDiscussionSource> roundDiscussions(long sessionId) {
+        return jdbc.query("""
+            SELECT id, session_id, version, model, evidence_hash, snapshot_json,
+              copilot_session_id, revision, created_at, updated_at
+            FROM round_discussion WHERE session_id=? ORDER BY updated_at DESC, id DESC
+            """, (rs, row) -> new RoundDiscussionSource(
+                rs.getString("id"), rs.getLong("session_id"), rs.getString("version"),
+                rs.getString("model"), rs.getString("evidence_hash"), rs.getString("snapshot_json"),
+                rs.getString("copilot_session_id"), rs.getInt("revision"),
+                rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant()
+            ), sessionId);
+    }
+
+    public Optional<RoundDiscussionTurnSource> roundDiscussionTurn(String discussionId, String clientRequestId) {
+        return jdbc.query("""
+            SELECT id, discussion_id, client_request_id, question, status, answer_json,
+              error_message, created_at, completed_at
+            FROM round_discussion_turn WHERE discussion_id=? AND client_request_id=?
+            """, roundDiscussionTurnMapper(), discussionId, clientRequestId).stream().findFirst();
+    }
+
+    public List<RoundDiscussionTurnSource> roundDiscussionTurns(String discussionId) {
+        return jdbc.query("""
+            SELECT id, discussion_id, client_request_id, question, status, answer_json,
+              error_message, created_at, completed_at
+            FROM round_discussion_turn WHERE discussion_id=? ORDER BY created_at, id
+            """, roundDiscussionTurnMapper(), discussionId);
+    }
+
+    public void saveRoundDiscussionTurn(String id, String discussionId, String clientRequestId,
+                                        String question, Instant createdAt) {
+        jdbc.update("""
+            INSERT INTO round_discussion_turn
+              (id, discussion_id, client_request_id, question, status, created_at)
+            VALUES (?,?,?,?,?,?)
+            """, id, discussionId, clientRequestId, question, "RUNNING", ts(createdAt));
+    }
+
+    @Transactional
+    public void completeRoundDiscussionTurn(String discussionId, String turnId, String copilotSessionId,
+                                            String answerJson, Instant completedAt) {
+        jdbc.update("""
+            UPDATE round_discussion_turn SET status='COMPLETED', answer_json=?, error_message=NULL,
+              completed_at=? WHERE id=? AND discussion_id=?
+            """, answerJson, ts(completedAt), turnId, discussionId);
+        jdbc.update("""
+            UPDATE round_discussion SET copilot_session_id=?, revision=revision+1, updated_at=? WHERE id=?
+            """, copilotSessionId, ts(completedAt), discussionId);
+    }
+
+    public void failRoundDiscussionTurn(String discussionId, String turnId, String message, Instant completedAt) {
+        jdbc.update("""
+            UPDATE round_discussion_turn SET status='FAILED', answer_json=NULL, error_message=?,
+              completed_at=? WHERE id=? AND discussion_id=?
+            """, message, ts(completedAt), turnId, discussionId);
+        jdbc.update("UPDATE round_discussion SET updated_at=? WHERE id=?", ts(completedAt), discussionId);
+    }
+
+    private org.springframework.jdbc.core.RowMapper<RoundDiscussionTurnSource> roundDiscussionTurnMapper() {
+        return (rs, row) -> new RoundDiscussionTurnSource(
+                rs.getString("id"), rs.getString("discussion_id"), rs.getString("client_request_id"),
+                rs.getString("question"), rs.getString("status"), rs.getString("answer_json"),
+                rs.getString("error_message"), rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("completed_at") == null ? null : rs.getTimestamp("completed_at").toInstant());
     }
 
     public List<Map<String, Object>> spans(long sessionId) {
@@ -229,6 +397,42 @@ public class ScannerStore {
 
     private static Timestamp ts(Instant instant) {
         return instant == null ? null : Timestamp.from(instant);
+    }
+
+    private static Double nullableDouble(Object value) {
+        return value instanceof Number number ? number.doubleValue() : null;
+    }
+
+    public record GuidanceSpanSource(
+            long id, long sessionId, long signalId, String traceId, String spanId,
+            String operationName, String agentName, String conversationId, Double durationMs,
+            long inputTokens, long outputTokens, long cacheReadTokens, long cacheCreationTokens,
+            long reasoningTokens, String attributesJson, String eventsJson, String rawJson
+    ) {
+    }
+
+    public record GuidanceMessageSource(
+            long id, long spanId, String direction, int sequenceNo, String roleName,
+            String content, String sourceKind
+    ) {
+    }
+
+    public record OptimizationAdvicePreviewSource(
+            String id, long sessionId, String requestHash, String dataFingerprint,
+            Instant preparedAt, Instant expiresAt, String previewJson
+    ) {
+    }
+
+    public record RoundDiscussionSource(
+            String id, long sessionId, String version, String model, String evidenceHash,
+            String snapshotJson, String copilotSessionId, int revision, Instant createdAt, Instant updatedAt
+    ) {
+    }
+
+    public record RoundDiscussionTurnSource(
+            String id, String discussionId, String clientRequestId, String question, String status,
+            String answerJson, String errorMessage, Instant createdAt, Instant completedAt
+    ) {
     }
 
     public record SessionValues(String conversationId, String agentName, String agentType,

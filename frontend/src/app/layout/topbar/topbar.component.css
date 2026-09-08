@@ -15,7 +15,10 @@
 .connection small { padding-left: 8px; color: var(--dim); border-left: 1px solid var(--line); }
 .button, .icon-button { height: 34px; color: #e7e9ed; background: #171a21; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
 .button { padding: 0 14px; font-size: 12px; font-weight: 650; }
+.guide-button { display: flex; align-items: center; gap: 7px; color: var(--lime); border-color: #b8f36b38; background: #b8f36b08; }
+.guide-button mat-icon { width: 17px; height: 17px; font-size: 17px; }
 .icon-button { width: 34px; display: grid; place-items: center; padding: 0; }
 .button:hover, .icon-button:hover { background: #1c2028; border-color: #454c58; }
 .icon-button mat-icon { width: 20px; height: 20px; font-size: 20px; }
+@media (max-width: 820px) { .guide-button span { display: none; }.guide-button { width: 34px; justify-content: center; padding: 0; } }
 @media (max-width: 700px) { .topbar { padding: 0 12px; }.connection span { display: none; } }

@@ -1,0 +1,70 @@
+        <section class="advice-preview" aria-labelledby="advice-preview-heading">
+  <header>
+    <div class="preview-icon"><mat-icon>inventory_2</mat-icon></div>
+    <div><span>{{ preview().preparation ? 'ZWERYFIKOWANO LOKALNIE · NIE WYSŁANO DO AI' : 'NIE WYSŁANO' }} · {{ preview().request.version }}</span><h4 id="advice-preview-heading">Podgląd pakietu dla AI</h4></div>
+    <button type="button" (click)="refreshed.emit()"><mat-icon>refresh</mat-icon>Odśwież migawkę</button>
+  </header>
+  <p class="preview-lead">To zamrożona migawka danych, na których później może powstać rekomendacja. Jej przygotowanie nie uruchomiło modelu. Liczba elementów i znaków nie blokuje analizy — o pojemności decyduje okno kontekstowe wybranego modelu.</p>
+
+  <div class="preview-stats">
+    <span><small>WYBRANE RUNDY</small><strong>{{ preview().summary.selectedRounds || '—' }}</strong></span>
+    <span><small>WSPIERAJĄCE</small><strong>{{ preview().summary.supportingRounds || '—' }}</strong></span>
+    <span><small>OBSERWACJE</small><strong>{{ preview().summary.observations }}</strong></span>
+    <span><small>FRAGMENTY TREŚCI</small><strong>{{ preview().summary.contentFragments }}</strong></span>
+    <span><small>ROZMIAR</small><strong>{{ number(preview().summary.payloadCharacters) }} znaków</strong></span>
+    <span><small>SZACOWANY INPUT</small><strong>≈ {{ number(preview().summary.estimatedInputTokens) }} tokenów</strong></span>
+  </div>
+
+  <div class="preview-provenance">
+    <span><i class="emitted"></i>Fakty z telemetrii: {{ emittedCount() }}</span>
+    <span><i class="derived"></i>Wyliczenia deterministyczne: {{ derivedCount() }}</span>
+    <span><i class="estimated"></i>Estymacje: {{ estimatedCount() }}</span>
+    <span><i class="classified"></i>Wcześniejsza klasyfikacja AI: {{ classifiedCount() }}</span>
+    <span><i class="missing"></i>Brakujące wartości: {{ missingCount() }}</span>
+  </div>
+
+  <section class="preview-scope">
+    <div><small>ZAKRES</small><strong>{{ preview().request.scope.kind === 'phase' ? 'Jedna faza' : 'Jedno kompaktowanie' }}</strong></div>
+    <div><small>FINGERPRINT DANYCH</small><code>{{ shortFingerprint() }}…</code></div>
+    <div><small>KANDYDACI Z KATALOGU</small><strong>{{ preview().request.candidateTechniqueIds.join(', ') || 'brak' }}</strong></div>
+  </section>
+
+  @if (preview().preparation; as preparation) {
+    <section class="server-proof">
+      <mat-icon>verified_user</mat-icon>
+      <span><strong>Źródła potwierdzone w raw telemetry i modelu znormalizowanym.</strong><br>
+        Migawka <code>{{ preparation.previewId }}</code> jest zamrożona do {{ preparation.expiresAt }}.</span>
+    </section>
+  }
+
+  @if (preview().request.manifest.omitted.length) {
+    <section class="omissions" role="status">
+      <h5><mat-icon>content_cut</mat-icon>Pominięcia zapisane w manifeście</h5>
+      <ul>@for (item of preview().request.manifest.omitted; track item.ref + ':' + item.reason) {<li><code>{{ item.ref }}</code> — {{ item.reason }}</li>}</ul>
+    </section>
+  }
+
+  @if (preview().warnings.length) {
+    <section class="preview-warnings">
+      <h5><mat-icon>info</mat-icon>Ograniczenia tej migawki</h5>
+      <ul>@for (warning of preview().warnings; track warning) {<li>{{ warning }}</li>}</ul>
+    </section>
+  }
+
+  <details class="package-details">
+    <summary>Dokładna zawartość pakietu <mat-icon>expand_more</mat-icon></summary>
+    <pre>{{ packageJson() }}</pre>
+  </details>
+
+  @if (preview().preparation && !adviceSent()) {
+    <section class="send-advice">
+      <div><strong>Uruchom doradcę dopiero po sprawdzeniu pakietu</strong><p>Do modelu trafi dokładnie ta zamrożona migawka. Wywołanie może zużyć limit konta Copilot.</p></div>
+      <button type="button" [disabled]="!sendAvailable() || adviceLoading()" (click)="adviceRequested.emit(preview())">
+        @if (adviceLoading()) { <span class="spinner"></span>Analizowanie… }
+        @else { <mat-icon>auto_awesome</mat-icon>{{ sendAvailable() ? 'Wyślij do AI' : 'Migawka wygasła' }} }
+      </button>
+    </section>
+  }
+
+  <footer><mat-icon>{{ adviceSent() ? 'cloud_done' : 'lock' }}</mat-icon><span><strong>{{ adviceSent() ? 'Ta migawka została wysłana do AI.' : 'Pakiet pozostaje lokalny.' }}</strong> {{ adviceSent() ? 'Wynik poniżej jest powiązany z jej fingerprintem.' : preview().preparation ? 'Backend zweryfikował źródła i zapisał migawkę, ale nie uruchomił modelu.' : 'Pakiet oczekuje na backendową walidację źródeł.' }}</span></footer>
+</section>

@@ -130,6 +130,37 @@ describe('WorkflowViewComponent', () => {
     expect(nextPanel?.kind === 'round' ? nextPanel.data.turn.model.id : undefined).toBe(3);
   });
 
+  it('selects one continuous round range without opening the factual panel', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    element.querySelector<HTMLButtonElement>('.round-range-toggle')!.click();
+    fixture.detectChanges();
+    const rounds = element.querySelectorAll<HTMLButtonElement>('.primary-lane .model-round-node');
+    rounds[0].click();
+    fixture.detectChanges();
+    expect(element.querySelector('.round-range-bar')?.textContent).toContain('Początek: M1');
+    expect(TestBed.inject(RoundDetailsPanelService).panel()).toBeNull();
+
+    rounds[2].click();
+    fixture.detectChanges();
+    const range = element.querySelector('.round-range-bar');
+    expect(range?.textContent).toContain('M1–M3');
+    expect(range?.textContent).toContain('3 rundy bez przerw');
+    expect(range?.textContent).toContain('pokrycie 3/3');
+    expect(element.querySelectorAll('.range-selected')).toHaveLength(3);
+    expect(element.querySelectorAll('.range-endpoint')).toHaveLength(2);
+  });
+
+  it('rejects a range end from another agent stream', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    element.querySelector<HTMLButtonElement>('.round-range-toggle')!.click();
+    fixture.detectChanges();
+    element.querySelector<HTMLButtonElement>('.primary-lane .model-round-node')!.click();
+    element.querySelector<HTMLButtonElement>('.child-lane .model-round-node')!.click();
+    fixture.detectChanges();
+    expect(notifyError).toHaveBeenCalledWith('Koniec zakresu musi należeć do tego samego agenta i tej samej interakcji co początek.');
+    expect(element.querySelector('.round-range-bar')?.textContent).toContain('Początek: M1');
+  });
+
   it('opens the initial request and final response from their colored flow nodes', () => {
     const element: HTMLElement = fixture.nativeElement;
     element.querySelector<HTMLButtonElement>('.interaction-node')!.click();
@@ -180,6 +211,17 @@ describe('WorkflowViewComponent', () => {
     element.querySelectorAll<HTMLButtonElement>('.layer-switch button')[2].click(); fixture.detectChanges();
     expect(marker.textContent).toContain('29,672');
     expect(element.querySelector('.analysis-menu-copy')?.textContent).toContain('1 kompaktowanie pokazane na osi');
+    const guidance = vi.fn();
+    fixture.componentInstance.optimizationGuide.subscribe(guidance);
+    element.querySelector<HTMLButtonElement>('.compaction-guide-button')!.click();
+    expect(guidance).toHaveBeenCalledWith(expect.objectContaining({context: expect.objectContaining({
+      kind: 'COMPACTION', topics: ['CONTEXT_COMPACTION'], measurement: expect.objectContaining({credits: 29.672, inputTokens: 96_756}),
+      evidence: [expect.objectContaining({kind: 'COMPACTION', id: '192/865'})]
+    })}));
+    expect(classify).not.toHaveBeenCalled();
+    const compactionEvidence = guidance.mock.calls[0][0].context.evidence[0];
+    fixture.componentInstance.openGuidanceEvidence(compactionEvidence);
+    expect(TestBed.inject(RoundDetailsPanelService).panel()?.kind).toBe('template');
     marker.click();
     const panel = TestBed.inject(RoundDetailsPanelService).panel();
     expect(panel?.kind).toBe('template');
@@ -289,7 +331,7 @@ describe('WorkflowViewComponent', () => {
     expect(element.querySelector('.optimization-hero')?.textContent).toContain('NAJWIĘKSZY OBSZAR DO SPRAWDZENIA');
     expect(element.querySelector('.optimization-hero')?.textContent).toContain('Co warto sprawdzić');
     expect(element.querySelectorAll('.action-ranking-row').length).toBeGreaterThan(1);
-    expect(element.querySelector('.action-summary button')).toBeNull();
+    expect(element.querySelectorAll('.category-guide-button')).toHaveLength(fixture.componentInstance.creditCategories().length);
     expect(element.querySelector('.action-summary details')).toBeNull();
     expect(element.querySelector('.action-credit-total')).toBeNull();
     expect(element.querySelector('.action-credit-share')?.textContent).toContain('%');
@@ -335,7 +377,21 @@ describe('WorkflowViewComponent', () => {
     expect(fixture.componentInstance.phaseCreditsTooltip(roundPhases[0])).toContain('Nie musi odpowiadać procentowi kategorii');
     expect(fixture.componentInstance.phaseCreditsTooltip(phases[0])).toContain('fakt z telemetrii');
     expect(phases.every(phase => phase.creditStrength.endsWith('%'))).toBe(true);
-    expect(element.querySelector('.phase-strip button')).toBeNull();
+    expect(element.querySelectorAll('.phase-guide-button')).toHaveLength(phases.length);
+    const guidance = vi.fn();
+    fixture.componentInstance.optimizationGuide.subscribe(guidance);
+    const acquireRow = [...element.querySelectorAll<HTMLElement>('.action-ranking-row')]
+      .find(row => row.textContent?.includes('Pozyskanie danych'))!;
+    acquireRow.querySelector<HTMLButtonElement>('.category-guide-button')!.click();
+    expect(guidance).toHaveBeenLastCalledWith(expect.objectContaining({context: expect.objectContaining({
+      kind: 'CATEGORY', topics: expect.arrayContaining(['ACQUIRE_DATA']), measurement: expect.objectContaining({creditEstimated: true}),
+      evidence: expect.arrayContaining([expect.objectContaining({kind: 'ROUND'})])
+    })}));
+    element.querySelector<HTMLButtonElement>('.phase-card:not(.compaction-phase) .phase-guide-button')!.click();
+    expect(guidance).toHaveBeenLastCalledWith(expect.objectContaining({context: expect.objectContaining({
+      kind: 'PHASE', measurement: expect.objectContaining({creditEstimated: false}),
+      evidence: expect.arrayContaining([expect.objectContaining({kind: 'ROUND'})])
+    })}));
     expect(element.querySelectorAll('.phase-step')).toHaveLength(phases.length);
     expect(element.querySelectorAll('.phase-arrow')).toHaveLength(phases.length);
     expect(element.querySelectorAll('.phase-arrow-placeholder')).toHaveLength(1);

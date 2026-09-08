@@ -1,6 +1,6 @@
 # Architektura i przepływ danych
 
-Stan dokumentu: 2026-09-06.
+Stan dokumentu: 2026-09-08.
 
 ## Widok całości
 
@@ -35,6 +35,12 @@ Jawna analiza użytkownika:
 Mapa pracy → ToolClassificationController → ToolClassificationService
            → CopilotCompletion → Copilot CLI / GitHub Copilot
            → ścisła walidacja JSON → H2 → kategorie w UI
+
+Jawna rozmowa o ciągłym zakresie rund:
+Mapa pracy → round-discussion-evidence.ts → lokalna migawka + SHA-256
+           → RoundDiscussionController → kontrola raw/normalized
+           → createSession / resumeSession → ścisła walidacja JSON
+           → H2: rozmowa + tury → dedykowany modal
 ```
 
 Backend zachowuje telemetrię i udostępnia stabilny widok HTTP. Większość
@@ -91,10 +97,15 @@ Aktualne tabele:
 | `message_record` | Treść wiadomości wejściowych, wyjściowych i definicji narzędzi. |
 | `metric_or_event` | Znormalizowane metryki i logi spoza spanów. |
 | `tool_classification_result` | Zwalidowany wynik AI dla sesji i dokładnego request hash. |
+| `optimization_advice_preview` | Zamrożony, lokalnie zweryfikowany pakiet doradczy z fingerprintem i czasem wygaśnięcia. |
+| `optimization_advice_result` | Ściśle zwalidowany wynik doradztwa dla request hash, fingerprintu, modelu i wersji promptu. |
+| `round_discussion` | Zamrożona migawka ciągłego zakresu, wybrany model, rewizja i identyfikator trwałej sesji SDK. |
+| `round_discussion_turn` | Pytanie, status i ściśle zwalidowana odpowiedź każdej tury rozmowy. |
 
 Klucze obce prowadzą od danych znormalizowanych do raw sygnału lub sesji i mają
-`ON DELETE CASCADE`. Wynik analizy znika razem z sesją. Eksport sesji w wersji 1
-nie został rozszerzony o analizę AI.
+`ON DELETE CASCADE`. Wynik analizy i podglądy znikają razem z sesją. Wygasłe
+podglądy są usuwane przy zapisaniu następnej migawki. Eksport sesji w wersji 1
+nie został rozszerzony o analizę AI ani podglądy.
 
 `schema.sql` używa `IF NOT EXISTS`, ale nie jest systemem migracji dowolnych zmian.
 Każda zmiana istniejącej kolumny wymaga jawnej strategii zgodności ze starą bazą.
@@ -124,6 +135,15 @@ Najważniejsze endpointy:
 | `GET` | `/api/ai/tool-classification/status` | Gotowość AI, model i flaga zajętości. |
 | `POST` | `/api/ai/tool-classification/cached?sessionId=…` | Odczyt wyniku dla identycznego requestu. |
 | `POST` | `/api/ai/tool-classification?sessionId=…` | Jawne uruchomienie klasyfikacji. |
+| `POST` | `/api/ai/optimization-advice/prepare?sessionId=…` | Lokalna walidacja źródeł raw/normalized i zapis 30-minutowej migawki; bez SDK i inferencji. |
+| `GET` | `/api/ai/optimization-advice/status` | Konfiguracja modelu i zajętość wspólnego wykonawcy; bez SDK. |
+| `POST` | `/api/ai/optimization-advice/cached?sessionId=…` | Lokalny lookup wyniku dla zweryfikowanego `previewId`; 204 przy braku. |
+| `POST` | `/api/ai/optimization-advice?sessionId=…` | Jedna inferencja uruchamiana wyłącznie jawnym kliknięciem; body zawiera tylko `previewId`. |
+| `GET` | `/api/ai/round-discussions/models` | Modele dostępne dla konta Copilot i emitowane limity kontekstu; bez rozpoczęcia rozmowy. |
+| `POST` | `/api/ai/round-discussions?sessionId=…` | Lokalna walidacja i zapis zamrożonej migawki oraz wybranego modelu; bez inferencji. |
+| `GET` | `/api/ai/round-discussions?sessionId=…` | Lista zapisanych rozmów dla sesji; bez SDK. |
+| `GET` | `/api/ai/round-discussions/{id}?sessionId=…` | Migawka i historia jednej rozmowy; bez SDK. |
+| `POST` | `/api/ai/round-discussions/{id}/turns?sessionId=…` | Jawna tura: utworzenie albo wznowienie sesji SDK i zapis wyniku. |
 
 Frontendowe interfejsy transportowe muszą pozostać zgodne z `ApiView` i
 `ToolClassification`.
@@ -161,6 +181,9 @@ wyspecjalizowane role:
 | `flow-tool-catalog.ts` | Minimalny, wersjonowalny request klasyfikacji AI. |
 | `model-action-evidence.ts` | Mapowanie wyniku AI na rundy oraz dowody konsumpcji wyników. |
 | `action-credit-attribution.ts` | Lokalna estymacja podziału credits na kategorie. |
+| `optimization/guidance-evidence.ts` | Lokalny, zamrożony pakiet dowodowy dla fazy lub pojedynczego kompaktowania: limity, redakcja, pochodzenie, braki, pominięcia i fingerprint. Nie uruchamia AI. |
+| `optimization/round-discussion-evidence.ts` | Pełny pakiet granic ciągłego zakresu: requesty, odpowiedzi, wykonania, definicje i pierwszy następny request; redakcja sekretów i fingerprint, bez lokalnej bramki rozmiaru. |
+| `RoundDiscussionDialogComponent` | Wybór modelu, podgląd materiału, pierwsze pytanie, historia i dopytywanie w dedykowanym modalu. |
 
 Interpretacja należy do tych modułów, a nie do wyrażeń w template.
 
@@ -180,7 +203,9 @@ Komponent odpowiada za:
 - szczegółowy diagram głównego agenta i subagentów;
 - warstwy `Kontekst`, `Tokeny`, `Credits`;
 - poziome przeciąganie szczegółowej mapy;
-- otwarcie wspólnego panelu rundy.
+- otwarcie wspólnego panelu rundy;
+- wybór początku i końca jednego ciągłego zakresu tego samego aktora i interakcji;
+- lokalne przygotowanie materiału oraz otwarcie dedykowanej rozmowy.
 
 Aktualny porządek po analizie:
 
@@ -264,9 +289,10 @@ Jawny przycisk użytkownika, gdy brak cache:
   → warstwa kategorii w Angularze
 ```
 
-`CopilotCompletion` tworzy jednorazowego klienta i kończy proces przez
-`forceStop()`. Omija to starsze, nieobsługiwane przez część CLI wywołania
-`connect`/`runtime.shutdown`. Konfiguracja sesji blokuje narzędzia i uprawnienia.
+`CopilotCompletion` tworzy klienta na czas pojedynczego działania i kończy proces
+przez `forceStop()`. Klasyfikacja i doradztwo używają izolowanych sesji. Rozmowa
+o rundach zapisuje sesję SDK i wznawia ją w kolejnych turach, ale również zamyka
+klienta/CLI po każdym wywołaniu. Konfiguracja blokuje narzędzia i uprawnienia.
 
 Backend waliduje między innymi:
 
@@ -281,11 +307,88 @@ Backend waliduje między innymi:
 
 AI nie oblicza credits. Angular łączy zwrócone kategorie z pomiarami lokalnie.
 
+## Podgląd i jawne wykonanie doradztwa
+
+```text
+Jawny przycisk w poradniku konkretnej fazy / jednego kompaktowania
+  → GuidanceEvidenceBuilder
+  → ograniczenie zakresu i fragmentów
+  → usunięcie system/developer i reasoning
+  → redakcja rozpoznanych sekretów
+  → manifest pominięć + SHA-256
+  → POST /api/ai/optimization-advice/prepare
+  → ścisłe DTO, allowlista technik i kontrola metryk
+  → potwierdzenie spanu w raw signal + hash pełnego źródła normalized
+  → kontrola przynależności sesji głównej / potomnej / kompaktora
+  → zapis niezmiennego podglądu na 30 minut
+  → koniec etapu prepare; brak CopilotCompletion
+  → jawne „Wyślij do AI”
+  → frontend wysyła tylko previewId
+  → ponowna walidacja ważności i niezmienności źródeł
+  → przejęcie wspólnego AiExecutionCoordinator
+  → powtórny lookup cache
+  → jedna izolowana tura CopilotCompletion, bez tools/skills/repo/pamięci
+  → ścisła walidacja odpowiedzi i observationIds
+  → ponowna kontrola źródeł oraz zapis wyniku
+```
+
+Pakiet przechowuje fakty wyemitowane, wyliczenia deterministyczne, wcześniejszą
+klasyfikację AI i braki jako różne typy pochodzenia. Wspierający request następnej
+rundy jest dołączany wyłącznie poza wybranym zakresem i jawnie oznaczany.
+Kompaktowanie dostaje pomiary przed/po tylko po potwierdzonym odbiorze wyniku.
+Referencja zawiera raw signal ID, trace/span ID i hash pełnego znormalizowanego
+źródła (atrybuty, zdarzenia oraz wiadomości spanu). Backend odrzuca zmianę źródła,
+obcą sesję, brak spanu w raw signal, niezgodną metrykę i konflikt wersji. Zwrot
+`RAW_AND_NORMALIZED` oznacza lokalną walidację dowodu, a nie wynik inferencji.
+Sam podgląd, status i lookup cache nie uruchamiają modelu. Wynik AI zachowuje
+wersję promptu `optimization-advice-prompt-v1`, model, request hash i fingerprint.
+Stany `INSUFFICIENT_EVIDENCE` oraz `NO_SUITABLE_TECHNIQUE` są poprawnymi
+odpowiedziami, nie awariami.
+
+## Rozmowa o ciągłym zakresie rund
+
+```text
+„Zapytaj o rundy”
+  → wybór początku i końca w jednej interakcji i jednym strumieniu agenta
+  → round-discussion-evidence-v1
+  → pełne przechwycone granice bez próbkowania i bez lokalnego limitu znaków
+  → wybór modelu z katalogu SDK
+  → zapis rozmowy bez inferencji
+  → jawne „Rozpocznij rozmowę”
+  → ponowna kontrola source refs, raw telemetry, hasha i ciągłości
+  → przejęcie wspólnego AiExecutionCoordinator
+  → pierwsza tura: createSession + zamrożona migawka + pytanie
+  → następne tury: resumeSession + nowe pytanie
+  → ścisła walidacja bloków i ich roundRefs/boundaryIds
+  → ponowna kontrola źródeł i zapis odpowiedzi w H2
+```
+
+Pakiet obejmuje każdą wybraną rundę, jej model request, model response, wykonania
+narzędzi, deduplikowane definicje oraz — dla końca zakresu — pierwszy faktycznie
+przechwycony następny request, jeśli istnieje. System/developer, jawne reasoning
+i rozpoznane sekrety nie są wysyłane jako materiał telemetryczny. Backend nie
+ufa referencjom frontendu: potwierdza spany w znormalizowanym modelu i raw signal,
+przynależność do sesji głównej lub dokładnie powiązanego dziecka oraz ciągłość
+wybranych chat spanów.
+
+Model odpowiedzi musi rozdzielić `EXPLANATION`, `HYPOTHESIS` i
+`GENERAL_GUIDANCE`. Pierwsze dwa typy wymagają referencji do rundy albo granicy;
+wiedza ogólna nie może udawać dowodu. Startery pytań tylko wypełniają pole.
+Lokalny szacunek tokenów ma charakter informacyjny; wyłącznie provider i
+rzeczywiste okno wybranego modelu mogą odrzucić kompletny prompt jako zbyt duży.
+Klikalny powrót do dokładnego dowodu, ręczna redakcja i stan niepewnego wyniku są
+odłożone do kolejnego hardeningu.
+
 ## Klucze wersjonowania
 
 | Kontrakt | Aktualna wartość | Skutek zmiany |
 |---|---|---|
 | Klasyfikacja AI | `model-actions-v5` | Wymaga nowej analizy; stary rekord pozostaje pod starym hashem. |
+| Pakiet dowodowy poradnika | `guidance-evidence-v2` | Zmiana redakcji, limitów, próbkowania lub pochodzenia wymaga nowej migawki. |
+| Żądanie i wynik doradztwa | `optimization-advice-v1` | `prepare` zamraża podgląd, a jawne wykonanie przyjmuje tylko jego ID i waliduje wynik. |
+| Prompt doradcy | `optimization-advice-prompt-v1` | Wchodzi do klucza cache; zmiana wymaga nowej inferencji. |
+| Migawka rozmowy o rundach | `round-discussion-evidence-v1` | Zmiana granic, redakcji lub źródeł otwiera nową rozmowę. |
+| Rozmowa i odpowiedź | `round-discussion-v1` | Określa trwałą historię aplikacji i ścisły kontrakt odpowiedzi. |
 | Rekonstrukcja epizodów | `copilot-episode-v1` | Wymaga testów na fixture'ach relacji. |
 | Model mapy | `workflow-mvp-0.2` | Wskazuje wersję wynikowego modelu analizy. |
 | Eksport sesji | `agent-scanner-session`, v1 | Breaking change wymaga nowej wersji importu/eksportu. |

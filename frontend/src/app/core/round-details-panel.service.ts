@@ -1,4 +1,4 @@
-import {Injectable, TemplateRef, signal} from '@angular/core';
+import {computed, Injectable, TemplateRef, signal} from '@angular/core';
 import {MessageRecord, ModelTurn, SpanRecord} from '../models/scanner.models';
 
 export interface RoundDetailsPanelData {
@@ -16,39 +16,69 @@ export interface RoundDetailsPanelNavigation {
   next?: () => void;
 }
 
+export type RoundDetailsPanelOpenMode = 'reset' | 'push' | 'replace';
+
 export type RoundDetailsPanelState =
-  | {kind: 'round'; ariaLabel: string; data: RoundDetailsPanelData; navigation?: RoundDetailsPanelNavigation}
-  | {kind: 'template'; ariaLabel: string; eyebrow: string; title: string; template: TemplateRef<unknown>; context: object | null; navigation?: RoundDetailsPanelNavigation};
+  | {id: number; kind: 'round'; ariaLabel: string; data: RoundDetailsPanelData; navigation?: RoundDetailsPanelNavigation}
+  | {id: number; kind: 'template'; ariaLabel: string; eyebrow: string; title: string; template: TemplateRef<unknown>; context: object | null; navigation?: RoundDetailsPanelNavigation};
 
 @Injectable({providedIn: 'root'})
 export class RoundDetailsPanelService {
-  private readonly panelState = signal<RoundDetailsPanelState | null>(null);
+  private readonly panelStack = signal<RoundDetailsPanelState[]>([]);
   private returnFocus: HTMLElement | null = null;
-  readonly panel = this.panelState.asReadonly();
+  private backFocus: HTMLElement[] = [];
+  private nextPanelId = 1;
+  readonly panels = this.panelStack.asReadonly();
+  readonly panel = computed(() => this.panelStack().at(-1) ?? null);
+  readonly canGoBack = computed(() => this.panelStack().length > 1);
 
   openRound(data: Omit<RoundDetailsPanelData, 'subagent' | 'mode'> & {subagent?: boolean; mode?: RoundDetailsPanelData['mode']}, ariaLabel: string, origin?: EventTarget | null,
-            navigation?: RoundDetailsPanelNavigation): void {
-    this.rememberOrigin(origin);
-    this.panelState.set({kind: 'round', ariaLabel, data: {...data, subagent: data.subagent ?? false, mode: data.mode ?? 'request'}, navigation});
+            navigation?: RoundDetailsPanelNavigation, mode: RoundDetailsPanelOpenMode = 'reset'): void {
+    this.open({id: this.nextPanelId++, kind: 'round', ariaLabel,
+      data: {...data, subagent: data.subagent ?? false, mode: data.mode ?? 'request'}, navigation}, origin, mode);
   }
 
   openTemplate(template: TemplateRef<unknown>, context: object | null, eyebrow: string, title: string, ariaLabel: string, origin?: EventTarget | null,
-               navigation?: RoundDetailsPanelNavigation): void {
-    this.rememberOrigin(origin);
-    this.panelState.set({kind: 'template', ariaLabel, eyebrow, title, template, context, navigation});
+               navigation?: RoundDetailsPanelNavigation, mode: RoundDetailsPanelOpenMode = 'reset'): void {
+    this.open({id: this.nextPanelId++, kind: 'template', ariaLabel, eyebrow, title, template, context, navigation}, origin, mode);
   }
 
-  previous(): void { this.panelState()?.navigation?.previous?.(); }
-  next(): void { this.panelState()?.navigation?.next?.(); }
+  previous(): void { this.panel()?.navigation?.previous?.(); }
+  next(): void { this.panel()?.navigation?.next?.(); }
 
-  close(): void {
-    if (!this.panelState()) return;
-    this.panelState.set(null);
-    const target = this.returnFocus;
-    this.returnFocus = null;
+  back(): void {
+    if (!this.canGoBack()) return;
+    this.panelStack.update(stack => stack.slice(0, -1));
+    const target = this.backFocus.pop();
     queueMicrotask(() => {
       if (target?.isConnected) target.focus();
     });
+  }
+
+  close(): void {
+    if (!this.panel()) return;
+    this.panelStack.set([]);
+    const target = this.returnFocus;
+    this.returnFocus = null;
+    this.backFocus = [];
+    queueMicrotask(() => {
+      if (target?.isConnected) target.focus();
+    });
+  }
+
+  private open(state: RoundDetailsPanelState, origin: EventTarget | null | undefined, mode: RoundDetailsPanelOpenMode): void {
+    if (mode === 'push' && this.panel()) {
+      if (origin instanceof HTMLElement) this.backFocus.push(origin);
+      this.panelStack.update(stack => [...stack, state]);
+      return;
+    }
+    if (mode === 'replace' && this.panel()) {
+      this.panelStack.update(stack => [...stack.slice(0, -1), state]);
+      return;
+    }
+    this.rememberOrigin(origin);
+    this.backFocus = [];
+    this.panelStack.set([state]);
   }
 
   private rememberOrigin(origin?: EventTarget | null): void {

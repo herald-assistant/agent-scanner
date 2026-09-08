@@ -143,6 +143,65 @@ Brak wartości oznacza „brak danych w telemetrii”, a nie zero ani potwierdze
 problem da się potwierdzić na podstawie statusu spanu, zdarzenia błędu albo
 ustrukturyzowanego wyniku narzędzia.
 
+## Techniki optymalizacji bez AI
+
+Przycisk **Techniki optymalizacji** w górnym pasku otwiera lokalny poradnik w
+wspólnym prawym panelu. Nie wymaga wybranej sesji, konfiguracji GitHub Copilot ani
+wywołania modelu. Pierwsza wersja zawiera sześć technik: doprecyzowanie celu,
+zawężenie researchu, mapę projektu, handoff przez artefakt, etapową walidację i
+przygotowanie kontekstu do kompaktowania.
+
+Każda technika pokazuje warunki użycia i ostrożności, pierwszy eksperyment,
+prostszy wariant, przykład, nakład oraz obowiązki utrzymania. **Skopiuj plan
+próby** zapisuje do schowka cel, kroki, bramki jakości i kryteria porównania;
+nie zmienia projektu. Katalog jest wersjonowany w
+`src/main/resources/optimization/techniques-v1.json` i dostępny lokalnie pod
+`GET /api/optimization/techniques`.
+
+Po zapisanej analizie kategorii przycisk **Poznaj techniki** otwiera ten sam
+poradnik w zakresie wybranej kategorii albo fazy. Panel pokazuje credits, udział,
+pokrycie pomiaru i pochodzenie wartości; `≈` nadal oznacza lokalną estymację
+atrybucji. Kompaktowanie ma osobne wejście dostępne również bez klasyfikacji AI i
+pokazuje wyemitowane credits oraz tokeny wejścia/wyjścia. Dobór maksymalnie trzech
+technik jest deterministyczny, nie uruchamia modelu i nie wysyła danych sesji.
+Kontekstowy poradnik wskazuje też konkretne rundy lub wywołania kompaktowania.
+Kliknięcie dowodu otwiera istniejący panel faktograficzny, a **Wróć do techniki**
+przywraca poradnik bez utraty wybranej techniki, rozwiniętych sekcji i scrolla.
+
+Dla konkretnej fazy albo dokładnie jednego kompaktowania przycisk **Przygotuj
+podgląd dla AI** najpierw tworzy lokalną migawkę
+`optimization-advice-v1`. Podgląd pokazuje zakres, fingerprint, liczbę źródeł,
+fakty, wyliczenia, wcześniejszą klasyfikację, braki, pominięcia, rozmiar oraz
+szacowany input. Instrukcje system/developer i jawne reasoning są usuwane, a
+rozpoznane tokeny i sekrety redagowane. Można obejrzeć dokładny JSON lub
+odświeżyć migawkę. Lokalny endpoint `prepare` sprawdza wersje, techniki,
+metryki i przynależność każdego źródła do sesji, potwierdza span w utrwalonym raw
+signal oraz hash pełnego rekordu znormalizowanego, po czym zapisuje niezmienny
+podgląd na 30 minut. UI wyraźnie odróżnia ten stan od wysłania do AI.
+
+Dla wielorundowej fazy `guidance-evidence-v2` nie kopiuje siedmiu referencji
+metrycznych i całej narastającej historii dla każdej rundy. Każda wybrana runda
+ma jeden zwarty, backendowo weryfikowany rekord kosztu, a kategoria AI zachowuje
+pochodzenie na poziomie pola. Treść pochodzi z reprezentatywnych rund całej fazy
+(początek, koniec, najwyższe znane credits oraz najwięcej tooli lub potwierdzony
+błąd), definicje są deduplikowane, a manifest grupuje pominięcia według rodzaju.
+Liczba rund, obserwacji, referencji, fragmentów ani znaków nie blokuje analizy.
+Próbkowanie ogranicza szum, ale jest regułą redakcji, nie bramką wysyłki. Scanner
+nie udaje tokenizera przez przeliczanie znaków na twardy limit: dopiero rzeczywiste
+okno kontekstowe skonfigurowanego modelu, egzekwowane przez dostawcę, może odrzucić
+pełny prompt jako zbyt duży.
+
+Dopiero przycisk **Wyślij do AI** uruchamia osobne doradztwo. Frontend wysyła
+wyłącznie `previewId`; backend odczytuje zamrożony pakiet, ponownie sprawdza jego
+ważność oraz niezmienność źródeł i wykonuje jedną izolowaną turę bez narzędzi,
+skilli, instrukcji repozytorium i pamięci. Wynik wskazuje 1–3 techniki do
+przetestowania albo jawnie zwraca brak wystarczających dowodów/brak pasującej
+techniki. Każda propozycja pokazuje warunki, mały eksperyment, wdrożenie,
+utrzymanie, kontrolę jakości, porównanie przed/po, ograniczenia i linki do
+dokładnych rund. Scanner nie obiecuje oszczędności, a koszt własnego wywołania
+doradcy pozostaje „brak pomiaru”. Klasyfikacja oraz doradztwo współdzielą jeden
+globalny slot inferencji.
+
 ## Mapa pracy
 
 Zakładka **Mapa pracy** zaczyna od wyemitowanego zlecenia i przepływu rund:
@@ -221,6 +280,20 @@ główny epizod i dokładnie powiązane dzieci. Kolizje i cykle nie otrzymują a
 Oś opisuje kolejność; szerokość nie oznacza czasu. Szczegółowe pomiary i payloady
 startują zwinięte, a poziomy obszar mapy można przewijać przeciągając jego tło.
 
+Przycisk **Zapytaj o rundy** pozwala wskazać początek i koniec jednego ciągłego
+odcinka tej samej interakcji i agenta. Pasek wyboru pokazuje zakres, liczbę rund,
+sumę znanych credits i pokrycie. **Przejdź do rozmowy** otwiera dedykowany modal z
+lokalnie zamrożonym materiałem, początkowym zleceniem, orientacyjnym rozmiarem i
+wyborem modelu dostępnego dla konta Copilot. Szacunek tokenów nie blokuje wysyłki;
+o dopuszczalnym rozmiarze decyduje rzeczywiste okno wybranego modelu.
+
+Pierwsze jawnie wysłane pytanie tworzy sesję rozmowy GitHub Copilot SDK, a każde
+dopytanie wznawia tę samą sesję. Historia i migawka pozostają zapisane lokalnie;
+zamknięcie modalu nie gubi rozmowy. Narzędzia, skills, MCP, pamięć, dostęp do repo
+i discovery są wyłączone. Odpowiedź oznacza osobno wyjaśnienia oparte na
+referencjach, hipotezy i wiedzę ogólną. Sam wybór zakresu, otwarcie modalu,
+starter pytania oraz odczyt historii nie uruchamiają modelu.
+
 Kontrakt, kategorie, ograniczenia i konfiguracja:
 [Klasyfikacja narzędzi AI](docs/klasyfikacja-narzedzi-ai.md).
 Playbook integracji: [Copilot SDK Java](docs/github-copilot-sdk-local-java-spring-ai.md).
@@ -272,6 +345,16 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 | `POST /v1/logs` | odbiór logów OTLP |
 | `GET /api/status` | status, liczba sygnałów i ustawienia retencji |
 | `GET /api/config` | konfiguracja VS Code i ostrzeżenie prywatności |
+| `GET /api/optimization/techniques` | wersjonowany lokalny katalog technik, bez wywołania AI |
+| `POST /api/ai/optimization-advice/prepare?sessionId={id}` | lokalna walidacja źródeł raw/normalized i zamrożenie podglądu; bez wywołania AI |
+| `GET /api/ai/optimization-advice/status` | konfiguracja modelu i wspólny stan wykonania; bez wywołania AI |
+| `POST /api/ai/optimization-advice/cached?sessionId={id}` | lokalny odczyt rekomendacji dla dokładnej zweryfikowanej migawki |
+| `POST /api/ai/optimization-advice?sessionId={id}` | jawne uruchomienie doradztwa dla `previewId` |
+| `GET /api/ai/round-discussions/models` | modele i limity kontekstu dostępne dla konta Copilot; bez rozpoczęcia rozmowy |
+| `POST /api/ai/round-discussions?sessionId={id}` | lokalny zapis zweryfikowanej migawki i wybranego modelu; bez inferencji |
+| `GET /api/ai/round-discussions?sessionId={id}` | lokalna lista rozmów dla sesji |
+| `GET /api/ai/round-discussions/{id}?sessionId={id}` | lokalny odczyt migawki i historii rozmowy |
+| `POST /api/ai/round-discussions/{id}/turns?sessionId={id}` | jawne pierwsze pytanie lub dopytanie w trwałej sesji SDK |
 | `GET /api/sessions` | lista znormalizowanych sesji |
 | `GET /api/sessions/{id}` | sesja, spany, wiadomości i surowe sygnały |
 | `GET /api/sessions/{id}/export` | eksport sesji w formacie wersjonowanym |

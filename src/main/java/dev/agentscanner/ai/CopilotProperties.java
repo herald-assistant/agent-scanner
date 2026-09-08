@@ -11,6 +11,7 @@ public record CopilotProperties(String githubToken, String model, String cliPath
         dataDirectory = dataDirectory == null || dataDirectory.isBlank() ? "agent-scanner-data/copilot" : dataDirectory;
         timeoutSeconds = timeoutSeconds <= 0 ? 120 : Math.min(timeoutSeconds, 300);
     }
+    public boolean credentialsConfigured() { return !githubToken.isBlank(); }
     public boolean configured() { return !githubToken.isBlank() && !model.isBlank(); }
     @Override public String toString() { return "CopilotProperties[credentials=redacted]"; }
 }

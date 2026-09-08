@@ -63,6 +63,37 @@ describe('AppComponent', () => {
     expect(element.querySelector('as-technical-view')).toBeNull();
   });
 
+  it('closes the selected session without deleting it or reopening it on refresh', async () => {
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    const source = workflowFixture()[0];
+    const requests: RequestInit[] = [];
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      requests.push(init ?? {});
+      const url = String(input);
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [source.session] : source;
+      return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await fixture.componentInstance.refresh();
+    fixture.detectChanges();
+
+    const element: HTMLElement = fixture.nativeElement;
+    const closeButton = [...element.querySelectorAll<HTMLButtonElement>('.session-actions button')]
+      .find(button => button.textContent?.trim() === 'Zamknij sesję');
+    expect(closeButton).toBeDefined();
+    closeButton!.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.detail).toBeUndefined();
+    expect(fixture.componentInstance.sessions).toEqual([source.session]);
+    expect(element.querySelector('.onboarding h1')?.textContent).toContain('Podłącz sesję agenta');
+
+    await fixture.componentInstance.refresh();
+
+    expect(fixture.componentInstance.detail).toBeUndefined();
+    expect(requests.some(request => request.method === 'DELETE')).toBe(false);
+  });
+
   it('groups model rounds by the user interaction trace and does not mix tools between interactions', () => {
     const component = fixture.componentInstance;
     const conversationId = 'conversation-1';

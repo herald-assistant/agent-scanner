@@ -2,35 +2,51 @@
   <div class="aside-layer">
     <button type="button" class="aside-backdrop" aria-label="Zamknij szczegóły" (click)="detailsPanel.close()"></button>
     <aside data-round-details-aside role="dialog" aria-modal="true" [attr.aria-label]="panel.ariaLabel" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
-      @if (panel.kind === 'round') {
-        <as-round-details-dialog
-          [turn]="panel.data.turn"
-          [sourceTurn]="panel.data.sourceTurn"
-          [mode]="panel.data.mode"
-          [messages]="panel.data.messages"
-          [calibrationSpans]="panel.data.calibrationSpans"
-          [headingContext]="panel.data.headingContext"
-          [subagent]="panel.data.subagent"
-          [navigationVisible]="!!panel.navigation"
-          [hasPrevious]="!!panel.navigation?.previous"
-          [hasNext]="!!panel.navigation?.next"
-          (previous)="detailsPanel.previous()"
-          (next)="detailsPanel.next()"
-          (closed)="detailsPanel.close()" />
-      } @else {
-        <section class="template-shell">
-          <header class="aside-title">
-            <div><span>{{ panel.eyebrow }}</span><h2>{{ panel.title }}</h2></div>
-            <div class="aside-actions">
-              @if (panel.navigation) {
-                <button type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!panel.navigation.previous" (click)="detailsPanel.previous()"><mat-icon>chevron_left</mat-icon></button>
-                <button type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!panel.navigation.next" (click)="detailsPanel.next()"><mat-icon>chevron_right</mat-icon></button>
+      @for (entry of detailsPanel.panels(); track entry.id) {
+        <div class="aside-panel" [class.aside-panel-hidden]="entry.id !== panel.id" [attr.aria-hidden]="entry.id !== panel.id" [attr.inert]="entry.id !== panel.id ? '' : null">
+          @if (entry.kind === 'round') {
+            <section class="round-shell" [class.with-return]="entry.id === panel.id && detailsPanel.canGoBack()">
+              @if (entry.id === panel.id && detailsPanel.canGoBack()) {
+                <button type="button" class="return-to-guide" (click)="detailsPanel.back()">
+                  <mat-icon>arrow_back</mat-icon><span><small>DOWÓD ŹRÓDŁOWY</small>Wróć do techniki</span>
+                </button>
               }
-              <button type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="detailsPanel.close()"><mat-icon>close</mat-icon></button>
-            </div>
-          </header>
-          <div class="aside-scroll"><ng-container *ngTemplateOutlet="panel.template; context: panel.context"></ng-container></div>
-        </section>
+              <as-round-details-dialog
+                [turn]="entry.data.turn"
+                [sourceTurn]="entry.data.sourceTurn"
+                [mode]="entry.data.mode"
+                [messages]="entry.data.messages"
+                [calibrationSpans]="entry.data.calibrationSpans"
+                [headingContext]="entry.data.headingContext"
+                [subagent]="entry.data.subagent"
+                [navigationVisible]="!!entry.navigation"
+                [hasPrevious]="!!entry.navigation?.previous"
+                [hasNext]="!!entry.navigation?.next"
+                (previous)="detailsPanel.previous()"
+                (next)="detailsPanel.next()"
+                (closed)="detailsPanel.close()" />
+            </section>
+          } @else {
+            <section class="template-shell" [class.with-return]="entry.id === panel.id && detailsPanel.canGoBack()">
+              @if (entry.id === panel.id && detailsPanel.canGoBack()) {
+                <button type="button" class="return-to-guide" (click)="detailsPanel.back()">
+                  <mat-icon>arrow_back</mat-icon><span><small>DOWÓD ŹRÓDŁOWY</small>Wróć do techniki</span>
+                </button>
+              }
+              <header class="aside-title">
+                <div><span>{{ entry.eyebrow }}</span><h2>{{ entry.title }}</h2></div>
+                <div class="aside-actions">
+                  @if (entry.navigation) {
+                    <button type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.previous" (click)="detailsPanel.previous()"><mat-icon>chevron_left</mat-icon></button>
+                    <button type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.next" (click)="detailsPanel.next()"><mat-icon>chevron_right</mat-icon></button>
+                  }
+                  <button type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="detailsPanel.close()"><mat-icon>close</mat-icon></button>
+                </div>
+              </header>
+              <div class="aside-scroll"><ng-container *ngTemplateOutlet="entry.template; context: entry.context"></ng-container></div>
+            </section>
+          }
+        </div>
       }
     </aside>
   </div>

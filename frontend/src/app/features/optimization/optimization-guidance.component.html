@@ -1,0 +1,186 @@
+<section class="guide" aria-labelledby="optimization-guide-heading">
+  <header class="guide-intro">
+    <div>
+      <span class="guide-kicker">{{ adviceResult() ? 'DORADZTWO AI NA ŻĄDANIE' : context() ? 'BEZ NOWEJ ANALIZY AI' : 'BEZ ANALIZY AI' }}</span>
+      <h3 id="optimization-guide-heading">{{ context() ? 'Techniki dla wskazanego miejsca' : 'Wybierz technikę do sprawdzenia' }}</h3>
+      <p>To katalog możliwych podejść, nie obietnica oszczędności. Zacznij od małej próby i porównaj koszt razem z jakością.</p>
+    </div>
+    <div class="local-badge"><mat-icon>lock</mat-icon><span>Katalog działa lokalnie<br><small>{{ context() ? 'sam dobór technik nie wysyła danych sesji' : 'bez danych sesji i bez wywołania AI' }}</small></span></div>
+  </header>
+
+  @if (loading()) {
+    <div class="guide-state" role="status"><span class="spinner"></span>Wczytywanie katalogu technik…</div>
+  } @else if (failed()) {
+    <div class="guide-state error" role="alert">
+      <mat-icon>error</mat-icon>
+      <span>Nie udało się wczytać lokalnego katalogu.</span>
+      <button type="button" (click)="load()">Spróbuj ponownie</button>
+    </div>
+  } @else {
+    @if (context(); as source) {
+      <section class="guidance-context" aria-label="Kontekst rekomendacji">
+        <header>
+          <span class="context-icon"><mat-icon>{{ source.kind === 'COMPACTION' ? 'compress' : source.kind === 'PHASE' ? 'timeline' : 'donut_large' }}</mat-icon></span>
+          <div><span>{{ source.kind === 'COMPACTION' ? 'KOMPAKTOWANIE' : source.kind === 'PHASE' ? 'FAZA' : 'KATEGORIA' }} · {{ source.scopeLabel }}</span><h4>{{ source.title }}</h4></div>
+        </header>
+        <p>{{ source.explanation }}</p>
+        <div class="context-metrics">
+          <span><small>CREDITS</small><strong>{{ source.measurement.credits === null ? '—' : (source.measurement.creditEstimated ? '≈ ' : '') + credits(source.measurement.credits) }}</strong></span>
+          @if (source.measurement.shareOfKnown != null) { <span><small>UDZIAŁ</small><strong>{{ source.measurement.creditEstimated ? '≈ ' : '' }}{{ percent(source.measurement.shareOfKnown) }}%</strong></span> }
+          @if (source.measurement.inputTokens != null) { <span><small>INPUT</small><strong>{{ tokens(source.measurement.inputTokens) }}</strong></span> }
+          @if (source.measurement.outputTokens != null) { <span><small>OUTPUT</small><strong>{{ tokens(source.measurement.outputTokens) }}</strong></span> }
+          <span><small>POKRYCIE</small><strong>{{ source.measurement.coveredCalls }}/{{ source.measurement.totalCalls }}</strong></span>
+        </div>
+        <div class="context-evidence">
+          @for (label of source.evidenceLabels; track label) { <span><mat-icon>info</mat-icon>{{ label }}</span> }
+        </div>
+        @if (source.evidence.length) {
+          <div class="evidence-links" aria-label="Dowody źródłowe rekomendacji">
+            <span>Sprawdź dowody w przepływie</span>
+            <div>
+              @for (evidence of source.evidence; track evidence.kind + ':' + evidence.id) {
+                <button
+                  type="button"
+                  [matTooltip]="evidence.description"
+                  matTooltipClass="scanner-info-tooltip"
+                  (click)="openEvidence(evidence, $event.currentTarget)">
+                  <mat-icon>{{ evidence.kind === 'COMPACTION' ? 'compress' : 'arrow_outward' }}</mat-icon>{{ evidence.label }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      @if (advicePreviewEligible()) {
+        <section class="advice-entry" aria-label="Lokalne przygotowanie podglądu dla AI">
+          <div>
+            <span>NASTĘPNY KROK · NADAL BEZ WYWOŁANIA AI</span>
+            <strong>Sprawdź, jakie dowody trafiłyby do rekomendacji</strong>
+            <p>Scanner zbuduje ograniczoną migawkę tej fazy lub tego kompaktowania, usunie instrukcje systemowe i ukryje rozpoznane sekrety.</p>
+          </div>
+          <button type="button" [disabled]="advicePreviewLoading()" (click)="prepareAdvicePreview()">
+            @if (advicePreviewLoading()) { <span class="spinner"></span>Przygotowywanie… }
+            @else { <mat-icon>inventory_2</mat-icon>{{ advicePreview() ? 'Przygotuj ponownie' : 'Przygotuj podgląd dla AI' }} }
+          </button>
+        </section>
+      } @else {
+        <p class="advice-scope-note"><mat-icon>info</mat-icon>Podgląd dla AI jest teraz dostępny dla konkretnej fazy albo dokładnie jednego kompaktowania. Wybierz węższy zakres na mapie.</p>
+      }
+
+      @if (advicePreview(); as preview) {
+        <as-advice-preview [preview]="preview" [adviceLoading]="adviceLoading()" [adviceSent]="!!adviceResult()"
+          (refreshed)="prepareAdvicePreview()" (adviceRequested)="adviceRequested.emit($event)" />
+      }
+
+      @if (adviceResult(); as result) {
+        @if (advicePreview(); as preview) {
+          <as-advice-result [result]="result" [preview]="preview" [context]="context()"
+            [techniques]="catalogState()?.techniques ?? []" (evidenceSelected)="evidenceSelected.emit($event)" />
+        }
+      }
+    }
+
+    <nav class="topic-list" aria-label="Tematy optymalizacji">
+      @if (context()) {
+        <button type="button" class="context-topic" [class.active]="contextualMode()" [attr.aria-pressed]="contextualMode()" (click)="selectContextualRecommendations()">
+          <mat-icon>recommend</mat-icon><span>Dla tego miejsca</span><small>{{ contextualTechniques().length }}</small>
+        </button>
+      }
+      @for (topic of topics; track topic.id) {
+        <button
+          type="button"
+          [class.active]="!contextualMode() && selectedTopic() === topic.id"
+          [attr.aria-pressed]="!contextualMode() && selectedTopic() === topic.id"
+          (click)="selectTopic(topic.id)">
+          <mat-icon>{{ topic.icon }}</mat-icon>
+          <span>{{ topic.label }}</span>
+          <small>{{ topicCount(topic) }}</small>
+        </button>
+      }
+    </nav>
+
+    <div class="guide-layout">
+      <aside class="technique-list" aria-label="Techniki w wybranym temacie">
+        @for (technique of filteredTechniques(); track technique.id) {
+          <button
+            type="button"
+            [class.active]="selectedTechnique()?.id === technique.id"
+            [attr.aria-current]="selectedTechnique()?.id === technique.id ? 'true' : null"
+            (click)="selectTechnique(technique)">
+            <span class="technique-id">{{ technique.id }}</span>
+            <span><strong>{{ technique.title }}</strong><small>{{ technique.firstExperimentGoal }}</small></span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        } @empty {
+          <p class="empty">W tym temacie nie ma jeszcze opisanej techniki.</p>
+        }
+      </aside>
+
+      @if (selectedTechnique(); as technique) {
+        <article class="technique-detail">
+          <header class="detail-heading">
+            <div><span>{{ technique.id }} · rewizja {{ technique.revision }}</span><h3>{{ technique.title }}</h3></div>
+            <button
+              type="button"
+              class="copy-button"
+              matTooltip="Skopiuj cel, kroki i kryteria porównania"
+              matTooltipClass="scanner-info-tooltip"
+              (click)="copyTrialPlan(technique)">
+              <mat-icon>content_copy</mat-icon>Skopiuj plan próby
+            </button>
+          </header>
+
+          <p class="lead">{{ technique.explanation }}</p>
+          <div class="mechanism"><mat-icon>neurology</mat-icon><div><strong>Jak to może pomóc</strong><p>{{ technique.mechanism }}</p></div></div>
+
+          <div class="fit-grid">
+            <section class="fit-card useful"><h4><mat-icon>check_circle</mat-icon>Kiedy warto sprawdzić</h4><ul>@for (item of technique.whenUseful; track item) {<li>{{ item }}</li>}</ul></section>
+            <section class="fit-card caution"><h4><mat-icon>warning</mat-icon>Kiedy zachować ostrożność</h4><ul>@for (item of technique.whenNotUseful; track item) {<li>{{ item }}</li>}</ul></section>
+          </div>
+
+          <section class="experiment">
+            <header><span>PIERWSZY EKSPERYMENT</span><strong>{{ technique.firstExperimentGoal }}</strong></header>
+            <ol>@for (step of technique.firstExperiment; track step) {<li><span>{{ $index + 1 }}</span><p>{{ step }}</p></li>}</ol>
+          </section>
+
+          <section class="simpler-alternative"><mat-icon>speed</mat-icon><div><strong>Prostszy wariant</strong><p>{{ technique.simplerAlternative }}</p></div></section>
+
+          <section class="detail-section">
+            <h4>Przykład zmiany</h4>
+            <div class="example-grid">
+              <div><span>PRZED</span><p>{{ technique.example.before }}</p></div>
+              <mat-icon>arrow_forward</mat-icon>
+              <div><span>PO</span><p>{{ technique.example.after }}</p></div>
+            </div>
+          </section>
+
+          <details class="extended-details">
+            <summary>Wdrożenie, jakość i utrzymanie <mat-icon>expand_more</mat-icon></summary>
+            <div class="extended-content">
+              <div class="details-grid">
+                <section class="detail-section"><h4>Co musisz mieć</h4><ul>@for (item of technique.prerequisites; track item) {<li>{{ item }}</li>}</ul></section>
+                <section class="detail-section"><h4>Gdzie zastosować</h4><div class="tags">@for (point of technique.applyAt; track point) {<span>{{ applicationPointLabel(point) }}</span>}</div></section>
+                <section class="detail-section"><h4>Jak sprawdzić jakość</h4><ul>@for (item of technique.qualityChecks; track item) {<li>{{ item }}</li>}</ul></section>
+                <section class="detail-section"><h4>Co porównać</h4><ul>@for (item of technique.compare; track item) {<li>{{ item }}</li>}</ul></section>
+              </div>
+
+              <section class="maintenance">
+                <header><div><span>NAKŁAD</span><strong>{{ setupLabel(technique.setup.level) }}</strong></div><mat-icon>build</mat-icon></header>
+                <div class="maintenance-grid">
+                  <div><h4>Uruchomienie</h4><ul>@for (item of technique.setup.tasks; track item) {<li>{{ item }}</li>}</ul></div>
+                  <div><h4>Utrzymanie</h4><ul>@for (item of technique.maintenance.tasks; track item) {<li>{{ item }}</li>}</ul></div>
+                  <div><h4>Wróć do decyzji, gdy</h4><ul>@for (item of technique.maintenance.triggers; track item) {<li>{{ item }}</li>}</ul></div>
+                </div>
+              </section>
+            </div>
+          </details>
+
+          @if (technique.relatedTechniqueIds.length) {
+            <section class="related"><span>Powiązane techniki</span>@for (id of technique.relatedTechniqueIds; track id) {@if (relatedTechnique(id); as related) {<button type="button" (click)="selectTechnique(related)">{{ id }} · {{ related.title }}</button>}}</section>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>

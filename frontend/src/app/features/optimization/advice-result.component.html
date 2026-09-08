@@ -1,0 +1,53 @@
+<section class="advice-result" aria-labelledby="advice-result-heading">
+  <header>
+    <span class="result-icon"><mat-icon>auto_awesome</mat-icon></span>
+    <div><span>REKOMENDACJA AI · {{ result().model }}</span><h4 id="advice-result-heading">Techniki warte sprawdzenia</h4></div>
+    <small>{{ analyzedAt() }}</small>
+  </header>
+
+  <p class="result-disclaimer">To hipotezy do przetestowania, nie obietnica oszczędności. Model otrzymał wyłącznie wcześniej pokazany i zweryfikowany pakiet.</p>
+
+  @if (result().status === 'SUGGESTIONS') {
+    <div class="proposal-list">
+      @for (proposal of result().proposals; track proposal.techniqueId) {
+        <article class="proposal">
+          <header><span>{{ proposal.techniqueId }}</span><h5>{{ techniqueTitle(proposal.techniqueId) }}</h5></header>
+          <p>{{ proposal.rationale }}</p>
+
+          @if (evidenceFor(proposal).length) {
+            <div class="proposal-evidence"><strong>Dowody z migawki</strong>
+              @for (evidence of evidenceFor(proposal); track evidence.kind + ':' + evidence.id) {
+                <button type="button" (click)="openEvidence(evidence, $event.currentTarget)"><mat-icon>arrow_outward</mat-icon>{{ evidence.label }}</button>
+              }
+            </div>
+          }
+
+          <div class="proposal-grid">
+            <section><h6>Najpierw sprawdź</h6><ul>@for (item of proposal.conditionsToCheck; track item) {<li>{{ item }}</li>}</ul></section>
+            <section><h6>Mały eksperyment</h6><ol>@for (item of proposal.experimentSteps; track item) {<li>{{ item }}</li>}</ol></section>
+            <section><h6>Wdrożenie</h6><ul>@for (item of proposal.setupWork; track item) {<li>{{ item }}</li>}</ul></section>
+            <section><h6>Utrzymanie</h6><ul>@for (item of proposal.maintenanceWork; track item) {<li>{{ item }}</li>}</ul></section>
+            <section><h6>Jakość</h6><ul>@for (item of proposal.qualityChecks; track item) {<li>{{ item }}</li>}</ul></section>
+            <section><h6>Porównanie przed/po</h6><ul>@for (item of proposal.comparisonPlan; track item) {<li>{{ item }}</li>}</ul></section>
+          </div>
+
+          <details><summary>Ograniczenia i alternatywa <mat-icon>expand_more</mat-icon></summary>
+            <ul>@for (item of proposal.limitations; track item) {<li>{{ item }}</li>}</ul>
+            @if (proposal.alternativeTechniqueId) {
+              <p><strong>Alternatywa:</strong> {{ proposal.alternativeTechniqueId }} · {{ techniqueTitle(proposal.alternativeTechniqueId) }}</p>
+            }
+          </details>
+        </article>
+      }
+    </div>
+  } @else {
+    <section class="no-advice" role="status">
+      <mat-icon>{{ result().status === 'INSUFFICIENT_EVIDENCE' ? 'help' : 'do_not_disturb_on' }}</mat-icon>
+      <div><strong>{{ result().status === 'INSUFFICIENT_EVIDENCE' ? 'Za mało dowodów na odpowiedzialną sugestię' : 'Brak pasującej techniki w obecnym katalogu' }}</strong>
+        <ul>@for (item of result().missingInformation; track item) {<li>{{ item }}</li>}</ul>
+      </div>
+    </section>
+  }
+
+  <footer><mat-icon>verified_user</mat-icon><span>Wynik powiązano z fingerprintem <code>{{ result().dataFingerprint.slice(0, 16) }}…</code>. Koszt własnego wywołania doradcy: <strong>brak pomiaru</strong>.</span></footer>
+</section>

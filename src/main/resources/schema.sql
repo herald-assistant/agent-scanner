@@ -98,9 +98,68 @@ CREATE TABLE IF NOT EXISTS tool_classification_result (
     FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS optimization_advice_preview (
+    id VARCHAR(36) PRIMARY KEY,
+    session_id BIGINT NOT NULL,
+    request_hash VARCHAR(64) NOT NULL,
+    data_fingerprint VARCHAR(64) NOT NULL,
+    prepared_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    preview_json CLOB NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS optimization_advice_result (
+    session_id BIGINT NOT NULL,
+    advice_hash VARCHAR(64) NOT NULL,
+    request_hash VARCHAR(64) NOT NULL,
+    data_fingerprint VARCHAR(64) NOT NULL,
+    version VARCHAR(64) NOT NULL,
+    catalog_version VARCHAR(64) NOT NULL,
+    prompt_version VARCHAR(64) NOT NULL,
+    model VARCHAR(512) NOT NULL,
+    analyzed_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    result_json CLOB NOT NULL,
+    PRIMARY KEY (session_id, advice_hash),
+    FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS round_discussion (
+    id VARCHAR(36) PRIMARY KEY,
+    session_id BIGINT NOT NULL,
+    version VARCHAR(64) NOT NULL,
+    model VARCHAR(512) NOT NULL,
+    evidence_hash VARCHAR(64) NOT NULL,
+    snapshot_json CLOB NOT NULL,
+    copilot_session_id VARCHAR(512),
+    revision INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS round_discussion_turn (
+    id VARCHAR(36) PRIMARY KEY,
+    discussion_id VARCHAR(36) NOT NULL,
+    client_request_id VARCHAR(36) NOT NULL,
+    question CLOB NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    answer_json CLOB,
+    error_message CLOB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    FOREIGN KEY (discussion_id) REFERENCES round_discussion(id) ON DELETE CASCADE,
+    UNIQUE(discussion_id, client_request_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_signal_received ON telemetry_signal(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_last_seen ON agent_session(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_span_session ON span_record(session_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_span_trace ON span_record(trace_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_message_span ON message_record(span_id, sequence_no);
 CREATE INDEX IF NOT EXISTS idx_classification_session ON tool_classification_result(session_id, analyzed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_advice_preview_session ON optimization_advice_preview(session_id, prepared_at DESC);
+CREATE INDEX IF NOT EXISTS idx_advice_preview_expiry ON optimization_advice_preview(expires_at);
+CREATE INDEX IF NOT EXISTS idx_advice_result_session ON optimization_advice_result(session_id, analyzed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_round_discussion_session ON round_discussion(session_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_round_discussion_turns ON round_discussion_turn(discussion_id, created_at);

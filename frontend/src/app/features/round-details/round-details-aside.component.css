@@ -2,7 +2,17 @@
 .aside-layer { position: fixed; z-index: 1000; inset: 0; display: flex; justify-content: flex-end; }
 .aside-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; background: rgb(2 5 8 / 72%); border: 0; cursor: default; animation: backdrop-in .18s ease-out; }
 aside { position: relative; width: min(1250px, 94vw); height: 100dvh; min-width: 0; color: #dce3e8; background: #0d1116; border-left: 1px solid #35414d; box-shadow: -24px 0 70px rgb(0 0 0 / 48%); outline: none; animation: aside-in .24s cubic-bezier(.2, .8, .2, 1); }
+.aside-panel, .round-shell { height: 100%; min-height: 0; }
+.aside-panel-hidden { display: none; }
+.round-shell.with-return { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.round-shell.with-return as-round-details-dialog { min-height: 0; }
+.return-to-guide { display: flex; align-items: center; gap: 10px; min-height: 53px; padding: 8px 22px; color: #dce3e8; background: #10202a; border: 0; border-bottom: 1px solid #315062; cursor: pointer; text-align: left; }
+.return-to-guide:hover, .return-to-guide:focus-visible { color: #fff; background: #162c38; outline: 2px solid var(--cyan); outline-offset: -2px; }
+.return-to-guide mat-icon { color: var(--cyan); }
+.return-to-guide span { display: grid; gap: 2px; font-weight: 750; }
+.return-to-guide small { color: #82bfc8; font-size: 8px; font-weight: 850; letter-spacing: .08em; }
 .template-shell { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+.template-shell.with-return { grid-template-rows: auto auto minmax(0, 1fr); }
 .aside-title { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 82px; padding: 16px 22px; background: #121820; border-bottom: 1px solid #313a45; }
 .aside-title span { color: var(--lime); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
 .aside-title h2 { margin: 4px 0 0; color: #f2f5f7; font-size: 24px; }

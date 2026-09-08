@@ -229,9 +229,10 @@ narzutu runtime ani ewentualnego reasoning modelu.
   `contexts[].rounds[].invocations`;
   asynchroniczna
   odpowiedź HTTP z wersją, modelem, czasem oraz zwalidowanymi wynikami.
-- Limity: 200 definicji, 100 agentów i kontekstów, 500 rund na kontekst i 500 żądań na rundę,
-  180 000 znaków danych promptu; nie obcinamy
-  po cichu przekroczonego zakresu.
+- Lokalne liczby definicji, agentów, kontekstów, rund, żądań i znaków nie są
+  bramką analizy. Frontend nadal skraca pojedyncze pola według jawnego kontraktu,
+  ale cały poprawny zakres trafia do wybranego modelu. Dopiero jego rzeczywiste
+  okno kontekstowe, egzekwowane przez dostawcę, może odrzucić prompt jako zbyt duży.
 
 Testy syntetyczne pokrywają deduplikację, wersje, brak definicji/celu, oddzielne
 zlecenia dziecka, mapowanie UI, błędy i walidację odpowiedzi. Testy zwykłego buildu

@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal, TemplateRef, viewChild} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {MatButtonModule} from '@angular/material/button';
 import {MAT_ICON_DEFAULT_OPTIONS, MatIconModule} from '@angular/material/icon';
@@ -19,10 +19,18 @@ import {WorkflowViewComponent} from './features/workflow/workflow-view.component
 import {WorkflowAnalysis} from './models/workflow.models';
 import {RoundDetailsAsideComponent} from './features/round-details/round-details-aside.component';
 import {RoundDetailsPanelService} from './core/round-details-panel.service';
+import {OptimizationGuidanceComponent} from './features/optimization/optimization-guidance.component';
+import {
+  OptimizationAdvicePreview,
+  OptimizationAdvicePreviewRequest,
+  OptimizationAdviceResult,
+  OptimizationGuidanceContext,
+  OptimizationGuidanceEvidenceOpenRequest
+} from './models/optimization-guidance.models';
 
 @Component({
   selector: 'as-root',
-  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatSnackBarModule, MatTooltipModule, TopbarComponent, SessionSidebarComponent, CostDashboardComponent, TechnicalViewComponent, InteractionTimelineComponent, WorkflowViewComponent, RoundDetailsAsideComponent],
+  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatSnackBarModule, MatTooltipModule, TopbarComponent, SessionSidebarComponent, CostDashboardComponent, TechnicalViewComponent, InteractionTimelineComponent, WorkflowViewComponent, RoundDetailsAsideComponent, OptimizationGuidanceComponent],
   providers: [{provide: MAT_ICON_DEFAULT_OPTIONS, useValue: {fontSet: 'material-symbols-outlined'}}],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
@@ -42,7 +50,17 @@ export class AppComponent {
   readonly workflowState = signal<WorkflowAnalysis | undefined>(undefined);
   readonly workflowLoading = signal(false);
   readonly workflowFailed = signal(false);
+  readonly optimizationGuideContext = signal<OptimizationGuidanceContext | undefined>(undefined);
+  readonly optimizationAdvicePreview = signal<OptimizationAdvicePreview | undefined>(undefined);
+  readonly optimizationAdvicePreviewLoading = signal(false);
+  readonly optimizationAdviceResult = signal<OptimizationAdviceResult | undefined>(undefined);
+  readonly optimizationAdviceLoading = signal(false);
+  private readonly workflowView = viewChild(WorkflowViewComponent);
+  private sessionRequest = 0;
+  private sessionSelectionDismissed = false;
   private workflowRequest = 0;
+  private optimizationAdvicePreviewRequest = 0;
+  private optimizationAdviceExecutionRequest = 0;
   private readonly showConfigState = signal(false);
   private readonly configPlatformState = signal<'vscode' | 'intellij'>('vscode');
   private readonly sidebarOpenState = signal(true);
@@ -207,8 +225,11 @@ export class AppComponent {
       if (this.detail && !this.isAuxiliarySession(this.detail.session)) {
         const current = sessions.find(item => item.id === this.detail?.session.id);
         if (current) await this.selectSession(current);
-        else this.detailState.set(undefined);
-      } else {
+        else {
+          this.detailState.set(undefined);
+          this.relatedDetailsState.set([]);
+        }
+      } else if (!this.sessionSelectionDismissed) {
         const preferred = this.visibleSessions()[0] ?? sessions[0];
         if (preferred) await this.selectSession(preferred);
       }
@@ -220,12 +241,29 @@ export class AppComponent {
   }
 
   async selectSession(session: Session): Promise<void> {
+    const request = ++this.sessionRequest;
+    this.sessionSelectionDismissed = false;
     if (this.detail?.session.id !== session.id) this.detailsPanel.close();
     const loadedDetail = await this.api.session(session.id);
+    if (request !== this.sessionRequest) return;
     const detail = {...loadedDetail, spans: this.analysis.withDepth(loadedDetail.spans)};
     this.detailState.set(detail);
-    this.relatedDetailsState.set(this.isAuxiliarySession(session) ? [] : await this.loadRelatedDetails(detail));
+    const relatedDetails = this.isAuxiliarySession(session) ? [] : await this.loadRelatedDetails(detail);
+    if (request !== this.sessionRequest) return;
+    this.relatedDetailsState.set(relatedDetails);
     if (this.activeTab === 'workflow') void this.loadWorkflow();
+  }
+
+  closeSession(): void {
+    this.sessionRequest++;
+    this.workflowRequest++;
+    this.sessionSelectionDismissed = true;
+    this.detailsPanel.close();
+    this.detailState.set(undefined);
+    this.relatedDetailsState.set([]);
+    this.workflowState.set(undefined);
+    this.workflowLoading.set(false);
+    this.workflowFailed.set(false);
   }
 
   async togglePause(): Promise<void> {
@@ -316,6 +354,82 @@ export class AppComponent {
 
   setConfigVisible(visible: boolean): void {
     this.showConfigState.set(visible);
+  }
+
+  openOptimizationGuide(template: TemplateRef<unknown>, origin: EventTarget | null, context?: OptimizationGuidanceContext): void {
+    this.optimizationAdvicePreviewRequest++;
+    this.optimizationAdviceExecutionRequest++;
+    this.optimizationGuideContext.set(context);
+    this.optimizationAdvicePreview.set(undefined);
+    this.optimizationAdvicePreviewLoading.set(false);
+    this.optimizationAdviceResult.set(undefined);
+    this.optimizationAdviceLoading.set(false);
+    this.showConfigState.set(false);
+    this.detailsPanel.openTemplate(
+      template,
+      {},
+      'OPTYMALIZACJA',
+      'Techniki i doradztwo',
+      'Techniki optymalizacji i doradztwo na żądanie',
+      origin
+    );
+  }
+
+  openOptimizationEvidence(request: OptimizationGuidanceEvidenceOpenRequest): void {
+    this.workflowView()?.openGuidanceEvidence(request.evidence, request.origin);
+  }
+
+  async prepareOptimizationAdvicePreview(request: OptimizationAdvicePreviewRequest): Promise<void> {
+    const workflow = this.workflowView();
+    if (!workflow) {
+      this.notifications.error('Podgląd wymaga aktualnej mapy pracy. Otwórz ponownie wskazaną fazę.');
+      return;
+    }
+    const sequence = ++this.optimizationAdvicePreviewRequest;
+    this.optimizationAdviceExecutionRequest++;
+    this.optimizationAdvicePreview.set(undefined);
+    this.optimizationAdviceResult.set(undefined);
+    this.optimizationAdviceLoading.set(false);
+    this.optimizationAdvicePreviewLoading.set(true);
+    try {
+      const localPreview = await workflow.prepareOptimizationAdvicePreview(request);
+      if (sequence === this.optimizationAdvicePreviewRequest) this.optimizationAdvicePreview.set(localPreview);
+      const preview = await this.api.prepareOptimizationAdvice(localPreview.request.scope.rootSessionId, localPreview.request);
+      if (sequence === this.optimizationAdvicePreviewRequest) this.optimizationAdvicePreview.set(preview);
+      if (sequence === this.optimizationAdvicePreviewRequest && preview.preparation) {
+        const cached = await this.api.cachedOptimizationAdvice(preview.request.scope.rootSessionId, preview.preparation.previewId);
+        if (sequence === this.optimizationAdvicePreviewRequest && cached) this.optimizationAdviceResult.set(cached);
+      }
+    } catch (error) {
+      if (sequence === this.optimizationAdvicePreviewRequest) {
+        this.notifications.error(error instanceof Error ? error.message : 'Nie udało się przygotować podglądu pakietu.');
+      }
+    } finally {
+      if (sequence === this.optimizationAdvicePreviewRequest) this.optimizationAdvicePreviewLoading.set(false);
+    }
+  }
+
+  async requestOptimizationAdvice(preview: OptimizationAdvicePreview): Promise<void> {
+    if (!preview.preparation) {
+      this.notifications.error('Najpierw przygotuj i zweryfikuj migawkę.');
+      return;
+    }
+    const sequence = ++this.optimizationAdviceExecutionRequest;
+    const previewId = preview.preparation.previewId;
+    this.optimizationAdviceLoading.set(true);
+    try {
+      const result = await this.api.requestOptimizationAdvice(preview.request.scope.rootSessionId, previewId);
+      if (sequence === this.optimizationAdviceExecutionRequest
+          && this.optimizationAdvicePreview()?.preparation?.previewId === previewId) {
+        this.optimizationAdviceResult.set(result);
+      }
+    } catch (error) {
+      if (sequence === this.optimizationAdviceExecutionRequest) {
+        this.notifications.error(error instanceof Error ? error.message : 'Nie udało się przygotować rekomendacji AI.');
+      }
+    } finally {
+      if (sequence === this.optimizationAdviceExecutionRequest) this.optimizationAdviceLoading.set(false);
+    }
   }
 
   setConfigPlatform(platform: 'vscode' | 'intellij'): void {

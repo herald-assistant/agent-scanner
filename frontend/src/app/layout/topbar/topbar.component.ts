@@ -12,6 +12,7 @@ import {ScannerStatus} from '../../models/scanner.models';
 })
 export class TopbarComponent {
   readonly status = input.required<ScannerStatus>();
+  readonly optimizationGuide = output<Event>();
   readonly configure = output<void>();
   readonly pauseToggle = output<void>();
 

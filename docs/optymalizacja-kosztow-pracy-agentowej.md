@@ -9,6 +9,21 @@ Scannerze. Łączy wnioski z przekazanych materiałów szkoleniowych z obowiązu
 produkcie zasadą **dowód przed wnioskiem**. Jest punktem startowym do przygotowania
 dedykowanych stron z poradami, przykładami i eksperymentami „przed/po”.
 
+Szczegółową kolejność prac, katalog 16 technik, ekrany, kontrakty danych i testy
+opisuje [plan wdrożenia poradnika i doradztwa AI](plan-technik-optymalizacji-bez-ai-i-z-ai.md).
+Rozdziela techniki edukacyjne dostępne bez dodatkowego AI, obserwacje oparte
+na faktach oraz propozycje eksperymentów AI na osobne żądanie dla wybranej fazy,
+kategorii lub kompaktowania. Rozszerzenie G9–G11 pozwala zaznaczyć rundy na
+szczegółowym diagramie, zadać własne pytanie i prowadzić rozmowę o tym fragmencie.
+Automatyczny finding nie jest warunkiem poznania techniki, pytania o przebieg
+ani poproszenia o alternatywy.
+
+Rozmowa ma własny kontrakt, wersjonowaną migawkę dowodów i jawny koszt kolejnych
+wywołań (brak pomiaru pozostaje brakiem). Nie każde wyjaśnienie wymaga rekomendacji.
+Pierwsze wejście wybranego odcinka i rzeczywiste dalsze requesty zachowują osobne
+granice; początkowy kontekst nie jest automatycznie wspólną pamięcią wszystkich
+rund i agentów. Użytkownik widzi przerwy, źródła wspierające oraz hipotezy.
+
 Strategia odpowiada na pięć pytań:
 
 1. Co faktycznie tworzy koszt w pracy agentowej?
@@ -148,7 +163,7 @@ Agent Scanner może powiedzieć „sprawdź możliwość skrócenia wyniku”, g
 duży result zatrzymany w kolejnych requestach. Nie może powiedzieć „ten wynik
 zmarnował 30% kosztu”, jeśli provider nie wyemitował takiej atrybucji.
 
-### 2. Decyzja o pokazaniu rekomendacji jest deterministyczna
+### 2. Automatyczny finding wymaga deterministycznej reguły
 
 Wynik AI może dostarczyć kategorie działań i ocenę specjalizacji narzędzia.
 Ostateczny finding powinien jednak wynikać z jawnej reguły łączącej:
@@ -158,13 +173,19 @@ Ostateczny finding powinien jednak wynikać z jawnej reguły łączącej:
 - wyliczenia z opisanym pokryciem;
 - opcjonalne, jawnie oznaczone kategorie AI.
 
-AI może później pomóc zredagować opis, ale nie powinno samodzielnie decydować, że
-użytkownik ma zobaczyć rekomendację.
+AI może pomóc zredagować opis findingu, ale nie zastępuje reguły jego wykrycia.
+Osobne doradztwo uruchomione przez użytkownika może dobierać techniki i proponować
+eksperymenty. Musi odróżniać obserwacje od hipotez, podawać warunki i utrzymanie,
+a także dopuszczać brak wystarczających danych lub sensownej alternatywy.
 
-### 3. Każda rekomendacja prowadzi do konkretnego dowodu
+### 3. Obserwacja dotycząca sesji prowadzi do konkretnego dowodu
 
 Karta musi wskazać interakcję, fazę i rundy, a z niej użytkownik powinien przejść
 do faktograficznego panelu `M → A → M`.
+
+Technika edukacyjna może opierać się na oznaczonym przykładzie syntetycznym,
+bez sesji użytkownika. Spersonalizowana propozycja AI wskazuje użyte obserwacje
+i ograniczenia; samo wskazanie dowodu nie potwierdza skuteczności alternatywy.
 
 ### 4. Skala opisuje ciężar obserwacji, nie obiecaną oszczędność
 
@@ -798,7 +819,7 @@ uruchomienia AI i osobnego komunikatu o prywatności.
 - kalibrować progi na danych, zamiast przyjmować liczby ze slajdów;
 - utrzymywać historię wersji definicji tooli, skilli i reguł rekomendacyjnych.
 
-## Kryteria gotowości rekomendacji
+## Kryteria gotowości automatycznych findingów
 
 Nowy typ findingu jest gotowy do użycia, gdy:
 
@@ -813,6 +834,11 @@ Nowy typ findingu jest gotowy do użycia, gdy:
 - działa bez dodatkowego płatnego wywołania AI;
 - używa AI tylko w zakresie już objętym jawną analizą kategorii;
 - ma odpowiadającą stronę edukacyjną z syntetycznym przykładem.
+
+To kryteria lokalnych findingów, nie zakaz dodatkowej analizy na żądanie.
+Katalog edukacyjny i doradztwo AI mają osobne kryteria w
+[planie implementacji](plan-technik-optymalizacji-bez-ai-i-z-ai.md), w tym podgląd
+wysyłanych danych, ograniczony zakres, własny kontrakt i brak obietnic oszczędności.
 
 Dla findingu korzystającego z konfiguracji dodatkowo wymagane są historyczna
 migawka z czasu sesji, wersja reguł walidacji, zakres dostępnych źródeł i czytelna

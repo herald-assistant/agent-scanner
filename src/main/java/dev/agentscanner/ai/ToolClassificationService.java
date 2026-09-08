@@ -72,9 +72,9 @@ public class ToolClassificationService {
         Set<String> used = new HashSet<>();
         request.contexts().forEach(context -> context.rounds().forEach(round -> round.invocations().forEach(invocation -> { if (invocation.toolId() != null) used.add(invocation.toolId()); })));
         if (!used.equals(ids)) throw new IllegalArgumentException("unused definitions");
-        String data = mapper.writeValueAsString(request);
-        if (data.length() > 180_000) throw new IllegalArgumentException("size");
-        return data;
+        // The selected model/provider, using its real tokenizer, is the only authority for context capacity.
+        // Local character and collection-count heuristics must not reject an otherwise valid analysis.
+        return mapper.writeValueAsString(request);
     }
     private String prompt(String data) {
         return """
