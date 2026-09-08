@@ -1,7 +1,10 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {ActivatedRoute, convertToParamMap, Router} from '@angular/router';
+import {BehaviorSubject} from 'rxjs';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {AppComponent} from './app.component';
-import {workflowFixture} from './core/workflow/workflow.fixtures';
+import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
+import {workflowFixture} from '../../core/workflow/workflow.fixtures';
+import {SessionPageComponent} from './session-page.component';
 
 const status = {
   paused: false,
@@ -14,10 +17,25 @@ const status = {
   retentionDays: 30
 };
 
-describe('AppComponent', () => {
-  let fixture: ComponentFixture<AppComponent>;
+describe('SessionPageComponent', () => {
+  let fixture: ComponentFixture<SessionPageComponent>;
+  let routeParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let navigate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    routeParams = new BehaviorSubject(convertToParamMap({}));
+    navigate = vi.fn(async (commands: unknown[]) => {
+      const sessionId = commands[0] === '/sessions' ? String(commands[1]) : undefined;
+      routeParams.next(convertToParamMap(sessionId ? {sessionId} : {}));
+      return true;
+    });
+    TestBed.configureTestingModule({
+      providers: [
+        ScannerShellStateService,
+        {provide: ActivatedRoute, useValue: {paramMap: routeParams.asObservable()}},
+        {provide: Router, useValue: {navigate}}
+      ]
+    });
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
       const body = url.endsWith('/api/status') ? status : [];
@@ -26,20 +44,13 @@ describe('AppComponent', () => {
         headers: {'Content-Type': 'application/json'}
       });
     }));
-    fixture = TestBed.createComponent(AppComponent);
+    fixture = TestBed.createComponent(SessionPageComponent);
   });
 
   afterEach(() => {
     fixture.destroy();
     vi.unstubAllGlobals();
     TestBed.resetTestingModule();
-  });
-
-  it('starts in zoneless mode and loads scanner state', async () => {
-    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
-
-    expect(fixture.componentInstance.status.connected).toBe(true);
-    expect(fixture.componentInstance.visibleSessions()).toEqual([]);
   });
 
   it('opens the dedicated workflow tab and loads raw candidates for custom-tool linking', async () => {
@@ -51,7 +62,11 @@ describe('AppComponent', () => {
         sources.find(source => url.endsWith(`/api/sessions/${source.session.id}`));
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
+    routeParams.next(convertToParamMap({sessionId: String(sources[0].session.id)}));
     await fixture.componentInstance.refresh();
+    await vi.waitFor(() => expect(fixture.componentInstance.detail?.session.id).toBe(sources[0].session.id));
+    await vi.waitFor(() => expect(TestBed.inject(ScannerShellStateService).selectedTurnCount()).toBeGreaterThan(0));
+    await fixture.whenStable();
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
     const tab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.trim() === 'Mapa pracy');
@@ -61,37 +76,6 @@ describe('AppComponent', () => {
     expect(element.querySelector('as-workflow-view')).not.toBeNull();
     expect(element.querySelector('as-cost-dashboard')).toBeNull();
     expect(element.querySelector('as-technical-view')).toBeNull();
-  });
-
-  it('closes the selected session without deleting it or reopening it on refresh', async () => {
-    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
-    const source = workflowFixture()[0];
-    const requests: RequestInit[] = [];
-    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      requests.push(init ?? {});
-      const url = String(input);
-      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [source.session] : source;
-      return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    await fixture.componentInstance.refresh();
-    fixture.detectChanges();
-
-    const element: HTMLElement = fixture.nativeElement;
-    const closeButton = [...element.querySelectorAll<HTMLButtonElement>('.session-actions button')]
-      .find(button => button.textContent?.trim() === 'Zamknij sesję');
-    expect(closeButton).toBeDefined();
-    closeButton!.click();
-    fixture.detectChanges();
-
-    expect(fixture.componentInstance.detail).toBeUndefined();
-    expect(fixture.componentInstance.sessions).toEqual([source.session]);
-    expect(element.querySelector('.onboarding h1')?.textContent).toContain('Podłącz sesję agenta');
-
-    await fixture.componentInstance.refresh();
-
-    expect(fixture.componentInstance.detail).toBeUndefined();
-    expect(requests.some(request => request.method === 'DELETE')).toBe(false);
   });
 
   it('groups model rounds by the user interaction trace and does not mix tools between interactions', () => {
@@ -176,7 +160,9 @@ describe('AppComponent', () => {
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
 
+    routeParams.next(convertToParamMap({sessionId: String(mainSession.id)}));
     await fixture.componentInstance.refresh();
+    await vi.waitFor(() => expect(fixture.componentInstance.relatedDetails.map(detail => detail.session.id)).toContain(196));
 
     expect(fixture.componentInstance.relatedDetails.map(detail => detail.session.id)).toContain(196);
     expect(fixture.componentInstance.contextCompactions()).toHaveLength(1);

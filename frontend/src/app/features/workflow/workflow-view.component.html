@@ -31,9 +31,15 @@
   </header>
 
   @if (interaction(); as current) {
-    <section class="analysis-menu" aria-label="Analiza przepływu">
+    <div class="analysis-menu-slot" [style.height.px]="analysisMenuCompact() ? analysisMenuExpandedHeight() : null">
+      <span #analysisMenuSentinel class="analysis-menu-sentinel" aria-hidden="true"></span>
+      <section #analysisMenu class="analysis-menu" [class.compact]="analysisMenuCompact()"
+        [style.left.px]="analysisMenuCompact() ? analysisMenuFrame().left : null"
+        [style.width.px]="analysisMenuCompact() ? analysisMenuFrame().width : null"
+        aria-label="Analiza przepływu">
       <div class="analysis-menu-copy"><mat-icon>auto_awesome</mat-icon><div><span class="eyebrow">ANALIZA PRZEPŁYWU</span><h3>Czego model żąda od agenta?</h3><span class="analysis-scope">ZAKRES: CAŁA SESJA AGENTÓW</span><p>{{ plural(catalog().rounds.length, 'runda pracy', 'rundy pracy', 'rund pracy') }} · {{ plural(catalog().agents.length, 'agent', 'agentów', 'agentów') }} · {{ catalog().request.tools.length }} unikalnych definicji@if (contextCompactions().length) { · {{ plural(contextCompactions().length, 'kompaktowanie', 'kompaktowania', 'kompaktowań') }} pokazane na osi }@if (catalog().missing) { · {{ catalog().missing }} żądań bez jednoznacznej definicji }</p></div></div>
       <div class="analysis-controls">
+        <span class="analysis-mini-label"><mat-icon>auto_awesome</mat-icon> Analiza przepływu</span>
         <div class="analysis-actions">
           @if (hasAiResult()) { <span class="classification-ready"><mat-icon>check_circle</mat-icon> Analiza gotowa</span> }
           @else {
@@ -45,10 +51,26 @@
             <button class="catalog-button compaction-guide-button" (click)="openCompactionGuidance($event.currentTarget)" matTooltip="Pokaż lokalne techniki bez uruchamiania analizy AI" matTooltipClass="scanner-info-tooltip"><mat-icon>lightbulb</mat-icon> Techniki dla kompaktowania</button>
           }
         </div>
-        <fieldset class="analysis-view-choice"><legend>WIDOK</legend><label [class.selected]="aiVisible()"><input type="radio" name="workflow-analysis-view" value="classification" [checked]="aiVisible()" [disabled]="!hasAiResult()" (change)="setAnalysisView('classification')"> Kategorie</label><label [class.selected]="!aiVisible()"><input type="radio" name="workflow-analysis-view" value="facts" [checked]="!aiVisible()" (change)="setAnalysisView('facts')"> Fakty</label></fieldset>
+        <div class="analysis-navigation">
+          <fieldset class="analysis-view-choice"><legend>WIDOK</legend><div class="analysis-view-switch"><label [class.selected]="aiVisible()"><input type="radio" name="workflow-analysis-view" value="classification" [checked]="aiVisible()" [disabled]="!hasAiResult()" (change)="setAnalysisView('classification')"> Kategorie</label><label [class.selected]="!aiVisible()"><input type="radio" name="workflow-analysis-view" value="facts" [checked]="!aiVisible()" (change)="setAnalysisView('facts')"> Fakty</label></div></fieldset>
+          @if (interactions().length > 1) {
+            <fieldset class="interaction-choice"><legend>INTERAKCJA</legend><div class="interaction-switch" aria-label="Wybór interakcji">
+              @for (item of interactions(); track item.trace) {
+                <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
+                  [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">I{{ item.round.turn.interactionIndex }}</button>
+              }
+            </div></fieldset>
+          }
+          <fieldset class="layer-choice"><legend>WARSTWA MAPY</legend><div class="layer-switch" aria-label="Warstwa danych mapy">
+            <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
+            <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
+            <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
+          </div></fieldset>
+        </div>
       </div>
-      <p class="analysis-disclosure" aria-live="polite">@if (aiResult(); as result) { Analiza AI · {{ result.model }} · kategorie opisują żądane akcje. Wykonania i odbiór wyników potwierdza telemetria. } @else { Przepływ pokazuje fakty. Analiza wyśle do GitHub Copilot definicje, zlecenia, skrócone argumenty i krótkie fragmenty odpowiedzi modelu; zużywa limit konta. }</p>
-    </section>
+        <p class="analysis-disclosure" aria-live="polite">@if (aiResult(); as result) { Analiza AI · {{ result.model }} · kategorie opisują żądane akcje. Wykonania i odbiór wyników potwierdza telemetria. } @else { Przepływ pokazuje fakty. Analiza wyśle do GitHub Copilot definicje, zlecenia, skrócone argumenty i krótkie fragmenty odpowiedzi modelu; zużywa limit konta. }</p>
+      </section>
+    </div>
 
     @if (analyzedCreditScope(); as creditScope) {
       <section class="action-summary" aria-label="Podział credits według kategorii pracy">
@@ -64,7 +86,6 @@
               <h4>{{ lead.label }}</h4>
               <p><strong>{{ lead.estimated ? '≈ ' : '' }}{{ credits(lead.shareOfKnown ?? 0) }}%</strong> wszystkich credits objętych zestawieniem <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czym są credits objęte zestawieniem" [matTooltip]="analyzedCreditsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon> przypada na tę kategorię.</p>
             </div>
-            <div class="optimization-guidance"><mat-icon>lightbulb</mat-icon><p><strong>Co warto sprawdzić</strong>{{ lead.hint }}</p><button type="button" (click)="openCategoryGuidance(lead, $event.currentTarget)">Poznaj techniki</button></div>
           </article>
         }
         <div class="credit-share-coverage" aria-label="Pokrycie procentowego podziału credits">
@@ -127,10 +148,13 @@
                   } @else {
                     <span class="phase-tool-empty phase-explained" tabindex="0" [matTooltip]="phaseWithoutToolsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><mat-icon aria-hidden="true">do_not_disturb_on</mat-icon>Bez żądań narzędzi</span>
                   }
-                  <span class="phase-credits phase-explained" tabindex="0" [matTooltip]="phaseCreditsTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><small>{{ phase.compaction ? 'Credits kompaktowania' : 'Credits wywołań w fazie' }}</small><b>{{ phase.credits === null ? '—' : credits(phase.credits) }}</b>
-                    @if (phase.creditCovered < phase.totalCalls) { <em>{{ phase.creditCovered }}/{{ phase.totalCalls }} wywołań</em> }
+                  <span class="phase-metric phase-explained" [class.context-metric]="layer() === 'context'" [class.tokens-metric]="layer() === 'tokens'" [class.credits-metric]="layer() === 'credits'"
+                    tabindex="0" [matTooltip]="phaseMetricTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><small>{{ phaseMetricLabel(phase) }}</small><b>{{ phaseMetricValue(phase) }}</b>
+                    @if (phaseMetricCoverage(phase); as coverage) { <em>{{ coverage }}</em> }
                   </span>
-                  <button type="button" class="phase-guide-button" [attr.aria-label]="'Poznaj techniki dla fazy: ' + phase.label" (click)="openPhaseGuidance(phase, $event.currentTarget)"><mat-icon>lightbulb</mat-icon>Poznaj techniki</button>
+                  <button type="button" class="phase-guide-button" [attr.aria-label]="'Poznaj techniki dla fazy: ' + phase.label"
+                    [matTooltip]="'Poznaj techniki dla fazy: ' + phase.label" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"
+                    (click)="openPhaseGuidance(phase, $event.currentTarget)"><mat-icon>lightbulb</mat-icon></button>
                 </article>
               </div>
             }
@@ -143,14 +167,6 @@
       <header class="panel-heading">
         <div><span class="eyebrow">SZCZEGÓŁOWY PRZEBIEG · RUNDY MODELU · WYBRANA INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>{{ aiResult() ? 'Rundy modelu i subagentów' : 'Interakcja → model → agent → odpowiedź' }}</h3></div>
         <div class="panel-heading-actions">
-          @if (interactions().length > 1) {
-            <div class="interaction-switch" aria-label="Wybór interakcji">
-              @for (item of interactions(); track item.trace) {
-                <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
-                  [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">I{{ item.round.turn.interactionIndex }}</button>
-              }
-            </div>
-          }
           <div class="map-status" aria-live="polite">@if (refreshing()) { Aktualizowanie… } @else { <small>ZAKRES: INTERAKCJA {{ current.round.turn.interactionIndex }}</small><strong>{{ plural(columns().length, 'wywołanie M', 'wywołania M', 'wywołań M') }} · {{ plural(lanes().length - 1, 'subagent', 'subagenci', 'subagentów') }}</strong> }</div>
           @if (aiResult()) { <button type="button" class="map-detail-toggle" [attr.aria-expanded]="detailedMapVisible()" (click)="detailedMap.set(!detailedMap())"><mat-icon>{{ detailedMapVisible() ? 'unfold_less' : 'account_tree' }}</mat-icon>{{ detailedMapVisible() ? 'Ukryj diagram' : 'Pokaż diagram' }}</button> }
         </div>
@@ -170,11 +186,6 @@
             [attr.aria-pressed]="roundRangeMode()" (click)="toggleRoundRange()">
             <mat-icon>{{ roundRangeMode() ? 'close' : 'forum' }}</mat-icon>{{ roundRangeMode() ? 'Anuluj wybór' : 'Zapytaj o rundy' }}
           </button>
-          <div class="layer-switch" aria-label="Warstwa danych mapy">
-            <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
-            <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
-            <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
-          </div>
         </div>
       </div>
       @if (roundRangeMode()) {

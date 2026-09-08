@@ -1,0 +1,69 @@
+@if (detail) {
+      <section class="content">
+        <div class="session-title">
+          <div>
+            <span class="eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
+            <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : 'Rozmowa z GitHub Copilot' }}</h1>
+            <p><span>{{ repositoryName() }}</span><b>·</b><span>{{ detail.session.responseModel || detail.session.requestedModel || 'model nieznany' }}</span><b>·</b><span>{{ time(detail.session.startedAt) }}</span></p>
+          </div>
+          <div class="session-actions">
+            <button class="icon-button" matTooltip="Eksportuj sesję do JSON" matTooltipClass="scanner-info-tooltip" aria-label="Eksportuj sesję do JSON" (click)="exportSession()"><mat-icon>download</mat-icon></button>
+            <button class="icon-button danger" matTooltip="Usuń sesję" matTooltipClass="scanner-info-tooltip" aria-label="Usuń sesję" (click)="deleteSession()"><mat-icon>delete</mat-icon></button>
+            <button class="icon-button" matTooltip="Zamknij sesję" matTooltipClass="scanner-info-tooltip" aria-label="Zamknij sesję" (click)="closeSession()"><mat-icon>close</mat-icon></button>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button [class.active]="activeTab === 'loop'" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
+          <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
+          <button [class.active]="activeTab === 'technical'" (click)="selectTab('technical')">Dane techniczne</button>
+        </nav>
+        @if (activeTab === 'loop') {
+          <section class="loop-view">
+            <as-cost-dashboard [view]="costDashboard()" [creditTooltip]="creditTooltip" />
+            <as-interaction-timeline
+              [turns]="modelTurns()"
+              [interactions]="interactions()"
+              [contextCompactions]="contextCompactions()"
+              [messages]="allMessages()"
+              [calibrationSpans]="primaryModelSpans()"
+              [relatedModelCalls]="relatedModelCalls()"
+              [detail]="detail"
+              [relatedDetails]="relatedDetails"
+              [creditTooltip]="creditTooltip" />
+          </section>
+        }
+        @if (activeTab === 'technical') {
+          <as-technical-view [detail]="detail" [status]="status" />
+        }
+        @if (activeTab === 'workflow') {
+          @if (workflowState(); as workflow) {
+            @if (workflow.source.session.id === detail.session.id) {
+              <as-workflow-view
+                [analysis]="workflow"
+                [refreshing]="workflowLoading()"
+                [contextCompactions]="contextCompactions()"
+                [relatedDetails]="relatedDetails"
+                [creditTooltip]="creditTooltip"
+                (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.origin, $event.context)" />
+            }
+          }
+          @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
+            <p role="status">Układanie mapy rund i powiązań subagentów…</p>
+          }
+          @if (workflowFailed()) {
+            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
+          }
+        }
+</section>
+}
+<ng-template #optimizationGuideTemplate>
+  <as-optimization-guidance
+    [context]="optimizationGuideContext()"
+    [advicePreview]="optimizationAdvicePreview()"
+    [advicePreviewLoading]="optimizationAdvicePreviewLoading()"
+    [adviceResult]="optimizationAdviceResult()"
+    [adviceLoading]="optimizationAdviceLoading()"
+    (evidenceSelected)="openOptimizationEvidence($event)"
+    (advicePreviewRequested)="prepareOptimizationAdvicePreview($event)"
+    (adviceRequested)="requestOptimizationAdvice($event)" />
+</ng-template>

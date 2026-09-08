@@ -96,12 +96,45 @@ export class WorkflowViewComponent {
   readonly mapDragging = signal(false);
   readonly aiVisible = signal(false);
   readonly restoringClassification = signal(false);
+  readonly analysisMenuCompact = signal(false);
+  readonly analysisMenuFrame = signal({left: 0, width: 0});
+  readonly analysisMenuExpandedHeight = signal(0);
   private restoredScope = '';
   private viewChosen = false;
   private readonly mapScroll = viewChild<ElementRef<HTMLDivElement>>('mapScroll');
+  private readonly analysisMenuSentinel = viewChild<ElementRef<HTMLElement>>('analysisMenuSentinel');
+  private readonly analysisMenu = viewChild<ElementRef<HTMLElement>>('analysisMenu');
   private readonly compactionBody = viewChild.required<TemplateRef<unknown>>('compactionBody');
   private mapDrag?: {pointerId: number; startX: number; scrollLeft: number};
   constructor() {
+    effect(onCleanup => {
+      const sentinel = this.analysisMenuSentinel()?.nativeElement;
+      const menu = this.analysisMenu()?.nativeElement;
+      if (!sentinel || !menu || typeof IntersectionObserver === 'undefined') return;
+      const updateMeasurements = () => {
+        const rect = sentinel.getBoundingClientRect();
+        this.analysisMenuFrame.set({left: rect.left, width: rect.width});
+        if (!this.analysisMenuCompact()) {
+          const height = menu.getBoundingClientRect().height;
+          if (height > 0) this.analysisMenuExpandedHeight.set(height);
+        }
+      };
+      const observer = new IntersectionObserver(([entry]) => {
+        updateMeasurements();
+        this.analysisMenuCompact.set(!entry.isIntersecting);
+      }, {
+        rootMargin: '-68px 0px 0px 0px', threshold: 0
+      });
+      observer.observe(sentinel);
+      updateMeasurements();
+      const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateMeasurements);
+      resizeObserver?.observe(sentinel);
+      resizeObserver?.observe(menu);
+      onCleanup(() => {
+        observer.disconnect();
+        resizeObserver?.disconnect();
+      });
+    });
     effect(() => {
       const sessionId = this.analysis().source.session.id;
       const catalog = this.catalog();
@@ -596,6 +629,48 @@ export class WorkflowViewComponent {
     const coverage = phase.creditCovered === phase.totalCalls ? 'Wartość jest dostępna dla wszystkich rund fazy.'
       : `Credits są dostępne dla ${phase.creditCovered} z ${phase.totalCalls} rund. Suma obejmuje tylko rundy z wyemitowaną wartością; brak nie oznacza zera.`;
     return `Suma Copilot AI credits wyemitowanych dla pełnych wywołań modelu należących do tej fazy. Nie musi odpowiadać procentowi kategorii powyżej: karta sumuje całe wywołania, a podział procentowy przypisuje ich części do działań. Nie jest to cena w walucie ani koszt samych narzędzi. ${coverage}`;
+  }
+  phaseMetricLabel(phase: AggregatedPhase): string {
+    if (this.layer() === 'credits') return phase.compaction ? 'Credits kompaktowania' : 'Credits wywołań w fazie';
+    if (this.layer() === 'tokens') return phase.compaction ? 'Input / output' : 'Input / output fazy';
+    return phase.compaction ? 'Input przed → po' : 'Maks. okno w fazie';
+  }
+  phaseMetricValue(phase: AggregatedPhase): string {
+    if (this.layer() === 'credits') return phase.credits === null ? '—' : this.credits(phase.credits);
+    if (this.layer() === 'tokens') {
+      const input = phase.compaction?.inputTokens ?? this.completeSum(phase.rounds.map(round => known(round.input)));
+      const output = phase.compaction?.outputTokens ?? this.completeSum(phase.rounds.map(round => known(round.output)));
+      return `${this.compact(input)} / ${this.compact(output)}`;
+    }
+    if (phase.compaction) {
+      return phase.compaction.beforeInputTokens != null && phase.compaction.afterInputTokens != null
+        ? `${this.compact(phase.compaction.beforeInputTokens)} → ${this.compact(phase.compaction.afterInputTokens)}`
+        : '—';
+    }
+    const occupancy = phase.rounds.map(round => known(round.occupancy)).filter((value): value is number => value !== undefined);
+    return occupancy.length ? this.percentLabel(Math.max(...occupancy)) : '—';
+  }
+  phaseMetricCoverage(phase: AggregatedPhase): string | undefined {
+    if (this.layer() === 'credits') return phase.creditCovered < phase.totalCalls ? `${phase.creditCovered}/${phase.totalCalls} wywołań` : undefined;
+    if (this.layer() === 'tokens') {
+      if (phase.compaction) return undefined;
+      const covered = phase.rounds.filter(round => known(round.input) !== undefined && known(round.output) !== undefined).length;
+      return covered < phase.totalCalls ? `${covered}/${phase.totalCalls} wywołań` : undefined;
+    }
+    if (phase.compaction) return undefined;
+    const covered = phase.rounds.filter(round => known(round.occupancy) !== undefined).length;
+    return covered < phase.totalCalls ? `${covered}/${phase.totalCalls} wywołań` : undefined;
+  }
+  phaseMetricTooltip(phase: AggregatedPhase): string {
+    if (this.layer() === 'credits') return this.phaseCreditsTooltip(phase);
+    if (this.layer() === 'tokens') {
+      return phase.compaction
+        ? 'Input i output wyemitowane dla osobnego wywołania modelu kompaktującego.'
+        : 'Suma inputu łącznie oraz outputu wywołań modelu w tej fazie. Wartość jest pokazywana tylko dla rodzaju tokenów kompletnego we wszystkich rundach; brak danych nie oznacza zera.';
+    }
+    return phase.compaction
+      ? 'Zmierzony input przed kompaktowaniem i input późniejszego requestu, w którym potwierdzono użycie wyniku. Brak potwierdzonego odbioru pozostaje oznaczony jako brak danych.'
+      : 'Największe zmierzone zajęcie pełnego okna kontekstowego w rundach tej fazy. Procent oznacza input podzielony przez limit promptu i maksymalny output.';
   }
   percent(metric: Metric): number { return Math.min(100, Math.max(0, (known(metric) ?? 0) * 100)); }
   known(metric: Metric): boolean { return known(metric) !== undefined; }

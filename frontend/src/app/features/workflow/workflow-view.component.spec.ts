@@ -67,6 +67,8 @@ describe('WorkflowViewComponent', () => {
 
   it('changes the chart together with the selected data layer', () => {
     const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.analysis-menu .layer-switch')).not.toBeNull();
+    expect(element.querySelector('.map-toolbar .layer-switch')).toBeNull();
     const switches = element.querySelectorAll<HTMLButtonElement>('.layer-switch button');
     switches[1].click(); fixture.detectChanges();
     expect(element.querySelector('.axis-label')?.textContent).toContain('Tokeny narastająco');
@@ -285,6 +287,11 @@ describe('WorkflowViewComponent', () => {
     fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([chat(1), chat(2, 1000, 800, 50, {}, {traceId: 'second'})]), []));
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.analysis-menu .interaction-switch')).not.toBeNull();
+    expect(element.querySelector('.map-panel .interaction-switch')).toBeNull();
+    fixture.componentInstance.analysisMenuCompact.set(true); fixture.detectChanges();
+    expect(element.querySelector('.analysis-menu')?.classList.contains('compact')).toBe(true);
+    expect(element.querySelector('.analysis-mini-label')?.textContent).toContain('Analiza przepływu');
     element.querySelectorAll<HTMLButtonElement>('.interaction-switch button')[1].click(); fixture.detectChanges();
     expect(element.querySelectorAll('.model-round-node')).toHaveLength(1);
     expect(element.querySelectorAll('.round-node')).toHaveLength(2);
@@ -329,7 +336,7 @@ describe('WorkflowViewComponent', () => {
     expect(element.querySelector('.action-summary')?.textContent).toContain('Kompaktowanie kontekstu');
     expect(element.querySelector('.compaction-category .action-credit-share strong')?.textContent).not.toContain('≈');
     expect(element.querySelector('.optimization-hero')?.textContent).toContain('NAJWIĘKSZY OBSZAR DO SPRAWDZENIA');
-    expect(element.querySelector('.optimization-hero')?.textContent).toContain('Co warto sprawdzić');
+    expect(element.querySelector('.optimization-hero')?.textContent).not.toContain('Co warto sprawdzić');
     expect(element.querySelectorAll('.action-ranking-row').length).toBeGreaterThan(1);
     expect(element.querySelectorAll('.category-guide-button')).toHaveLength(fixture.componentInstance.creditCategories().length);
     expect(element.querySelector('.action-summary details')).toBeNull();
@@ -356,6 +363,11 @@ describe('WorkflowViewComponent', () => {
     expect(roundPhases.at(-1)?.roundLabels).toEqual(['M4', 'M5', 'M6', 'M7']);
     expect(roundPhases.at(-1)).toMatchObject({credits: .4, creditCovered: 4});
     expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('M4–M7');
+    expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('Maks. okno w fazie');
+    expect(element.querySelector('.compaction-phase .phase-metric')?.textContent).toContain('Input przed → po');
+    element.querySelectorAll<HTMLButtonElement>('.layer-switch button')[1].click(); fixture.detectChanges();
+    expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('Input / output fazy');
+    element.querySelectorAll<HTMLButtonElement>('.layer-switch button')[2].click(); fixture.detectChanges();
     expect([...element.querySelectorAll('.phase-card:not(.compaction-phase)')].at(-1)?.textContent).toContain('Credits wywołań w fazie0,4');
     expect(element.querySelectorAll('.compaction-phase')).toHaveLength(2);
     expect(element.querySelector('.compaction-phase')?.textContent).toContain('Fakt z telemetrii · poza analizą AI');
@@ -377,7 +389,10 @@ describe('WorkflowViewComponent', () => {
     expect(fixture.componentInstance.phaseCreditsTooltip(roundPhases[0])).toContain('Nie musi odpowiadać procentowi kategorii');
     expect(fixture.componentInstance.phaseCreditsTooltip(phases[0])).toContain('fakt z telemetrii');
     expect(phases.every(phase => phase.creditStrength.endsWith('%'))).toBe(true);
+    expect(element.querySelector('.optimization-guidance')).toBeNull();
     expect(element.querySelectorAll('.phase-guide-button')).toHaveLength(phases.length);
+    expect([...element.querySelectorAll<HTMLButtonElement>('.phase-guide-button')].every(button =>
+      button.getAttribute('aria-label')?.startsWith('Poznaj techniki dla fazy:') && !button.textContent?.includes('Poznaj techniki'))).toBe(true);
     const guidance = vi.fn();
     fixture.componentInstance.optimizationGuide.subscribe(guidance);
     const acquireRow = [...element.querySelectorAll<HTMLElement>('.action-ranking-row')]

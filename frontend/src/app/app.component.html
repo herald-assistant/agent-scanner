@@ -1,64 +1,19 @@
 <div class="shell">
-  <as-topbar [status]="status" (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.currentTarget)" (configure)="setConfigVisible(!showConfig)" (pauseToggle)="togglePause()" />
-
-  @if (showConfig) {
-    <section class="config-panel">
-      <div class="config-copy">
-        <span class="eyebrow">OPENTELEMETRY</span>
-        <h2>Połącz GitHub Copilot</h2>
-        <div class="platform-switch" role="tablist" aria-label="Środowisko GitHub Copilot">
-          <button type="button" role="tab" [class.active]="configPlatform === 'vscode'" [attr.aria-selected]="configPlatform === 'vscode'" (click)="setConfigPlatform('vscode')">VS Code</button>
-          <button type="button" role="tab" [class.active]="configPlatform === 'intellij'" [attr.aria-selected]="configPlatform === 'intellij'" (click)="setConfigPlatform('intellij')">IntelliJ IDEA</button>
-        </div>
-        @if (configPlatform === 'vscode') {
-        <div class="connection-instructions" role="tabpanel">
-          <strong>W VS Code</strong>
-          <ol>
-            <li><kbd>Ctrl+Shift+P</kbd></li>
-            <li>Uruchom <code>Preferences: Open User Settings (JSON)</code></li>
-            <li>Wstaw poniższe właściwości do istniejącego głównego obiektu JSON:</li>
-          </ol>
-        </div>
-        } @else {
-        <div class="connection-instructions" role="tabpanel">
-          <strong>W IntelliJ IDEA</strong>
-          <ol>
-            <li>Upewnij się, że używasz aktualnej wtyczki GitHub Copilot.</li>
-            <li>Otwórz <code>File → Settings → Tools → GitHub Copilot → Chat → OpenTelemetry</code>.</li>
-            <li>Włącz eksport OpenTelemetry i ustaw wartości pokazane obok.</li>
-            <li>Zastosuj ustawienia i rozpocznij nową interakcję z agentem Copilot.</li>
-          </ol>
-          <p class="availability-note">Jeśli sekcja OpenTelemetry nie jest widoczna, zaktualizuj wtyczkę GitHub Copilot.</p>
-        </div>
-        }
-      </div>
-      @if (configPlatform === 'vscode') {
-      <div class="code-wrap">
-        <pre>{{ configText }}</pre>
-        <button class="copy" (click)="copyConfig()">{{ copied ? 'Skopiowano ✓' : 'Kopiuj' }}</button>
-      </div>
-      } @else {
-      <dl class="jetbrains-settings">
-        <div><dt>Eksport OpenTelemetry</dt><dd>Włączony</dd></div>
-        <div><dt>Collector endpoint</dt><dd><code>http://localhost:8080</code></dd></div>
-        <div><dt>Protokół</dt><dd><code>http/protobuf</code></dd></div>
-        <div><dt>Capture content</dt><dd>Włączone</dd></div>
-        <p>Przechwytywanie treści jest potrzebne do prezentowania promptów, odpowiedzi i argumentów narzędzi. Może obejmować dane wrażliwe.</p>
-      </dl>
-      }
-      <button class="close" aria-label="Zamknij konfigurację" (click)="setConfigVisible(false)"><mat-icon>close</mat-icon></button>
-    </section>
-  }
+  <as-topbar
+    [status]="state.status()"
+    (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.currentTarget)"
+    (configure)="openConfiguration()"
+    (pauseToggle)="state.togglePause()" />
 
   <mat-drawer-container class="workspace" autosize>
-    <mat-drawer class="sessions" mode="side" [opened]="sidebarOpen">
+    <mat-drawer class="sessions" mode="side" [opened]="sidebarOpen()">
       <as-session-sidebar
         [sessions]="visibleSessions()"
-        [selectedSessionId]="detail?.session.id"
-        [selectedTurnCount]="modelTurns().length"
-        [retentionDays]="status.retentionDays"
-        [importing]="importing"
-        [canClear]="sessions.length > 0"
+        [selectedSessionId]="selectedSessionId()"
+        [selectedTurnCount]="state.selectedTurnCount()"
+        [retentionDays]="state.status().retentionDays"
+        [importing]="state.importing()"
+        [canClear]="state.sessions().length > 0"
         (sessionSelected)="selectSession($event)"
         (collapse)="toggleSidebar()"
         (fileSelected)="importSessionFile($event)"
@@ -66,121 +21,15 @@
     </mat-drawer>
 
     <mat-drawer-content class="workspace-content">
-    @if (!sidebarOpen) {
-      <button mat-icon-button class="sidebar-open" matTooltip="Pokaż panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Pokaż panel sesji" (click)="toggleSidebar()"><mat-icon>left_panel_open</mat-icon></button>
-    }
-
-    @if (detail) {
-      <section class="content">
-        <div class="session-title">
-          <div>
-            <span class="eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
-            <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : 'Rozmowa z GitHub Copilot' }}</h1>
-            <p><span>{{ repositoryName() }}</span><b>·</b><span>{{ detail.session.responseModel || detail.session.requestedModel || 'model nieznany' }}</span><b>·</b><span>{{ time(detail.session.startedAt) }}</span></p>
-          </div>
-          <div class="session-actions">
-            <button class="button quiet" (click)="exportSession()">Eksport JSON</button>
-            <button class="icon-button danger" matTooltip="Usuń sesję" matTooltipClass="scanner-info-tooltip" aria-label="Usuń sesję" (click)="deleteSession()"><mat-icon>delete</mat-icon></button>
-            <button class="button quiet" (click)="closeSession()">Zamknij sesję</button>
-          </div>
-        </div>
-        <nav class="tabs">
-          <button [class.active]="activeTab === 'loop'" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
-          <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
-          <button [class.active]="activeTab === 'technical'" (click)="selectTab('technical')">Dane techniczne</button>
-        </nav>
-        @if (activeTab === 'loop') {
-          <section class="loop-view">
-            <as-cost-dashboard [view]="costDashboard()" [creditTooltip]="creditTooltip" />
-            <as-interaction-timeline
-              [turns]="modelTurns()"
-              [interactions]="interactions()"
-              [contextCompactions]="contextCompactions()"
-              [messages]="allMessages()"
-              [calibrationSpans]="primaryModelSpans()"
-              [relatedModelCalls]="relatedModelCalls()"
-              [detail]="detail"
-              [relatedDetails]="relatedDetails"
-              [creditTooltip]="creditTooltip" />
-          </section>
-        }
-        @if (activeTab === 'technical') {
-          <as-technical-view [detail]="detail" [status]="status" />
-        }
-        @if (activeTab === 'workflow') {
-          @if (workflowState(); as workflow) {
-            @if (workflow.source.session.id === detail.session.id) {
-              <as-workflow-view
-                [analysis]="workflow"
-                [refreshing]="workflowLoading()"
-                [contextCompactions]="contextCompactions()"
-                [relatedDetails]="relatedDetails"
-                [creditTooltip]="creditTooltip"
-                (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.origin, $event.context)" />
-            }
-          }
-          @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
-            <p role="status">Układanie mapy rund i powiązań subagentów…</p>
-          }
-          @if (workflowFailed()) {
-            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
-          }
-        }
-</section>
-} @else {
-  <section class="onboarding">
-    <div class="radar"><i></i><i></i><i></i><span></span></div>
-    <span class="eyebrow">OTLP/HTTP · PORT 8080</span>
-    <h1>Podłącz sesję agenta</h1>
-    <div class="platform-switch onboarding-platforms" role="tablist" aria-label="Środowisko GitHub Copilot">
-      <button type="button" role="tab" [class.active]="configPlatform === 'vscode'" [attr.aria-selected]="configPlatform === 'vscode'" (click)="setConfigPlatform('vscode')">VS Code</button>
-      <button type="button" role="tab" [class.active]="configPlatform === 'intellij'" [attr.aria-selected]="configPlatform === 'intellij'" (click)="setConfigPlatform('intellij')">IntelliJ IDEA</button>
-    </div>
-    @if (configPlatform === 'vscode') {
-    <div class="connection-instructions onboarding-instructions">
-      <strong>W VS Code</strong>
-      <ol>
-        <li><kbd>Ctrl+Shift+P</kbd></li>
-        <li>Uruchom <code>Preferences: Open User Settings (JSON)</code></li>
-        <li>Wstaw poniższe właściwości do istniejącego głównego obiektu JSON:</li>
-      </ol>
-    </div>
-    <div class="code-wrap onboarding-code"><pre>{{ configText }}</pre><button class="copy" (click)="copyConfig()">{{ copied ? 'Skopiowano ✓' : 'Kopiuj konfigurację' }}</button></div>
-    } @else {
-    <div class="connection-instructions onboarding-instructions intellij-onboarding">
-      <strong>W IntelliJ IDEA</strong>
-      <ol>
-        <li>Upewnij się, że używasz aktualnej wtyczki GitHub Copilot.</li>
-        <li>Otwórz <code>File → Settings → Tools → GitHub Copilot → Chat → OpenTelemetry</code>.</li>
-        <li>Włącz eksport OpenTelemetry i zastosuj poniższe wartości.</li>
-        <li>Rozpocznij nową interakcję z agentem Copilot.</li>
-      </ol>
-      <p class="availability-note">Jeśli sekcja OpenTelemetry nie jest widoczna, zaktualizuj wtyczkę GitHub Copilot.</p>
-    </div>
-    <dl class="jetbrains-settings onboarding-jetbrains-settings">
-      <div><dt>Eksport OpenTelemetry</dt><dd>Włączony</dd></div>
-      <div><dt>Collector endpoint</dt><dd><code>http://localhost:8080</code></dd></div>
-      <div><dt>Protokół</dt><dd><code>http/protobuf</code></dd></div>
-      <div><dt>Capture content</dt><dd>Włączone</dd></div>
-      <p>Capture content pozwala Scannerowi pokazywać prompty, odpowiedzi i argumenty narzędzi. Może obejmować dane wrażliwe.</p>
-    </dl>
-    }
-    <button class="link-button" (click)="setConfigVisible(true)">Bezpieczeństwo i priorytet ustawień →</button>
-  </section>
-}
-
+      @if (!sidebarOpen()) {
+        <button mat-icon-button class="sidebar-open" matTooltip="Pokaż panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Pokaż panel sesji" (click)="toggleSidebar()"><mat-icon>left_panel_open</mat-icon></button>
+      }
+      <router-outlet />
     </mat-drawer-content>
   </mat-drawer-container>
 </div>
+
 <ng-template #optimizationGuideTemplate>
-  <as-optimization-guidance
-    [context]="optimizationGuideContext()"
-    [advicePreview]="optimizationAdvicePreview()"
-    [advicePreviewLoading]="optimizationAdvicePreviewLoading()"
-    [adviceResult]="optimizationAdviceResult()"
-    [adviceLoading]="optimizationAdviceLoading()"
-    (evidenceSelected)="openOptimizationEvidence($event)"
-    (advicePreviewRequested)="prepareOptimizationAdvicePreview($event)"
-    (adviceRequested)="requestOptimizationAdvice($event)" />
+  <as-optimization-guidance />
 </ng-template>
 <as-round-details-aside />
