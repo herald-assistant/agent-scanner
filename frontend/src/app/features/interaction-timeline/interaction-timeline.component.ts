@@ -36,6 +36,12 @@ export class InteractionTimelineComponent {
   readonly detail = input.required<SessionDetail>();
   readonly relatedDetails = input<SessionDetail[]>([]);
   readonly creditTooltip = input.required<string>();
+  readonly contextMetricTooltip = 'Wartość wyliczona dla requestu: gen_ai.usage.input_tokens podzielone przez limit kontekstu, czyli max prompt + max output wyemitowane w telemetrii.';
+  readonly freshInputMetricTooltip = 'Wartość wyliczona dla requestu: max(0, gen_ai.usage.input_tokens − gen_ai.usage.cache_read.input_tokens). Telemetria nie przypisuje jej do pojedynczych części requestu.';
+  readonly outputMetricTooltip = 'Wartość gen_ai.usage.output_tokens wyemitowana w telemetrii dla odpowiedzi modelu.';
+  readonly subagentFreshInputMetricTooltip = 'Suma inputu po odjęciu sumy cache read dla dokładnie powiązanych wywołań modelu subagenta.';
+  readonly subagentOutputMetricTooltip = 'Suma gen_ai.usage.output_tokens z dokładnie powiązanych wywołań modelu subagenta.';
+  readonly subagentCreditsMetricTooltip = 'Suma GitHub Copilot AI credits z dokładnie powiązanych wywołań modelu subagenta. Każda wartość pochodzi z nano AIU wyemitowanego w telemetrii i jest dzielona przez 1 000 000 000.';
   private readonly episodes = computed(() => sessionEpisodes(this.detail(), this.relatedDetails()));
   private readonly launches = computed(() => episodeLaunches(this.episodes()));
 
@@ -148,11 +154,6 @@ export class InteractionTimelineComponent {
 
   trailingCompactions(): ContextCompactionMeasurement[] {
     return this.contextCompactions().filter(compaction => compaction.placementBeforeModelId == null);
-  }
-
-  compactionPositionLabel(compaction: ContextCompactionMeasurement): string {
-    return compaction.afterInteractionIndex ? `PRZED INTERAKCJĄ ${compaction.afterInteractionIndex}` :
-      compaction.placementBeforeModelId != null ? 'PRZED KOLEJNYM WYWOŁANIEM MODELU' : 'PO OSTATNIEJ INTERAKCJI';
   }
 
   compactionStatusLabel(compaction: ContextCompactionMeasurement): string {
@@ -288,6 +289,10 @@ export class InteractionTimelineComponent {
       : `${input} / ${this.compact(limit)}`;
   }
 
+  roundContextTooltip(turn: ModelTurn): string {
+    return `${this.contextMetricTooltip} Dane dla tego requestu: ${this.roundContextLabel(turn)} tokenów.`;
+  }
+
   subagentLaunchesForTurn(turn: ModelTurn): SpanRecord[] {
     return turn.tools.filter(tool => this.subagentEpisode(tool) || ['execution_subagent', 'runSubagent'].includes(this.attribute(tool, 'gen_ai.tool.name')));
   }
@@ -353,10 +358,11 @@ export class InteractionTimelineComponent {
   }
 
   friendlyToolTitle(span: SpanRecord): string {
+    if (this.launches().has(span)) return 'Subagent';
     const name = this.attribute(span, 'gen_ai.tool.name');
     const labels: Record<string, string> = {
-      execution_subagent: 'Uruchomił subagenta wykonawczego',
-      runSubagent: 'Uruchomił pomocniczego agenta'
+      execution_subagent: 'Subagent',
+      runSubagent: 'Subagent'
     };
     return labels[name] || `Użył narzędzia: ${name === '—' ? span.spanName : name}`;
   }

@@ -35,7 +35,7 @@ export class RoundDetailsDialogComponent {
   readonly next = output<void>();
   readonly closed = output<void>();
 
-  readonly expandedSections = new Set<string>();
+  readonly expandedSections = new Set<string>(['system', 'messages']);
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
   private readonly jsonAttributeCache = new WeakMap<SpanRecord, Map<string, unknown>>();
   private readonly toolCorrelationCache = new WeakMap<MessageRecord[], Map<number, ToolResponseContext[]>>();
@@ -128,6 +128,20 @@ export class RoundDetailsDialogComponent {
       const parsed = JSON.parse(message.content) as {type?: string};
       return parsed.type === 'function_call_output' ? 'tool result' : parsed.type === 'function_call' ? 'tool call' : parsed.type || 'message';
     } catch { return 'message'; }
+  }
+  isUserMessage(message: MessageRecord): boolean {
+    if (message.roleName?.trim().toLowerCase() === 'user') return true;
+    try {
+      const parsed = JSON.parse(message.content) as {role?: unknown};
+      return typeof parsed.role === 'string' && parsed.role.trim().toLowerCase() === 'user';
+    } catch { return false; }
+  }
+  userTextContent(message: MessageRecord): string | null {
+    if (!this.isUserMessage(message)) return null;
+    let value: unknown = message.content;
+    try { value = JSON.parse(message.content) as unknown; } catch { /* Zwykły tekst jest poprawną treścią wiadomości. */ }
+    const parts = this.textParts(value);
+    return parts.some(part => part.trim().length > 0) ? parts.join('\n') : null;
   }
   toolResponseContexts(message: MessageRecord): ToolResponseContext[] {
     const messages = this.messages();
@@ -235,7 +249,17 @@ export class RoundDetailsDialogComponent {
     if (!value) return [];
     return (Array.isArray(value) ? value : [value]).map(item => ({type: 'text', content: typeof item === 'string' ? item : JSON.stringify(item)}));
   }
-  private messageText(content: string): string { try { const parsed = JSON.parse(content) as {content?: unknown; parts?: Array<{content?: string; text?: string}>}; if (Array.isArray(parsed.parts)) return parsed.parts.map(part => part.content ?? part.text ?? '').filter(Boolean).join('\n'); return typeof parsed.content === 'string' ? parsed.content : content; } catch { return content; } }
+  private textParts(value: unknown): string[] {
+    if (typeof value === 'string') return [value];
+    if (Array.isArray(value)) return value.flatMap(item => this.textParts(item));
+    const record = this.record(value);
+    if (!record) return [];
+    if (Array.isArray(record['parts'])) return this.textParts(record['parts']);
+    const type = typeof record['type'] === 'string' ? record['type'].toLowerCase() : '';
+    if (type && !['text', 'input_text', 'message'].includes(type)) return [];
+    if (typeof record['text'] === 'string') return [record['text']];
+    return this.textParts(record['content']);
+  }
   private buildToolCorrelations(messages: MessageRecord[]): Map<number, ToolResponseContext[]> {
     const calls = new Map<string, ToolCallReference>();
     for (const message of messages) {

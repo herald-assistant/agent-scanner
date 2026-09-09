@@ -37,11 +37,11 @@
             </div>
           </details>
           @if (systemInstructionBlocks().length) {
-            <details class="request-part" (toggle)="toggleSection('system', $event)"><summary><span><i>S</i><strong>System instructions</strong><small>{{ systemInstructionBlocks().length }} blok · {{ compact(systemInstructionChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(systemInstructionChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+            <details class="request-part system-part" [open]="sectionOpen('system')" (toggle)="toggleSection('system', $event)"><summary><span><i>S</i><strong>System instructions</strong><small>{{ systemInstructionBlocks().length }} blok · {{ compact(systemInstructionChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(systemInstructionChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
               @if (sectionOpen('system')) {<div class="request-part-body">@for (block of systemInstructionBlocks(); track $index; let index = $index) {<article class="system-block"><header><span>system[{{ index }}]</span><small>{{ block.type }} · {{ compact(block.content.length) }} znaków · ≈ {{ compact(estimatedTokens(block.content)) }} tokenów</small></header><pre>{{ block.content }}</pre></article>}</div>}
             </details>
           }
-          <details class="request-part" (toggle)="toggleSection('messages', $event)"><summary><span><i>M</i><strong>Messages / input items</strong><small>{{ requestInputMessages().length }} elementów · {{ compact(requestInputChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestInputChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
+          <details class="request-part messages-part" [open]="sectionOpen('messages')" (toggle)="toggleSection('messages', $event)"><summary><span><i>M</i><strong>Messages / input items</strong><small>{{ requestInputMessages().length }} elementów · {{ compact(requestInputChars()) }} znaków · <b class="estimated-tokens">≈ {{ compact(estimatedTokens(requestInputChars())) }} tokenów</b></small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary>
             @if (sectionOpen('messages')) {<div class="request-part-body messages-body">@for (message of requestInputMessages(); track message.id) {
               @if (toolResponseContexts(message); as contexts) {
                 @if (contexts.length) {
@@ -62,7 +62,11 @@
                     </div>
                   </details>
                 } @else {
-                  <details class="request-message" [attr.data-role]="requestMessageLabel(message)"><summary><span><strong>{{ requestMessageLabel(message) }}</strong><small>input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(message.content) }}</pre></details>
+                  @if (userTextContent(message); as userText) {
+                    <article class="system-block user-text-message" data-role="user"><header><span>user · input[{{ message.sequenceNo }}]</span><small>{{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></header><pre>{{ userText }}</pre></article>
+                  } @else {
+                    <details class="request-message" [attr.data-role]="requestMessageLabel(message)"><summary><span><strong>{{ requestMessageLabel(message) }}</strong><small>input[{{ message.sequenceNo }}] · {{ compact(message.content.length) }} znaków · ≈ {{ compact(estimatedTokens(message.content)) }} tokenów</small></span><mat-icon class="disclosure-chevron" aria-hidden="true">expand_more</mat-icon></summary><pre>{{ pretty(message.content) }}</pre></details>
+                  }
                 }
               }
             } @empty {<p>Brak wiadomości wejściowych wyemitowanych dla tego spanu.</p>}</div>}

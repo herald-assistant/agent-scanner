@@ -24,7 +24,6 @@ describe('RoundDetailsDialogComponent', () => {
     ]);
     fixture.componentRef.setInput('calibrationSpans', [model]);
     fixture.componentRef.setInput('headingContext', 'INTERAKCJA 1 · RUNDA 1');
-    fixture.componentInstance.expandedSections.add('messages');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Co uruchomiło pierwszy model');
@@ -36,8 +35,43 @@ describe('RoundDetailsDialogComponent', () => {
     expect(fixture.nativeElement.querySelector('.detail-section > header p')).toBeNull();
     expect(fixture.nativeElement.querySelector('.context-source')).toBeNull();
     expect(fixture.nativeElement.querySelector('.request-inspector-header p')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.request-message:not(.tool-message)')?.tagName).toBe('DETAILS');
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector<HTMLDetailsElement>('.messages-part')?.open).toBe(true);
+    const userMessage = root.querySelector<HTMLElement>('.user-text-message');
+    expect(userMessage?.tagName).toBe('ARTICLE');
+    expect(userMessage?.querySelector('pre')?.textContent).toContain('przeanalizuj projekt');
     expect(fixture.nativeElement.querySelector('.response-tool-request')).toBeNull();
+  });
+
+  it('shows system instructions immediately in a bounded content block', () => {
+    const fixture: ComponentFixture<RoundDetailsDialogComponent> = TestBed.createComponent(RoundDetailsDialogComponent);
+    const model = span({attributesJson: JSON.stringify({
+      'gen_ai.system_instructions': JSON.stringify([{type: 'text', content: 'Pracuj wyłącznie na przechwyconych danych.'}])
+    })});
+    fixture.componentRef.setInput('turn', {index: 1, model, tools: []});
+    fixture.componentRef.setInput('messages', []);
+    fixture.componentRef.setInput('calibrationSpans', [model]);
+    fixture.componentRef.setInput('headingContext', 'INTERAKCJA 1 · RUNDA 1');
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector<HTMLDetailsElement>('.system-part')?.open).toBe(true);
+    expect(root.querySelector('.system-block pre')?.textContent).toContain('Pracuj wyłącznie');
+  });
+
+  it('extracts a structured user text message and preserves its whitespace', () => {
+    const fixture: ComponentFixture<RoundDetailsDialogComponent> = TestBed.createComponent(RoundDetailsDialogComponent);
+    const model = span();
+    const content = JSON.stringify({role: 'user', parts: [{type: 'text', content: 'Pierwszy akapit.\n\n  Drugi akapit z wcięciem.'}]});
+    fixture.componentRef.setInput('turn', {index: 1, model, tools: []});
+    fixture.componentRef.setInput('messages', [{id: 7, spanId: model.id, direction: 'input', sequenceNo: 0, roleName: 'user', content}]);
+    fixture.componentRef.setInput('calibrationSpans', [model]);
+    fixture.componentRef.setInput('headingContext', 'INTERAKCJA 1 · RUNDA 1');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).querySelector('.user-text-message pre')?.textContent;
+    expect(text).toBe('Pierwszy akapit.\n\n  Drugi akapit z wcięciem.');
+    expect(text).not.toContain('"content"');
   });
 
   it('links a tool response to the earlier request and shows its tool and parameters', () => {

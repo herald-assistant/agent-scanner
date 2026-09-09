@@ -34,6 +34,7 @@ describe('InteractionTimelineComponent', () => {
     expect(component.subagentTools(launch)).toHaveLength(15);
     expect(component.subagentTurns(launch)[4].tools[0].statusCode).toBe('STATUS_CODE_ERROR');
     expect(component.subagentCredits(launch)).toBeCloseTo(1.6);
+    expect(component.friendlyToolTitle(launch)).toBe('Subagent');
   });
 
   it('marks a round when telemetry explicitly reports an error', () => {
@@ -164,11 +165,15 @@ describe('InteractionTimelineComponent', () => {
     const marker = fixture.nativeElement.querySelector('.timeline-compaction') as HTMLElement;
     expect(marker.textContent).toContain('Kompaktowanie sesji');
     expect(marker.textContent).toContain('PRACA W OSOBNEJ SESJI');
+    expect(marker.textContent).not.toContain('PRZED INTERAKCJĄ 2');
     expect(marker.textContent).toContain('96 756');
     expect(marker.textContent).toContain('6081');
     expect(marker.textContent).toContain('29,672');
     expect(marker.textContent).toContain('gpt-5.6-terra');
     expect(marker.textContent).not.toContain('76,0% mniej');
+    expect(marker.querySelector('.compaction-output strong')?.textContent?.trim()).toBe('6081');
+    expect([...marker.querySelectorAll('.compaction-input-equation strong')].map(item => item.textContent?.trim())).toEqual(['88 884', '7872', '96 756']);
+    expect(marker.querySelector('.compaction-credits strong')?.textContent?.trim()).toBe('29,672');
 
     marker.querySelector<HTMLElement>('.detail-trigger')!.click();
     const panel = TestBed.inject(RoundDetailsPanelService).panel();
@@ -216,7 +221,8 @@ describe('InteractionTimelineComponent', () => {
 
     const marker = fixture.nativeElement.querySelector('.timeline-compaction') as HTMLElement;
     expect(marker.textContent).toContain('Kompaktowanie sesji');
-    expect(marker.textContent).toContain('PO OSTATNIEJ INTERAKCJI');
+    expect(marker.textContent).not.toContain('PO OSTATNIEJ INTERAKCJI');
+    expect(marker.textContent).toContain('PRACA W OSOBNEJ SESJI');
     expect(marker.textContent).toContain('brak kolejnego requestu w telemetrii');
     expect(marker.textContent).toContain('12 793');
     expect(marker.textContent).toContain('8,563');
@@ -232,6 +238,9 @@ describe('InteractionTimelineComponent', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.initial-request-row .detail-trigger')!.click();
+    const initial = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.initial-request-row')!;
+    expect(initial.textContent).toContain('A → M1');
+    expect(initial.textContent).not.toContain('Start ·');
     const panel = TestBed.inject(RoundDetailsPanelService).panel();
     expect(panel?.kind).toBe('round');
     if (panel?.kind === 'round') {
@@ -245,12 +254,13 @@ describe('InteractionTimelineComponent', () => {
     expect(nextPanel?.kind === 'round' ? nextPanel.data.sourceTurn?.model.id : null).toBe(21);
     expect(nextPanel?.kind === 'round' ? nextPanel.data.mode : null).toBe('cycle');
     const cycle = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.cycle-row .detail-trigger')!;
-    expect(cycle.textContent).toContain('Cykl 1 · M1 → A → M2');
+    expect(cycle.textContent).toContain('M1 → A → M2');
+    expect(cycle.textContent).not.toContain('Cykl 1 ·');
     cycle.click();
     const directlyOpened = TestBed.inject(RoundDetailsPanelService).panel();
     expect(directlyOpened?.kind === 'round' ? directlyOpened.data.sourceTurn?.model.id : null).toBe(21);
     expect(directlyOpened?.kind === 'round' ? directlyOpened.data.turn.model.id : null).toBe(22);
-    expect((fixture.nativeElement as HTMLElement).querySelector('.final-response-row')?.textContent).toContain('M2 → odpowiedź użytkownika');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.final-response-row')?.textContent).toContain('M2 → odpowiedź');
   });
 
   it('shows cache write on every round row when at least one round emitted the metric', () => {
@@ -304,15 +314,29 @@ describe('InteractionTimelineComponent', () => {
     fixture.detectChanges();
 
     const cycle = fixture.nativeElement.querySelector('.cycle-row') as HTMLElement;
-    expect(cycle.textContent).toContain('Cykl 4 · M4 → A → M5');
-    expect(cycle.querySelector('.round-token.output small')?.textContent).toContain('OUTPUT M4');
+    expect(cycle.textContent).toContain('M4 → A → M5');
+    expect(cycle.textContent).not.toContain('Cykl 4 ·');
+    expect(cycle.querySelector(':scope > .detail-trigger > .cycle-agent-step')).toBeNull();
+    expect(cycle.textContent).not.toContain('AGENT PO M4');
+    expect(cycle.querySelector('.round-token.output small')?.textContent).toContain('OUTPUT');
+    expect(cycle.querySelector('.round-token.output small')?.textContent).not.toContain('M4');
     expect(cycle.querySelector('.round-token.output strong')?.textContent?.trim()).toBe('1328');
     expect(cycle.querySelector('.cycle-receiver .round-token.input strong')?.textContent?.trim()).toBe(component.compact(84865));
-    expect(cycle.querySelector('.round-token.credits small')?.textContent).toContain('CREDITS M4');
+    expect(cycle.querySelector('.round-token.credits small')?.textContent).toContain('CREDITS');
+    expect(cycle.querySelector('.round-token.credits small')?.textContent).not.toContain('M4');
     expect(cycle.querySelector('.round-token.credits strong')?.textContent?.trim()).toBe('6,794');
+    expect(cycle.querySelector('.round-context-summary small')?.textContent).toContain('KONTEKST');
+    expect(cycle.querySelector('.round-context-summary em')).toBeNull();
+    expect(component.contextMetricTooltip).toContain('gen_ai.usage.input_tokens');
+    expect(component.roundContextTooltip({index: 5, model: receiver, tools: []})).toContain(component.roundContextLabel({index: 5, model: receiver, tools: []}));
+    expect(component.freshInputMetricTooltip).toContain('cache_read.input_tokens');
+    expect(component.outputMetricTooltip).toContain('gen_ai.usage.output_tokens');
 
     const finalResponse = fixture.nativeElement.querySelector('.final-response-row') as HTMLElement;
-    expect(finalResponse.textContent).toContain('M5 → odpowiedź użytkownika');
+    expect(finalResponse.textContent).toContain('KONIEC INTERAKCJI 1');
+    expect(finalResponse.textContent).toContain('M5 → odpowiedź');
+    expect(finalResponse.textContent).not.toContain('odpowiedź użytkownika');
+    expect(finalResponse.textContent).not.toContain('Końcowa przechwycona odpowiedź modelu');
     expect(finalResponse.querySelector('.round-token.output strong')?.textContent?.trim()).toBe('556');
     expect(finalResponse.querySelector('.round-token.credits strong')?.textContent?.trim()).toBe('2,683');
   });
