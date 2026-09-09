@@ -11,7 +11,7 @@
 .session-card:hover { background: #12151b; }.session-card.active { background: linear-gradient(90deg, #1b2218, #14181c); border-color: #34402c; box-shadow: inset 2px 0 var(--lime); }
 .session-head { gap: 9px; }.agent-avatar { width: 29px; height: 29px; display: grid; place-items: center; color: var(--lime); background: #20271c; border-radius: 6px; font-size: 12px; font-weight: 800; }
 .session-head div { flex: 1; min-width: 0; }.session-head strong, .session-head small { display: block; }.session-head strong { font-size: 12px; }.session-head small { margin-top: 2px; color: var(--dim); font-size: 9px; }.state { color: #7f9d62; font-size: 8px; font-weight: 800; }.state.bad { color: var(--red); }
-.session-card p { overflow: hidden; margin: 10px 0 7px; color: #777e89; font: 9px/1.4 Consolas, monospace; }.session-meta { gap: 7px; color: #8a9183; font-size: 9px; }.session-meta span + span:before { content: '·'; padding-right: 7px; color: #41464f; }
+.session-meta { gap: 7px; margin-top: 9px; color: #8a9183; font-size: 9px; }.session-meta span + span:before { content: '·'; padding-right: 7px; color: #41464f; }
 .empty-mini { flex: 1; padding: 60px 30px; color: var(--dim); text-align: center; font-size: 11px; }.pulse { width: 9px; height: 9px; margin: 0 auto 18px; background: var(--lime); border-radius: 50%; box-shadow: 0 0 0 8px #b8f36b0b; }
 .session-import { padding: 8px 12px 10px; border-top: 1px solid var(--line); }.session-import input { display: none; }
 .session-import button { width: 100%; min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 7px; color: #b7c2c9; background: #141920; border: 1px solid #303944; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; }

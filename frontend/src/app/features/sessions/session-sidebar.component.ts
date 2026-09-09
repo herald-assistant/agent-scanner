@@ -41,5 +41,4 @@ export class SessionSidebarComponent {
   model(session: Session): string { return session.responseModel || session.requestedModel || 'model —'; }
   tokens(session: Session): string { return this.compactNumber.format(session.inputTokens + session.outputTokens); }
   time(value?: string): string { return value ? this.timeFormat.format(new Date(value)) : '—'; }
-  short(value: string, size = 24): string { return value.length > size ? value.slice(0, size) + '…' : value; }
 }

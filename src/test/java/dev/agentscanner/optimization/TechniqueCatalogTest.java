@@ -17,19 +17,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TechniqueCatalogTest {
 
     @Test
-    void loadsTheVersionedPilotCatalogWithCompleteTechniques() {
+    void loadsTheVersionedCatalogWithAllTechniques() {
         TechniqueCatalog catalog = new TechniqueCatalog(new ObjectMapper());
 
         assertThat(catalog.document().version()).isEqualTo("techniques-v1");
         assertThat(catalog.document().techniques())
                 .extracting(TechniqueCatalog.Technique::id)
-                .containsExactlyInAnyOrder("T01", "T03", "T04", "T11", "T14", "T15");
+                .containsExactly(
+                        "T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08",
+                        "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"
+                );
         TechniqueCatalog.Technique firstExperiment = catalog.document().techniques().stream()
                 .filter(technique -> technique.id().equals("T03"))
                 .findFirst()
                 .orElseThrow();
         assertThat(firstExperiment.firstExperiment()).isNotEmpty();
         assertThat(firstExperiment.maintenance().triggers()).isNotEmpty();
+        assertThat(catalog.document().techniques()).allSatisfy(technique -> {
+            assertThat(technique.revision()).isEqualTo(2);
+            assertThat(technique.firstExperiment()).hasSize(3);
+            assertThat(technique.example().before().length()).isGreaterThanOrEqualTo(180);
+            assertThat(technique.example().after().length()).isGreaterThanOrEqualTo(300);
+            assertThat(technique.qualityChecks()).hasSizeGreaterThanOrEqualTo(3);
+            assertThat(technique.compare()).hasSizeGreaterThanOrEqualTo(3);
+        });
     }
 
     @Test
@@ -89,7 +100,7 @@ class TechniqueCatalogTest {
         mvc.perform(get("/api/optimization/techniques"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value("techniques-v1"))
-                .andExpect(jsonPath("$.techniques.length()").value(6))
+                .andExpect(jsonPath("$.techniques.length()").value(16))
                 .andExpect(jsonPath("$.techniques[?(@.id == 'T03')].title").isNotEmpty());
     }
 }

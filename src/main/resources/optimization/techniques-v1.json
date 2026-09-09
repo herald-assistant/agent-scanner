@@ -2,14 +2,242 @@
   "version": "techniques-v1",
   "techniques": [
     {
+      "id": "T01",
+      "revision": 2,
+      "title": "Podaj cel i warunek zakończenia",
+      "explanation": "Koszt rośnie, gdy Agent musi zgadywać, co dokładnie ma przygotować, wracać z pytaniami albo poprawiać wynik po doprecyzowaniu zakresu. Już w pierwszym poleceniu podaj oczekiwany rezultat, granice zadania i prosty sposób sprawdzenia, że praca jest gotowa.",
+      "mechanism": "Oczekiwanym rezultatem jest mniej rund poświęconych na wyjaśnienia i poprawki, a w konsekwencji możliwie niższe Input łącznie i Credits. Korzyść należy uznać tylko wtedy, gdy wynik nadal spełnia te same kryteria jakości i nie pomija potrzebnej pracy.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli doprecyzowane zadanie zakończy się bez korekty zakresu, w mniejszej liczbie rund i z niższymi Credits niż porównywalne wykonanie, a wynik przejdzie tę samą checklistę odbioru.",
+      "simplerAlternative": "Dopisz tylko oczekiwany rezultat i jeden warunek zakończenia; nie twórz rozbudowanego szablonu.",
+      "topics": [
+        "GENERAL",
+        "RESPOND",
+        "OTHER",
+        "UNKNOWN"
+      ],
+      "whenUseful": [
+        "Pierwsze odpowiedzi regularnie mijają się z oczekiwanym zakresem.",
+        "Użytkownik musi dopowiadać format albo warunek akceptacji.",
+        "Zadanie ma wyraźny rezultat, który można opisać przed rozpoczęciem."
+      ],
+      "whenNotUseful": [
+        "Rozmowa jest celowo eksploracyjna i nie ma jeszcze jednego rezultatu.",
+        "Nie da się ustalić kryterium akceptacji bez krótkiej analizy źródeł.",
+        "Długi szablon polecenia byłby droższy niż pojedyncze doprecyzowanie."
+      ],
+      "prerequisites": [
+        "Krótki opis oczekiwanego rezultatu.",
+        "Znane ograniczenia i elementy poza zakresem.",
+        "Jeden lub kilka sprawdzalnych warunków zakończenia."
+      ],
+      "applyAt": [
+        "PROMPT",
+        "SKILL"
+      ],
+      "firstExperiment": [
+        "Wybierz powtarzalne zadanie i zapisz z wcześniejszego wykonania liczbę rund, Credits, korekty oraz wynik kontroli jakości.",
+        "W nowym poleceniu dodaj: konkretny rezultat, zakres i elementy poza zakresem oraz warunek zakończenia; zachowaj porównywalny model i konfigurację.",
+        "Porównaj cały przebieg i stosuj ten brief dalej tylko wtedy, gdy nie wymagał korekty, zużył mniej rund i Credits oraz spełnił tę samą checklistę."
+      ],
+      "example": {
+        "before": "Polecenie: \"Popraw ekran sesji, bo dane są nieczytelne\". Nie wiadomo, który fragment zmienić, czego nie wolno ruszać ani jak sprawdzić wynik. Kolejne wiadomości mogą dopiero doprecyzowywać układ, zakres zmian, obsługiwane szerokości i wymagane testy.",
+        "after": "Polecenie: \"Na ekranie sesji wyrównaj kolumny Nowy input, Cache read, Output i Credits w belkach głównego oraz pomocniczego agenta. Nie zmieniaj API ani sposobu liczenia metryk. Zachowaj poprawny układ przy szerokości 1280 i 1920 px. Gotowe, gdy nagłówki i wartości są w tych samych kolumnach, testy komponentu przechodzą, a build kończy się powodzeniem. Jeśli brakuje danych do bezpiecznej zmiany, wskaż czego\". Agent od początku zna rezultat, granice i sposób odbioru."
+      },
+      "setup": {
+        "level": "NONE",
+        "tasks": [
+          "Przygotuj krótką checklistę: rezultat, zakres, ograniczenia, walidacja.",
+          "Użyj jej tylko dla zadań z wyraźnym rezultatem."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Usuwaj z szablonu pola, które nie wpływają na decyzje agenta.",
+          "Aktualizuj przykłady, gdy zmienia się sposób odbioru pracy."
+        ],
+        "triggers": [
+          "Częste pytania o ten sam brakujący element briefu.",
+          "Wzrost długości polecenia bez spadku liczby korekt."
+        ]
+      },
+      "qualityChecks": [
+        "Sprawdź wynik dokładnie tą samą checklistą co wariant porównawczy.",
+        "Potwierdź, że nie pominięto wymaganej walidacji i nie zmieniono elementów poza zakresem.",
+        "Nie uznawaj krótszego przebiegu za poprawę, jeśli potrzebna była późniejsza naprawa lub dopowiedzenie wymagań."
+      ],
+      "compare": [
+        "Liczba rund od pierwszego polecenia do zaakceptowanego wyniku.",
+        "Input łącznie i Credits całego zadania, nie tylko pierwszej odpowiedzi.",
+        "Liczba pytań doprecyzowujących i korekt zakresu.",
+        "Wynik wspólnej checklisty jakości przy tym samym modelu i porównywalnej trudności."
+      ],
+      "relatedTechniqueIds": [
+        "T14"
+      ]
+    },
+    {
+      "id": "T02",
+      "revision": 2,
+      "title": "Ustal format i długość wyniku",
+      "explanation": "Koszt rośnie, gdy odpowiedź jest za długa, ma niewłaściwy układ albo trzeba prosić o jej skrócenie i przepisanie. Przed rozpoczęciem wskaż odbiorcę, potrzebne sekcje, dopuszczalną długość oraz informacje, których nie wolno pominąć.",
+      "mechanism": "Oczekiwanym rezultatem jest krótszy Output i brak dodatkowej rundy poświęconej wyłącznie na zmianę formatu, co może obniżyć Credits całego zadania. Limit nie może usuwać dowodów, ryzyk ani informacji potrzebnych odbiorcy.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli pierwszy wynik zostanie zaakceptowany bez prośby o skrócenie lub przeformatowanie, zawiera wszystkie wymagane informacje oraz ma mniejszy Output i niższe Credits niż porównywalny raport.",
+      "simplerAlternative": "Wskaż tylko odbiorcę, maksymalną długość i dwie obowiązkowe sekcje zamiast przygotowywać pełny szablon.",
+      "topics": [
+        "RESPOND",
+        "WRITE_FINAL",
+        "WRITE_INTERMEDIATE"
+      ],
+      "whenUseful": [
+        "Odpowiedzi regularnie wymagają skracania, zmiany formatu albo reorganizacji.",
+        "Wynik ma znanego odbiorcę i konkretny sposób dalszego użycia.",
+        "Ta sama struktura raportu lub przekazania wyniku powtarza się w podobnych zadaniach."
+      ],
+      "whenNotUseful": [
+        "Zadanie jest eksploracyjne i potrzebny format nie jest jeszcze znany.",
+        "Limit długości utrudniłby pokazanie dowodów, ryzyk albo wyjątków.",
+        "Jednorazowa krótka odpowiedź nie wymaga osobnego kontraktu."
+      ],
+      "prerequisites": [
+        "Znany odbiorca lub następny etap pracy.",
+        "Lista informacji, które muszą znaleźć się w wyniku.",
+        "Możliwy do sprawdzenia limit długości albo poziom szczegółowości."
+      ],
+      "applyAt": [
+        "PROMPT",
+        "SKILL",
+        "AGENT_ROLE"
+      ],
+      "firstExperiment": [
+        "Wybierz jeden powtarzalny raport i zapisz jego Output, Credits, liczbę poprawek redakcyjnych oraz checklistę informacji obowiązkowych.",
+        "W kolejnym zadaniu podaj odbiorcę, maksymalną długość, wymagane sekcje i zasadę, że ważne dowody lub ryzyka mają pierwszeństwo przed limitem.",
+        "Porównaj pierwszy otrzymany wynik z checklistą i wcześniejszym raportem; nie wdrażaj formatu, jeśli oszczędza tekst kosztem kompletności."
+      ],
+      "example": {
+        "before": "Polecenie: \"Podsumuj analizę awarii i opisz wszystko, co znalazłeś\". Wynik może zawierać długą chronologię, surowe logi i poboczne obserwacje, chociaż osoba zatwierdzająca zmianę potrzebuje przede wszystkim przyczyny, dowodów, poprawki i ryzyk. Następna wiadomość służy wtedy skracaniu i porządkowaniu odpowiedzi.",
+        "after": "Polecenie: \"Przygotuj podsumowanie dla autora PR, maksymalnie 10 punktów w czterech sekcjach: Przyczyna, Zmiana, Dowody z testów, Pozostałe ryzyka. W każdej sekcji pokaż tylko informacje potrzebne do decyzji o merge; do szczegółowych logów i plików podaj referencje zamiast wklejać pełną treść. Jeśli limit 10 punktów nie pozwala ujawnić istotnego ryzyka, przekrocz go i wyjaśnij dlaczego\". Odbiorca dostaje z góry ustaloną, użyteczną strukturę bez osobnej rundy redakcyjnej."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Zdefiniuj minimalny kontrakt dla jednego rodzaju wyniku.",
+          "Rozdziel sekcje obowiązkowe od opcjonalnych.",
+          "Dodaj sposób zgłoszenia, że limit nie pozwala zachować kompletności."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj kontrakt, gdy zmienia się odbiorca albo dalszy proces.",
+          "Usuwaj sekcje, które nie wpływają na wykorzystanie wyniku."
+        ],
+        "triggers": [
+          "Powtarzające się prośby o brakującą informację lub inny format.",
+          "Wzrost długości odpowiedzi bez wzrostu jej użyteczności."
+        ]
+      },
+      "qualityChecks": [
+        "Każda obowiązkowa sekcja zawiera informację potrzebną odbiorcy i wskazanie dowodu.",
+        "Limit nie ukrył ryzyka, niepewności ani wyjątku wpływającego na decyzję.",
+        "Odbiorca potrafi wykonać następny krok bez pytania o brakującą część raportu."
+      ],
+      "compare": [
+        "Liczba rund przeznaczonych wyłącznie na skracanie, reorganizację lub uzupełnianie wyniku.",
+        "Output i Credits całego porównywalnego zadania.",
+        "Liczba braków z checklisty oraz czas potrzebny odbiorcy na znalezienie kluczowych informacji.",
+        "Ten sam standard dowodów, ryzyk i poprawności merytorycznej w obu wariantach."
+      ],
+      "relatedTechniqueIds": [
+        "T01",
+        "T11"
+      ]
+    },
+    {
+      "id": "T03",
+      "revision": 2,
+      "title": "Szukaj tylko w potrzebnym zakresie",
+      "explanation": "Koszt rośnie, gdy Agent pobiera wiele plików i wyników niezwiązanych z bieżącą decyzją, a ich treść trafia do dalszej pracy. Podaj konkretny punkt startowy i pozwól rozszerzyć zakres dopiero wtedy, gdy brakuje zależności lub dowodu.",
+      "mechanism": "Oczekiwanym rezultatem jest mniej zbędnej treści w Input łącznie i możliwie niższe Credits całego zadania. Węższe wyszukiwanie jest poprawą tylko wtedy, gdy zachowuje źródła potrzebne do właściwej decyzji i ma jawny, bezpieczny sposób rozszerzenia zakresu.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli celowane wyszukiwanie ma niższe Input łącznie i Credits niż szeroki wariant, a wynik obejmuje wszystkie wymagane zależności i testy oraz nie wymaga późniejszej korekty z powodu pominiętego kontekstu.",
+      "simplerAlternative": "W samym poleceniu wskaż jeden moduł, symbol lub endpoint i dodaj warunek rozszerzenia zakresu, jeśli dowody okażą się niewystarczające.",
+      "topics": [
+        "ACQUIRE_DATA",
+        "MANAGE_CONTEXT",
+        "CONTEXT_COMPACTION"
+      ],
+      "whenUseful": [
+        "Wyszukiwanie zwraca wiele wyników niezwiązanych z aktualną decyzją.",
+        "Zadanie ma znany punkt wejścia, moduł, symbol albo typ dokumentu.",
+        "Duże wyniki narzędzi pojawiają się ponownie w kolejnych wywołaniach modelu."
+      ],
+      "whenNotUseful": [
+        "Analiza jest celowo przekrojowa i zależności nie są jeszcze znane.",
+        "Wąski zakres ukryłby ważne wywołania, konfigurację lub testy integracyjne.",
+        "Nie ma bezpiecznego warunku, po którym Agent może rozszerzyć analizę źródeł."
+      ],
+      "prerequisites": [
+        "Punkt startowy związany z celem zadania.",
+        "Jawny zakres pierwszego odczytu.",
+        "Warunek rozszerzenia wyszukiwania, gdy brakuje zależności lub dowodu."
+      ],
+      "applyAt": [
+        "PROMPT",
+        "SKILL",
+        "PROJECT_INSTRUCTIONS"
+      ],
+      "firstExperiment": [
+        "Wybierz zadanie, które wcześniej zaczynało się od szerokiego przeglądu, i zapisz Input łącznie, Credits, odczytane źródła oraz wynik walidacji.",
+        "W nowym poleceniu wskaż endpoint, symbol lub moduł, bezpośrednie zależności i testy oraz warunek rozszerzenia zakresu, gdy dowody okażą się niewystarczające.",
+        "Porównaj cały przebieg, sprawdź kompletność na tej samej liście kontrolnej i odrzuć zmianę, jeśli brak źródła spowodował poprawkę lub błędną decyzję."
+      ],
+      "example": {
+        "before": "Polecenie: \"Znajdź w repozytorium wszystko związane z zamówieniami i popraw obsługę błędu\". Agent może odczytać wiele kontrolerów, widoków, migracji i dokumentów, zanim ustali, że zmiana dotyczy jednego endpointu. Duże wyniki wyszukiwania mogą pozostać w dalszym przebiegu mimo że większość nie wpływa na poprawkę.",
+        "after": "Polecenie: \"Popraw zwracanie 404 przez GET /orders/{id}. Zacznij od metody tego endpointu, wywoływanego przez nią serwisu, bezpośredniego odczytu repozytorium i testów dla braku zamówienia. Nie przeglądaj pozostałych funkcji modułu, chyba że odczytany kod odwołuje się do wspólnej obsługi błędów albo test nie wyjaśnia kontraktu. Wtedy rozszerz zakres tylko o tę zależność i podaj powód\". Agent ma mały punkt startowy oraz jasną zgodę na bezpieczne poszerzenie analizy."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Dodaj do polecenia lub gotowej procedury wzorzec: punkt startowy, zakres i sposób bezpiecznego rozszerzenia.",
+          "Wybierz mierzalny, powtarzalny typ zadania.",
+          "Nie ustawiaj sztywnego limitu plików dla zadań przekrojowych."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj przykładowe punkty startowe po zmianach struktury projektu.",
+          "Sprawdzaj, czy warunki rozszerzenia nie stały się zbyt restrykcyjne."
+        ],
+        "triggers": [
+          "Nowy typ zależności regularnie pomijany w wynikach.",
+          "Wzrost liczby późniejszych korekt spowodowanych brakującym kontekstem."
+        ]
+      },
+      "qualityChecks": [
+        "Potwierdź zachowanie w kodzie, teście lub innym źródle prawdy, a nie na podstawie samej nazwy pliku.",
+        "Sprawdź bezpośrednie zależności i wymagane testy; przy braku dowodu użyj zdefiniowanego sposobu rozszerzenia zakresu.",
+        "Nie uznawaj mniejszego Input za sukces, jeśli później ujawniono pominiętą zależność lub potrzebna była naprawa."
+      ],
+      "compare": [
+        "Input łącznie i Credits całego zadania.",
+        "Liczba i rozmiar wyników wyszukiwania oraz odczytu, bez założenia, że sama mniejsza liczba wywołań jest lepsza.",
+        "Liczba pominiętych zależności, późniejszych korekt i nieudanych testów.",
+        "Kompletność oraz poprawność według tej samej checklisty odbioru."
+      ],
+      "relatedTechniqueIds": [
+        "T04",
+        "T15"
+      ]
+    },
+    {
       "id": "T04",
-      "revision": 1,
+      "revision": 2,
       "title": "Zacznij od mapy projektu",
-      "explanation": "Duże repozytorium nie musi trafiać do kontekstu w całości. Krótka mapa projektu pomaga wskazać moduły, symbole i dokumenty, które warto sprawdzić jako pierwsze.",
-      "mechanism": "Stały indeks kieruje wyszukiwanie do małego zbioru prawdopodobnie istotnych plików. Kod, test lub dokument nadal pozostaje źródłem prawdy.",
-      "firstExperimentGoal": "Sprawdzić, czy mapa zmniejszy liczbę odczytanych plików bez pogorszenia trafności wyniku.",
+      "explanation": "Koszt rośnie, gdy każde podobne zadanie zaczyna się od ponownego odkrywania, gdzie znajdują się właściwy kod, konfiguracja i testy. Przygotuj krótki, aktualizowany spis punktów wejścia dla często używanego obszaru, aby szybciej przechodzić do źródeł potrzebnych w zadaniu.",
+      "mechanism": "Oczekiwanym rezultatem jest mniej wyszukiwań służących wyłącznie orientacji, mniejsze Input łącznie i możliwie niższe Credits w kolejnych podobnych zadaniach. Mapa jest tylko drogowskazem: każdy fakt trzeba potwierdzić w aktualnym kodzie, teście lub dokumencie, a koszt jej utrzymania oceniać osobno.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli w co najmniej dwóch z trzech podobnych zadań mapa ograniczy wyszukiwania orientacyjne oraz obniży Input łącznie i Credits, wszystkie użyte wskazania zostaną potwierdzone w źródłach, a żaden nieaktualny wpis nie spowoduje błędu ani poprawki.",
       "simplerAlternative": "Zamiast mapować cały projekt, przygotuj krótką listę punktów wejścia tylko dla jednego często zmienianego modułu.",
-      "topics": ["ACQUIRE_DATA"],
+      "topics": [
+        "ACQUIRE_DATA"
+      ],
       "whenUseful": [
         "Repozytorium jest duże albo ma wiele modułów.",
         "Podobne zadania regularnie zaczynają się od szerokiego wyszukiwania.",
@@ -25,16 +253,19 @@
         "Sposób potwierdzania informacji w kodzie, testach albo dokumentacji.",
         "Właściciel albo automatyczny proces aktualizacji mapy."
       ],
-      "applyAt": ["PROJECT_MAP", "SKILL", "PROJECT_INSTRUCTIONS"],
+      "applyAt": [
+        "PROJECT_MAP",
+        "SKILL",
+        "PROJECT_INSTRUCTIONS"
+      ],
       "firstExperiment": [
-        "Wybierz jeden powtarzalny typ zadania, który zwykle wymaga wielu odczytów.",
-        "Utwórz małą mapę tylko dla obszaru potrzebnego w tym zadaniu.",
-        "Dodaj zasadę: najpierw użyj mapy, a potem otwieraj wyłącznie wskazane źródła.",
-        "Porównaj z podobnym zadaniem wykonanym bez mapy."
+        "Wybierz jeden często zmieniany moduł i zapisz z trzech wcześniejszych lub kontrolnych zadań wyszukiwania orientacyjne, Input łącznie, Credits i wynik jakości.",
+        "Utwórz małą mapę: cel modułu, punkty wejścia, najważniejsze zależności, testy oraz datę lub zdarzenie wymagające aktualizacji; zweryfikuj każdy odnośnik.",
+        "Użyj mapy w trzech podobnych zadaniach, nadal potwierdzaj fakty w źródłach i porównaj pełne przebiegi oraz osobno nakład przygotowania i utrzymania mapy."
       ],
       "example": {
-        "before": "Przeszukaj repozytorium i znajdź obsługę endpointu POST /analysis/jobs.",
-        "after": "Najpierw sprawdź endpoint-inventory. Następnie otwórz wskazany kontroler, serwis i test; potwierdź każdy fakt w źródle."
+        "before": "Przy każdym zadaniu dotyczącym zamówień polecenie brzmi: \"Znajdź, gdzie obsługujemy zamówienia, ich walidację i testy\". Agent ponownie przegląda drzewo katalogów, wyszukuje nazwy endpointów i otwiera kilka podobnych klas, zanim trafi do właściwego przepływu. Ta sama praca orientacyjna i jej wyniki wracają w kolejnych zadaniach.",
+        "after": "Dodaj utrzymywany wpis `Mapa: moduł orders`: \"HTTP: OrdersController; reguły: OrdersService; zapis: OrderRepository; mapowanie błędów: ApiExceptionHandler; test kontraktu GET /orders/{id}: OrdersControllerTest; testy reguł: OrdersServiceTest\". Następne polecenie brzmi: \"Korzystając z mapy orders, znajdź źródła dla GET /orders/{id}, potwierdź wskazania w aktualnym kodzie i popraw obsługę braku zamówienia. Jeśli odnośnik jest nieaktualny albo kod prowadzi poza mapę, wykonaj zwykłe wyszukiwanie i zaktualizuj tylko błędny wpis\". Agent dostaje punkt startowy, ale mapa nie zastępuje źródła prawdy."
       },
       "setup": {
         "level": "MEDIUM",
@@ -55,158 +286,523 @@
         ]
       },
       "qualityChecks": [
-        "Agent potwierdził w źródle fakty wskazane przez mapę.",
-        "Wynik obejmuje ten sam wymagany zakres co wariant bez mapy.",
-        "Nie pominięto nowego obszaru tylko dlatego, że nie ma go jeszcze w indeksie."
+        "Każde wskazanie użyte w decyzji otwiera istniejące źródło i zostało w nim potwierdzone.",
+        "Wynik obejmuje ten sam wymagany zakres i przechodzi te same testy co wariant bez mapy.",
+        "Brak lub nieaktualny wpis uruchamia zwykłe wyszukiwanie; mapa nie może blokować odkrycia nowego obszaru.",
+        "Nakład aktualizacji mapy jest rejestrowany osobno od Credits wykonania zadań."
       ],
       "compare": [
-        "Liczba odczytanych plików i wyszukiwań.",
-        "Input łącznie oraz Credits dla porównywalnych zadań.",
-        "Kompletność i poprawność wyniku."
+        "Liczba wyszukiwań i odczytów służących wyłącznie znalezieniu punktu startowego.",
+        "Input łącznie i Credits dla co najmniej trzech porównywalnych zadań.",
+        "Liczba nieaktualnych wskazań, pominiętych źródeł i późniejszych korekt.",
+        "Poprawność wyniku oraz osobny nakład utworzenia i utrzymania mapy."
       ],
-      "relatedTechniqueIds": ["T03", "T15"]
+      "relatedTechniqueIds": [
+        "T03",
+        "T15"
+      ]
     },
     {
-      "id": "T01",
-      "revision": 1,
-      "title": "Doprecyzuj cel i warunek zakończenia",
-      "explanation": "Agent działa sprawniej, gdy od początku zna oczekiwany rezultat, granice zadania i sposób sprawdzenia, że praca jest zakończona.",
-      "mechanism": "Mniej niejednoznaczności ogranicza dodatkowe rundy przeznaczone na odkrywanie intencji, poprawianie zakresu i ponowne wyjaśnienia.",
-      "firstExperimentGoal": "Sprawdzić, czy lepszy brief zmniejszy liczbę korekt i rund bez utraty jakości.",
-      "simplerAlternative": "Dopisz tylko oczekiwany rezultat i jeden warunek zakończenia; nie twórz rozbudowanego szablonu.",
-      "topics": ["GENERAL", "RESPOND", "OTHER", "UNKNOWN"],
+      "id": "T05",
+      "revision": 2,
+      "title": "Zamień powtarzalne szukanie na jedno narzędzie",
+      "explanation": "Koszt rośnie, gdy w wielu zadaniach Agent za każdym razem przeszukuje te same źródła, aby odtworzyć ten sam rodzaj faktu. Jeśli pytanie ma stabilne wejście i sprawdzalną odpowiedź, małe narzędzie może zwracać zwięzły wynik w stałym formacie.",
+      "mechanism": "Oczekiwanym rezultatem jest zastąpienie wielu powtarzanych wyszukiwań jednym deterministycznym odczytem, co może zmniejszyć liczbę rund, Input łącznie i Credits kolejnych użyć. Budowa, testy i utrzymanie narzędzia są osobnym kosztem, dlatego technika nie jest uzasadniona dla pojedynczego lub zmiennego przypadku.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli trzy użycia narzędzia wraz z Credits potrzebnymi na jego przygotowanie zużyją mniej Credits niż trzy porównywalne wykonania oparte na ręcznym wyszukiwaniu, wynik będzie zgodny ze źródłem prawdy we wszystkich próbkach kontrolnych, a brak danych i błędy zostaną rozróżnione.",
+      "simplerAlternative": "Najpierw zapisz precyzyjne polecenie istniejącego wyszukiwania; nowe narzędzie rozważ dopiero, gdy ten sam wzorzec regularnie się powtarza.",
+      "topics": [
+        "ACQUIRE_DATA",
+        "VALIDATE"
+      ],
       "whenUseful": [
-        "Pierwsze odpowiedzi regularnie mijają się z oczekiwanym zakresem.",
-        "Użytkownik musi dopowiadać format albo warunek akceptacji.",
-        "Zadanie ma wyraźny rezultat, który można opisać przed rozpoczęciem."
+        "Ten sam fakt jest regularnie składany z wielu przewidywalnych źródeł.",
+        "Zapytanie ma stabilne wejście, wynik i możliwy do przetestowania kontrakt.",
+        "Ręczne wyszukiwanie generuje duże lub zmienne wyniki pośrednie."
       ],
       "whenNotUseful": [
-        "Rozmowa jest celowo eksploracyjna i nie ma jeszcze jednego rezultatu.",
-        "Nie da się ustalić kryterium akceptacji bez krótkiego researchu.",
-        "Długi szablon polecenia byłby droższy niż pojedyncze doprecyzowanie."
+        "Potrzeba występuje tylko raz albo źródła często zmieniają znaczenie.",
+        "Wynik wymaga oceny kontekstowej, której nie da się bezpiecznie zakodować.",
+        "Koszt implementacji i utrzymania przewyższa powtarzane użycie."
       ],
       "prerequisites": [
-        "Krótki opis oczekiwanego rezultatu.",
-        "Znane ograniczenia i elementy poza zakresem.",
-        "Jeden lub kilka sprawdzalnych warunków zakończenia."
+        "Jednoznaczne źródła prawdy i format odpowiedzi.",
+        "Przykłady poprawnych, brakujących i błędnych danych.",
+        "Właściciel testów i aktualizacji narzędzia."
       ],
-      "applyAt": ["PROMPT", "SKILL"],
+      "applyAt": [
+        "TOOL_CODE",
+        "PROJECT_INSTRUCTIONS",
+        "SKILL"
+      ],
       "firstExperiment": [
-        "Wybierz zadanie podobne do wcześniej wykonanego.",
-        "Dopisz rezultat, zakres, ograniczenia i warunek zakończenia.",
-        "Nie dodawaj niepotrzebnej historii ani pełnej dokumentacji projektu.",
-        "Porównaj liczbę rund i korekt z poprzednim wykonaniem."
+        "Wybierz jedno często powtarzane pytanie i zapisz dla trzech wykonań liczbę wyszukiwań, Input łącznie, Credits, poprawność oraz czas użytkownika.",
+        "Zdefiniuj i przygotuj najmniejsze narzędzie z jednym wejściem, zwięzłym wynikiem, jawnym stanem braku danych i błędu oraz testami na reprezentatywnej próbce.",
+        "Użyj go w trzech porównywalnych zadaniach, zweryfikuj każdy wynik względem źródła i porównaj Credits budowy i użyć, jakość oraz osobno nakład utrzymania."
       ],
       "example": {
-        "before": "Popraw ekran sesji.",
-        "after": "Na ekranie sesji dodaj filtr modeli. Nie zmieniaj API. Gotowe, gdy filtr działa klawiaturą, ma test komponentu i przechodzi build."
+        "before": "Przy aktualizacji dokumentacji API Agent za każdym razem przeszukuje konfigurację routingu, kontrolery, adnotacje i istniejące dokumenty, aby zbudować listę endpointów modułu orders. Wyniki są długie, mają różny format, a potem trzeba jeszcze ustalić, czy brak endpointu oznacza faktyczny brak, czy niedoskonałe wyszukiwanie.",
+        "after": "Przygotuj lokalne narzędzie `endpoint-inventory` przyjmujące nazwę modułu i zwracające dla każdego endpointu tylko metodę HTTP, ścieżkę, symbol obsługi i lokalizację źródła. Kontrakt rozróżnia `found`, `not_found` i `scan_error`, a testy obejmują endpoint złożony z prefiksu klasy i ścieżki metody. Następne polecenie brzmi: \"Uruchom endpoint-inventory dla orders; na podstawie wyniku zaktualizuj tabelę API, a wpisy użyte w raporcie potwierdź we wskazanych źródłach. Jeśli narzędzie zwróci scan_error lub nieobsługiwany wzorzec, użyj zwykłego wyszukiwania i zgłoś przypadek\". Agent otrzymuje mały, przewidywalny wynik zamiast ponownie składać listę z wielu odczytów."
       },
       "setup": {
-        "level": "NONE",
+        "level": "LARGE",
         "tasks": [
-          "Przygotuj krótką checklistę: rezultat, zakres, ograniczenia, walidacja.",
-          "Użyj jej tylko dla zadań z wyraźnym rezultatem."
+          "Zaprojektuj wąski kontrakt i zachowanie dla brakujących danych.",
+          "Dodaj testy dla zmian frameworka, schematu oraz formatu wyniku.",
+          "Udokumentuj źródła prawdy i bezpieczny sposób postępowania, gdy narzędzie nie wystarczy."
         ]
       },
       "maintenance": {
         "tasks": [
-          "Usuwaj z szablonu pola, które nie wpływają na decyzje agenta.",
-          "Aktualizuj przykłady, gdy zmienia się sposób odbioru pracy."
+          "Aktualizuj parser i testy po zmianie frameworka lub modelu danych.",
+          "Monitoruj rozbieżności między wynikiem narzędzia a źródłem prawdy."
         ],
         "triggers": [
-          "Częste pytania o ten sam brakujący element briefu.",
-          "Wzrost długości polecenia bez spadku liczby korekt."
+          "Zmiana formatu źródła albo wersji frameworka.",
+          "Nowy przypadek, którego kontrakt nie rozróżnia jednoznacznie."
         ]
       },
       "qualityChecks": [
-        "Wynik spełnia jawny warunek zakończenia.",
-        "Agent nie wyszedł poza wskazany zakres.",
-        "Skrócenie rozmowy nie ukryło potrzebnej weryfikacji."
+        "Każdy zwrócony fakt zgadza się ze źródłem prawdy w próbce kontrolnej i wskazuje miejsce weryfikacji.",
+        "Brak danych, nieobsługiwany przypadek i błąd wykonania są różnymi stanami; żaden nie jest prezentowany jako zero ani sukces.",
+        "Rozwiązanie awaryjne pozwala dokończyć zadanie bez ufania niepełnemu wynikowi narzędzia.",
+        "Nie uznawaj niższych Credits użycia za pełną korzyść bez osobnego pokazania Credits budowy oraz pracy przy testach i utrzymaniu."
       ],
       "compare": [
-        "Liczba rund do pierwszego akceptowalnego wyniku.",
-        "Liczba korekt zakresu lub formatu.",
-        "Input łącznie i jakość końcowego wyniku."
+        "Credits przygotowania narzędzia i Credits każdego użycia, pokazane osobno oraz łącznie dla badanego okresu.",
+        "Liczba wyszukiwań, rozmiar ich wyników i Input łącznie całego zadania.",
+        "Zgodność faktów ze źródłem, liczba użyć rozwiązania awaryjnego i poprawek po błędnym wyniku.",
+        "Nakład użytkownika na implementację, testy i utrzymanie jako osobny wymiar, bez przeliczania go na Credits."
       ],
-      "relatedTechniqueIds": ["T14"]
+      "relatedTechniqueIds": [
+        "T03",
+        "T04",
+        "T06"
+      ]
     },
     {
-      "id": "T03",
-      "revision": 1,
-      "title": "Zawęź wyniki wyszukiwania i odczytu",
-      "explanation": "Zamiast pobierać wszystko związane z szerokim hasłem, wskaż obszar potrzebny do bieżącej decyzji i rozszerzaj zakres dopiero wtedy, gdy brakuje dowodu.",
-      "mechanism": "Mniejszy, celowany wynik ogranicza treść wchodzącą do bieżącego i późniejszych requestów. Krótszy wynik musi jednak zachować informacje potrzebne do poprawnej decyzji.",
-      "firstExperimentGoal": "Sprawdzić, czy celowany zakres zmniejszy liczbę odczytów bez pominięcia wymaganych zależności.",
-      "simplerAlternative": "W samym poleceniu wskaż jeden moduł, symbol lub endpoint i dodaj warunek rozszerzenia zakresu, jeśli dowody okażą się niewystarczające.",
-      "topics": ["ACQUIRE_DATA", "MANAGE_CONTEXT", "CONTEXT_COMPACTION"],
+      "id": "T06",
+      "revision": 2,
+      "title": "Zapisz powtarzalne kroki jako gotową procedurę",
+      "explanation": "Koszt rośnie, gdy w każdym podobnym zadaniu trzeba ponownie opisywać tę samą kolejność działań albo poprawiać pominięte kroki. Zapisz stabilny sposób pracy jako gotową procedurę z wejściami, wyjątkami i kontrolą wyniku.",
+      "mechanism": "Oczekiwanym rezultatem jest mniej powtarzanych instrukcji, pominięć i rund naprawczych, co może zmniejszyć Input łącznie i Credits całego zadania. Sama obecność pliku procedury nie dowodzi, że używane środowisko ją udostępniło ani że Agent zastosował jej zasady; zbyt długa procedura może też zwiększyć przesyłaną treść.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli środowisko potwierdzi dostępność procedury, dwa porównywalne zadania zostaną wykonane bez ponownego wyjaśniania kroków i bez pominięcia obowiązkowych kontroli, a ich Input łącznie i Credits będą niższe niż w wariancie bez procedury.",
+      "simplerAlternative": "Zapisz krótką checklistę w poleceniu lub instrukcjach projektu, zanim utworzysz osobny plik procedury.",
+      "topics": [
+        "ACQUIRE_DATA",
+        "MODIFY",
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL",
+        "VALIDATE"
+      ],
       "whenUseful": [
-        "Wyszukiwanie zwraca wiele wyników niezwiązanych z aktualną decyzją.",
-        "Zadanie ma znany punkt wejścia, moduł, symbol albo typ dokumentu.",
-        "Duże wyniki narzędzi pojawiają się ponownie w kolejnych requestach."
+        "Ta sama sekwencja odczytu, zmiany i walidacji regularnie się powtarza.",
+        "Procedura ma jasne wejścia, wyjątki i warunek zakończenia.",
+        "Kilku użytkowników lub agentów powinno wykonywać ją w podobny sposób."
       ],
       "whenNotUseful": [
-        "Analiza jest celowo przekrojowa i zależności nie są jeszcze znane.",
-        "Wąski zakres ukryłby ważne wywołania, konfigurację lub testy integracyjne.",
-        "Nie ma bezpiecznego warunku, po którym agent może rozszerzyć research."
+        "Proces jest jednorazowy albo nadal często się zmienia.",
+        "Krótka instrukcja projektu wystarcza do opisania zachowania.",
+        "Nie można potwierdzić, że używane środowisko wykrywa i ładuje gotową procedurę."
       ],
       "prerequisites": [
-        "Punkt startowy związany z celem zadania.",
-        "Jawny zakres pierwszego odczytu.",
-        "Warunek rozszerzenia wyszukiwania, gdy brakuje zależności lub dowodu."
+        "Udokumentowany przykład poprawnego wykonania procedury.",
+        "Znane wejścia, wyjścia, warianty błędów i wymagane kontrole.",
+        "Sposób potwierdzenia konfiguracji użytej w porównywanych przebiegach."
       ],
-      "applyAt": ["PROMPT", "SKILL", "PROJECT_INSTRUCTIONS"],
+      "applyAt": [
+        "SKILL",
+        "PROJECT_INSTRUCTIONS"
+      ],
       "firstExperiment": [
-        "Wybierz jedno porównywalne zadanie, które wcześniej zaczynało się od szerokiego researchu.",
-        "Wskaż pierwszy moduł, symbol lub endpoint oraz potrzebne bezpośrednie zależności i testy.",
-        "Dodaj warunek rozszerzenia zakresu, jeśli dowody nie wystarczą.",
-        "Porównaj odczyty, cały input, Credits i kompletność wyniku."
+        "Wybierz jedną stabilną procedurę i zapisz z porównywalnych wykonań powtarzane instrukcje, korekty, Input łącznie, Credits oraz wynik kontroli jakości.",
+        "Utwórz małą procedurę opisującą wejścia, potrzebne kroki, punkty decyzyjne, wyjątki, rozwiązanie awaryjne i końcową walidację; potwierdź w środowisku, że procedura jest dostępna.",
+        "Wykonaj dwa podobne zadania z tym samym modelem i kryteriami, sprawdź przestrzeganie procedury oraz porównaj cały przebieg i osobno nakład jej utrzymania."
       ],
       "example": {
-        "before": "Znajdź w repozytorium wszystko związane z obsługą zamówień.",
-        "after": "Znajdź handler GET /orders/{id}; odczytaj jego implementację, bezpośrednie zależności i testy. Jeśli to nie wystarcza, rozszerz zakres."
+        "before": "Przy każdej zmianie kontraktu API użytkownik ponownie pisze: znajdź specyfikację i implementację, zmień tylko wskazany endpoint, zsynchronizuj model frontendu, uruchom test kontraktowy, potem pełny build, nie wykonuj migracji bez zgody i zatrzymaj się przy zmianie łamiącej kompatybilność. Jeśli jeden z tych punktów zniknie z polecenia, może być potrzebna kolejna wiadomość przypominająca o teście albo granicy zmiany.",
+        "after": "Procedura `api-contract-change` przyjmuje endpoint i oczekiwane zachowanie. Nakazuje: znaleźć kontrakt, implementację i konsumentów; zaplanować najmniejszą kompatybilną zmianę; zsynchronizować typy; uruchomić test celowany i końcowy build. Ma dwa jawne wyjątki: przy zmianie łamiącej API zatrzymaj się po analizie, a przy braku testu kontraktowego najpierw wskaż lukę i zaproponuj kontrolę. Polecenie do kolejnego zadania może brzmieć: \"Użyj procedury api-contract-change dla GET /orders/{id}; po braku zamówienia ma zwracać 404\". Środowisko musi potwierdzić, że procedura była dostępna, a odbiór sprawdza wykonanie wszystkich obowiązkowych kontroli."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Wyodrębnij jedną spójną procedurę zamiast wielu luźnych porad.",
+          "Dodaj wejścia, warunki pominięcia, rozwiązanie awaryjne i kryteria jakości.",
+          "Sprawdź sposób udostępniania procedury przez używane środowisko."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Przeglądaj procedurę po zmianach sposobu pracy, narzędzi lub środowiska.",
+          "Usuwaj kroki, które nie wpływają na rezultat albo dublują instrukcje projektu."
+        ],
+        "triggers": [
+          "Zmiana narzędzi, struktury projektu lub wymaganej walidacji.",
+          "Rozbieżność między procedurą a rzeczywistym sposobem wykonania."
+        ]
+      },
+      "qualityChecks": [
+        "Migawka konfiguracji, lista dostępnych procedur lub inne źródło środowiska potwierdza jej dostępność w badanym wykonaniu.",
+        "Każdy obowiązkowy krok, wyjątek i końcowa walidacja ma dowód wykonania; sama poprawna odpowiedź nie dowodzi użycia procedury.",
+        "Wynik spełnia te same kryteria jakości i reguły projektu co wariant bez procedury.",
+        "Jeśli procedura jest długa lub ładowana także w niepasujących zadaniach, sprawdź, czy nie zwiększa Input łącznie i Credits zamiast ich ograniczać."
+      ],
+      "compare": [
+        "Liczba instrukcji powtarzanych w poleceniach oraz rund potrzebnych na przypomnienie lub korektę procedury.",
+        "Input łącznie i Credits całego zadania przy tym samym modelu i porównywalnym zakresie.",
+        "Liczba pominiętych kontroli, błędów procedury i wynik wspólnej checklisty jakości.",
+        "Nakład aktualizacji procedury po zmianie narzędzi, projektu lub środowiska, pokazany osobno od Credits."
+      ],
+      "relatedTechniqueIds": [
+        "T05",
+        "T07",
+        "T14"
+      ]
+    },
+    {
+      "id": "T07",
+      "revision": 2,
+      "title": "Trzymaj powtarzane zasady w jednym miejscu",
+      "explanation": "Gdy ta sama zasada jest kopiowana do każdego zadania i kilku plików konfiguracyjnych, jej treść może być wielokrotnie przesyłana, a różniące się wersje prowadzić do dodatkowych poprawek. Trwałą regułę warto przechowywać w jednym właściwym miejscu, a w bieżącym poleceniu zostawić tylko cel, zakres i wyjątki.",
+      "mechanism": "Jedno źródło reguły może ograniczyć powtarzaną treść i konflikty instrukcji. Oczekiwanym rezultatem jest zachowanie tej samej jakości przy krótszych poleceniach i mniejszej liczbie korekt, ale można to potwierdzić dopiero w porównywalnych przebiegach oraz wtedy, gdy konfiguracja dowodzi, że reguła faktycznie była dostępna.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli po usunięciu jednego duplikatu reguła nadal jest obecna w potwierdzonej konfiguracji, wynik przechodzi te same kontrole jakości, a porównywalne zadania mają niższe Input łącznie lub Credits bez dodatkowych rund naprawczych.",
+      "simplerAlternative": "Usuń jeden oczywisty duplikat między poleceniem a instrukcjami projektu i obserwuj wynik, zanim przebudujesz cały układ reguł.",
+      "topics": [
+        "GENERAL",
+        "ACQUIRE_DATA",
+        "MODIFY",
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL",
+        "VALIDATE",
+        "DELEGATE",
+        "MANAGE_CONTEXT",
+        "RESPOND",
+        "OTHER",
+        "UNKNOWN",
+        "UNMAPPED"
+      ],
+      "whenUseful": [
+        "Te same zasady są kopiowane do wielu poleceń lub ról.",
+        "Instrukcje o różnym zakresie dublują się albo sobie przeczą.",
+        "Zmiana jednej polityki wymaga aktualizacji w wielu miejscach."
+      ],
+      "whenNotUseful": [
+        "Reguła jest jednorazowa i dotyczy tylko bieżącego rezultatu.",
+        "Środowisko nie gwarantuje ładowania wybranej warstwy instrukcji.",
+        "Przeniesienie ukryłoby ważne ograniczenie przed użytkownikiem lub recenzentem."
+      ],
+      "prerequisites": [
+        "Lista warstw instrukcji i ich rzeczywisty zakres.",
+        "Możliwość usunięcia duplikatu bez utraty wymagań.",
+        "Sposób zapisania konfiguracji użytej w próbie."
+      ],
+      "applyAt": [
+        "PROMPT",
+        "PROJECT_INSTRUCTIONS",
+        "SKILL",
+        "AGENT_ROLE",
+        "MODEL_OR_RUNTIME_CONFIG"
+      ],
+      "firstExperiment": [
+        "Wybierz jedną regułę kopiowaną do poleceń i co najmniej jednego trwałego źródła; zapisz konfigurację oraz wynik kilku podobnych zadań przed zmianą.",
+        "Pozostaw regułę w jednym miejscu odpowiadającym jej zakresowi, a w poleceniu zachowaj tylko cel zadania i ewentualny wyjątek; potwierdź, że używane środowisko ładuje tę konfigurację.",
+        "Powtórz podobne zadania i porównaj jakość, liczbę duplikatów, korekty, Input łącznie i Credits; wycofaj zmianę, jeśli wymaganie przestało być przestrzegane."
+      ],
+      "example": {
+        "before": "Instrukcje projektu mówią: „Przy zmianie backendu uruchom test celowany, a przed zakończeniem pełną bramkę Maven”. Ta sama reguła jest kopiowana do gotowej procedury oraz do każdego polecenia, np. „Popraw walidację adresu e-mail. Pamiętaj, aby uruchomić test celowany i pełną bramkę Maven”. W jednej z procedur pozostała starsza wersja wymagająca tylko pełnego testu, więc nie wiadomo, która reguła obowiązuje.",
+        "after": "W instrukcjach projektu pozostaje jedno wymaganie: „Przy zmianie backendu uruchom test celowany, a przed zakończeniem pełną bramkę Maven”. Gotowa procedura opisuje wyłącznie kolejność wykonania: diagnoza, edycja, test celowany, bramka końcowa. Polecenie brzmi: „Popraw walidację adresu e-mail w UserService; schemat bazy i kontrakt endpointu są poza zakresem”. Przed próbą zapisano wersję konfiguracji potwierdzającą, że instrukcje projektu zostały załadowane."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Zinwentaryzuj źródła instrukcji i zakres ich obowiązywania.",
+          "Ustal pierwszeństwo oraz właściciela każdej trwałej reguły.",
+          "Dodaj sposób wykrywania duplikatów i konfliktów."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Przeglądaj reguły po zmianie projektu, roli albo środowiska.",
+          "Usuwaj duplikaty i zapisuj uzasadnione wyjątki."
+        ],
+        "triggers": [
+          "Nowy konflikt instrukcji albo różne zachowanie podobnych zadań.",
+          "Zmiana kolejności lub sposobu ładowania instrukcji przez środowisko."
+        ]
+      },
+      "qualityChecks": [
+        "Wymagana reguła ma jedno czytelne źródło, a wyjątki są jawne i nie zmieniają jej przypadkiem.",
+        "Migawka konfiguracji lub inne dostępne źródło potwierdza, że reguła była dostępna w badanym przebiegu; bez takiego dowodu wynik pozostaje nieustalony.",
+        "Te same testy i kryteria odbioru przechodzą przed zmianą i po niej.",
+        "Nie pojawiły się dodatkowe korekty wynikające z pominięcia albo innej interpretacji reguły."
+      ],
+      "compare": [
+        "Porównaj liczbę miejsc zawierających tę samą regułę oraz wykryte sprzeczności.",
+        "Porównaj Input łącznie, Credits, liczbę wywołań i rund naprawczych dla podobnych zadań.",
+        "Sprawdź te same testy, zgodność z regułą oraz nakład potrzebny do jej późniejszej aktualizacji.",
+        "Nie przypisuj dokładnej części tokenów jednej instrukcji, jeśli telemetria nie emituje takiego podziału."
+      ],
+      "relatedTechniqueIds": [
+        "T01",
+        "T06",
+        "T13"
+      ]
+    },
+    {
+      "id": "T08",
+      "revision": 2,
+      "title": "Dopasuj zestaw narzędzi do zadania",
+      "explanation": "Gdy nawet proste zadanie otrzymuje opisy wszystkich dostępnych narzędzi, do kolejnych poleceń może trafiać niepotrzebna treść, a wybór spośród wielu możliwości może prowadzić do dodatkowych prób. Jeśli używane środowisko na to pozwala, warto sprawdzić mniejszy zestaw przygotowany dla jednego powtarzalnego rodzaju pracy.",
+      "mechanism": "Mniejszy, ale kompletny zestaw może ograniczyć rozmiar przekazywanych definicji i ułatwić wybór właściwego działania. Oczekiwany rezultat to wykonanie tego samego zadania przy mniejszym Input łącznie lub mniejszej liczbie zbędnych prób, jednak zestaw musi zachować walidację i bezpieczną drogę uzyskania brakującego narzędzia.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli co najmniej dwa z trzech podobnych zadań przejdą te same kontrole jakości bez zablokowanej wymaganej operacji, a ich Input łącznie lub Credits będą niższe niż przy szerokim zestawie.",
+      "simplerAlternative": "Zachowaj obecny zestaw, ale wskaż w procedurze preferowane narzędzie i warunek użycia rozwiązania awaryjnego.",
+      "topics": [
+        "GENERAL",
+        "ACQUIRE_DATA",
+        "MODIFY",
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL",
+        "VALIDATE",
+        "DELEGATE",
+        "MANAGE_CONTEXT",
+        "RESPOND",
+        "OTHER",
+        "UNKNOWN"
+      ],
+      "whenUseful": [
+        "Role wykonują stabilne typy zadań i korzystają z przewidywalnych narzędzi.",
+        "Środowisko pozwala konfigurować zestawy narzędzi dla roli, sesji lub pojedynczego wywołania.",
+        "Istnieje bezpieczna droga rozszerzenia zestawu, gdy zadanie tego wymaga."
+      ],
+      "whenNotUseful": [
+        "Zadania są nieprzewidywalne i często wymagają narzędzi spoza profilu.",
+        "Środowisko nie obsługuje takiej konfiguracji albo nie ujawnia jej wiarygodnie.",
+        "Ograniczenie odebrałoby możliwość diagnozy, walidacji lub bezpiecznego rozwiązania awaryjnego."
+      ],
+      "prerequisites": [
+        "Potwierdzona możliwość konfiguracji narzędzi w używanym środowisku.",
+        "Lista minimalnych możliwości potrzebnych dla wybranego zadania.",
+        "Bezpieczny sposób rozszerzenia zestawu i warunek jego użycia."
+      ],
+      "applyAt": [
+        "MODEL_OR_RUNTIME_CONFIG",
+        "AGENT_ROLE",
+        "SKILL"
+      ],
+      "firstExperiment": [
+        "Wybierz jedną powtarzalną rolę, np. aktualizowanie dokumentacji, i wypisz możliwości konieczne do wykonania oraz sprawdzenia wyniku.",
+        "Jeżeli środowisko potrafi potwierdzić przekazany zestaw, udostępnij tylko potrzebne narzędzia i dodaj kontrolowany sposób poproszenia o brakującą możliwość.",
+        "Wykonaj po trzy podobne zadania z dotychczasowym i zawężonym zestawem; porównaj jakość, blokady, próby narzędziowe, Input łącznie i Credits."
+      ],
+      "example": {
+        "before": "Rola aktualizująca dokumentację otrzymuje również narzędzia do wdrożeń, zarządzania bazą, obsługi przeglądarki i modyfikacji infrastruktury. Zadanie brzmi tylko: „Uzupełnij README o sposób uruchomienia testów”, ale każda kolejna prośba może nadal zawierać definicje szerokiego katalogu.",
+        "after": "Profil „dokumentacja” udostępnia wyszukiwanie plików, odczyt, edycję tekstu i sprawdzenie linków Markdown. Polecenie dodaje: „Jeśli poprawne potwierdzenie komendy wymaga uruchomienia testu, poproś o czasowe udostępnienie terminala i podaj powód”. Próba obejmuje zwykłą aktualizację README oraz zadanie graniczne wymagające rozwiązania awaryjnego, aby potwierdzić zarówno mniejszy zestaw, jak i możliwość bezpiecznego dokończenia pracy."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Sprawdź możliwości konfiguracji i obserwowalności środowiska.",
+          "Zdefiniuj zestaw przez wymagane możliwości, nie przypadkową historię użyć.",
+          "Dodaj rozwiązanie awaryjne oraz test z zadaniem granicznym."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj zestaw po zmianie roli, narzędzi lub polityk dostępu.",
+          "Sprawdzaj przypadki, w których Agent musiał eskalować albo nie mógł ukończyć zadania."
+        ],
+        "triggers": [
+          "Nowy typ zadania przypisany do roli.",
+          "Zmiana API narzędzia, uprawnień albo zachowania środowiska."
+        ]
+      },
+      "qualityChecks": [
+        "Zestaw obejmuje odczyt, zmianę i walidację rzeczywiście wymagane przez wybrany rodzaj zadania.",
+        "Rozwiązanie awaryjne działa, wymaga uzasadnienia i nie omija zasad dostępu.",
+        "Wynik przechodzi te same kontrole jakości co wariant z szerszym zestawem.",
+        "Dane obserwacyjne obejmują tylko rzeczywiście zarejestrowane definicje i nie są przedstawiane jako pełna lista narzędzi dostępnych podczas zadania."
+      ],
+      "compare": [
+        "Jeśli telemetria je emituje, porównaj faktycznie przekazane definicje i ich łączny rozmiar.",
+        "Porównaj Input łącznie, Credits, liczbę wywołań, nieudanych prób i eskalacji.",
+        "Sprawdź kompletność wyniku oraz to, czy potrzebna walidacja nadal była możliwa.",
+        "Uwzględnij pracę potrzebną do utrzymania profili i aktualizacji rozwiązania awaryjnego."
+      ],
+      "relatedTechniqueIds": [
+        "T06",
+        "T07",
+        "T13"
+      ]
+    },
+    {
+      "id": "T09",
+      "revision": 2,
+      "title": "Wskazuj precyzyjny zakres zmian",
+      "explanation": "Ogólne polecenie typu „popraw ten ekran i uporządkuj kod” może prowadzić do czytania oraz zmieniania elementów, które nie są potrzebne do rozwiązania problemu. Szerszy zakres zwykle oznacza więcej treści do analizy, więcej walidacji i większe ryzyko kolejnych poprawek.",
+      "mechanism": "Wskazanie oczekiwanego rezultatu, miejsca zmiany, elementów poza zakresem i sposobu sprawdzenia może ograniczyć zbędne odczyty oraz edycje. Oczekiwanym rezultatem jest mniejszy, łatwiejszy do zweryfikowania przebieg przy tej samej poprawności, a nie pominięcie niezbędnych zależności.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli zmiana spełnia to samo kryterium odbioru, nie obejmuje elementów niezwiązanych z celem i ma niższe Input łącznie, Credits lub liczbę rund korekcyjnych niż podobne zadanie opisane ogólnie.",
+      "simplerAlternative": "Przed edycją zapisz jedno zdanie: co zmieniam, czego nie zmieniam i jak to sprawdzę.",
+      "topics": [
+        "MODIFY",
+        "WRITE_FINAL"
+      ],
+      "whenUseful": [
+        "Zmiany regularnie obejmują sąsiednie pliki lub refaktoryzacje niezwiązane z celem.",
+        "Kilka drobnych zapisów realizuje jeden dobrze określony rezultat.",
+        "Zakres można powiązać z celowanym testem lub kontrolą."
+      ],
+      "whenNotUseful": [
+        "Błąd ma nieznaną przyczynę i zakres musi zostać najpierw zdiagnozowany.",
+        "Zmiana kontraktu wymaga świadomej aktualizacji wielu zależnych miejsc.",
+        "Połączone operacje mają różne ryzyko albo wymagają osobnej walidacji."
+      ],
+      "prerequisites": [
+        "Znany cel zmiany i elementy pozostające poza zakresem.",
+        "Lista bezpośrednio zależnych miejsc, które muszą pozostać spójne.",
+        "Walidacja dopasowana do zmienianego zachowania."
+      ],
+      "applyAt": [
+        "PROMPT",
+        "SKILL",
+        "PROJECT_INSTRUCTIONS"
+      ],
+      "firstExperiment": [
+        "Wybierz małą zmianę o znanym kryterium odbioru i zapisz typowy dotychczasowy przebieg jako punkt odniesienia.",
+        "W poleceniu podaj konkretny rezultat, dozwolony zakres, jawne wyłączenia oraz test końcowy; pozwól na bezpośrednio zależne poprawki tylko wtedy, gdy są konieczne do zachowania spójności.",
+        "Po wykonaniu sprawdź zakres zmian, testy, odczytane obszary, Input łącznie, Credits i liczbę korekt."
+      ],
+      "example": {
+        "before": "Polecenie brzmi: „Popraw zakończenie interakcji na ekranie sesji i przy okazji uporządkuj powiązane komponenty”. Nie określa oczekiwanego tekstu, granicy refaktoryzacji ani sposobu odbioru, więc praca może objąć cały widok, modele danych i style.",
+        "after": "Polecenie brzmi: „W belce końca interakcji zmień tekst «M1 → odpowiedź użytkownika» na «M1 → odpowiedź». Nie zmieniaj API, modelu danych ani pozostałego układu belki. Zaktualizuj bezpośrednio zależny test komponentu i uruchom jego test oraz build; zakończ, gdy oba przejdą”. Jeśli kompilacja ujawni konieczną zależność, należy ją opisać zamiast rozszerzać zakres bez wyjaśnienia."
       },
       "setup": {
         "level": "SMALL",
         "tasks": [
-          "Dodaj do promptu lub skilla wzorzec: punkt startowy, zakres i fallback.",
-          "Wybierz mierzalny, powtarzalny typ zadania.",
-          "Nie ustawiaj sztywnego limitu plików dla zadań przekrojowych."
+          "Dodaj wzorzec opisu zakresu, wyłączeń i walidacji.",
+          "Ustal, kiedy zależna zmiana musi zostać wykonana razem.",
+          "Zachowaj osobne kontrole dla operacji o innym ryzyku."
         ]
       },
       "maintenance": {
         "tasks": [
-          "Aktualizuj przykładowe punkty startowe po zmianach struktury projektu.",
-          "Sprawdzaj, czy warunki rozszerzenia nie stały się zbyt restrykcyjne."
+          "Aktualizuj przykłady po zmianie granic komponentów lub modułów.",
+          "Przeglądaj przypadki, w których zbyt wąski zakres powodował niespójność."
         ],
         "triggers": [
-          "Nowy typ zależności regularnie pomijany w wynikach.",
-          "Wzrost liczby późniejszych korekt spowodowanych brakującym kontekstem."
+          "Powtarzające się zmiany uboczne albo cofnięcia niezwiązanych edycji.",
+          "Zmiana architektury lub wymaganych bramek jakości."
         ]
       },
       "qualityChecks": [
-        "Wynik zachowuje informacje potrzebne do poprawnej decyzji.",
-        "Sprawdzono bezpośrednie zależności i odpowiednie testy.",
-        "Agent rozszerzył zakres, gdy pierwszy wynik nie zawierał wystarczających dowodów."
+        "Każdy zmieniony plik realizuje zadeklarowany rezultat albo jest konieczny do zachowania bezpośredniej spójności.",
+        "Nie pominięto zależnego kontraktu, testu, stylu lub dokumentacji wymaganej przez zmianę.",
+        "Te same kryteria funkcjonalne i testy przechodzą w obu wariantach.",
+        "Operacje o innym ryzyku nie zostały połączone tylko po to, aby zmniejszyć liczbę kroków."
       ],
       "compare": [
-        "Liczba wywołań wyszukiwania i odczytu.",
-        "Input łącznie i Credits całego porównywalnego przebiegu.",
-        "Kompletność, poprawność i liczba późniejszych korekt."
+        "Porównaj liczbę odczytanych i zmienionych plików z zakresem faktycznie wymaganym przez rezultat.",
+        "Porównaj Input łącznie, Credits, liczbę wywołań i rund naprawczych.",
+        "Sprawdź rozmiar diffu, regresje i czas potrzebny recenzentowi na potwierdzenie zmiany.",
+        "Nie uznawaj mniejszego diffu za sukces, jeśli pomija konieczną zależność lub walidację."
       ],
-      "relatedTechniqueIds": ["T04", "T15"]
+      "relatedTechniqueIds": [
+        "T01",
+        "T14"
+      ]
+    },
+    {
+      "id": "T10",
+      "revision": 2,
+      "title": "Planuj tylko tyle, ile wymaga zadanie",
+      "explanation": "Rozbudowany plan dla prostej poprawki sam zużywa czas i Credits, natomiast brak krótkiego zapisu przy długim zadaniu może prowadzić do ponownego czytania tych samych materiałów i powtarzania decyzji. Poziom planowania warto dopasować do liczby etapów, ryzyka i możliwości przerwania pracy.",
+      "mechanism": "Małe zadanie może przejść bez osobnego dokumentu planu, jeśli ma jasny zakres i test końcowy. Przy złożonej pracy krótki zapis celu, decyzji, otwartych pytań i następnego kroku może ułatwić wznowienie; oczekiwanym rezultatem jest mniej pracy planistycznej w prostych zadaniach i mniej ponownego odkrywania w złożonych.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli małe zadanie bez osobnego planu przejdzie te same testy przy niższym koszcie całego przebiegu, a złożone zadanie po kontrolowanej przerwie zostanie wznowione bez ponownego ustalania zapisanych decyzji i bez pogorszenia jakości.",
+      "simplerAlternative": "Dla małego zadania zapisz tylko następny krok i warunek zakończenia; nie twórz osobnego planu.",
+      "topics": [
+        "WRITE_INTERMEDIATE",
+        "MANAGE_CONTEXT",
+        "CONTEXT_COMPACTION"
+      ],
+      "whenUseful": [
+        "Zadanie ma wiele zależnych etapów, istotne decyzje albo ryzyko przerwania.",
+        "Agent wraca do wcześniej rozstrzygniętych pytań lub traci kolejność działań.",
+        "Przebieg może wymagać przekazania wyniku, wznowienia lub kompaktowania."
+      ],
+      "whenNotUseful": [
+        "Zadanie jest krótkie, liniowe i ma oczywisty warunek zakończenia.",
+        "Plan wymagałby aktualizacji po każdej drobnej czynności.",
+        "Sztywny plan utrudniłby potrzebną eksplorację lub zmianę hipotezy."
+      ],
+      "prerequisites": [
+        "Ocena złożoności, odwracalności i ryzyka zadania.",
+        "Miejsce na krótki stan lub artefakt roboczy.",
+        "Zasada aktualizacji tylko po istotnej decyzji lub zmianie kierunku."
+      ],
+      "applyAt": [
+        "SESSION_STRATEGY",
+        "SKILL",
+        "ARTIFACT_PIPELINE"
+      ],
+      "firstExperiment": [
+        "Wybierz jedno małe, liniowe zadanie oraz jedno zadanie z kilkoma zależnymi etapami i możliwością przerwania; zapisz wcześniejsze przebiegi jako punkt odniesienia.",
+        "Małe zadanie wykonaj z zakresem i testem końcowym, bez osobnego planu; dla dużego utwórz krótki stan zawierający cel, decyzje, otwarte pytania, następny krok i walidację.",
+        "Porównaj pełne przebiegi: nakład planowania, ponowne odczyty i decyzje, pominięte etapy, Input łącznie, Credits oraz wynik tych samych kontroli jakości."
+      ],
+      "example": {
+        "before": "Zmiana jednej etykiety zaczyna się od wielopunktowego planu aktualizowanego po każdym odczycie. Z kolei migracja uwierzytelniania nie ma trwałego stanu: po przerwie ponownie przeglądane są endpointy, jeszcze raz wybierany jest sposób migracji i trudno ustalić, które ryzyka zostały już rozstrzygnięte.",
+        "after": "Dla etykiety zapisano tylko: „zmień tekst w komponencie, zaktualizuj test, uruchom test i build”. Migracja ma plik stanu z pięcioma krótkimi sekcjami: cel, podjęte decyzje z uzasadnieniem, otwarte pytania, następny krok oraz bramka końcowa. Szczegółowa analiza pozostaje w źródłach wskazanych odnośnikami, a stan jest aktualizowany tylko po decyzji lub zmianie kierunku."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Ustal progi ryzyka wymagające planu lub zapisu stanu.",
+          "Przygotuj krótki format celu, decyzji, pytań i następnego kroku.",
+          "Zdefiniuj prosty tryb dla małych zadań."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj stan po istotnej decyzji, zmianie celu lub przekazaniu wyniku.",
+          "Usuwaj kroki wykonane i planowanie, które nie wspiera decyzji."
+        ],
+        "triggers": [
+          "Zmiana poziomu ryzyka, zakresu albo osoby odpowiedzialnej.",
+          "Wzrost nakładu planowania bez poprawy ciągłości lub jakości."
+        ]
+      },
+      "qualityChecks": [
+        "Małe zadanie nadal ma jednoznaczny zakres, warunek zakończenia i wymaganą walidację.",
+        "Stan złożonego zadania rozróżnia zatwierdzone decyzje, fakty, hipotezy i otwarte pytania.",
+        "Plan nie kopiuje dużych wyników źródłowych i nie jest aktualizowany po każdej drobnej operacji.",
+        "Oszczędność pracy planistycznej nie prowadzi do pominięcia ryzyka lub obowiązkowej bramki jakości."
+      ],
+      "compare": [
+        "Zmierz Output, czas i Credits przeznaczone na tworzenie oraz aktualizację planu.",
+        "Policz ponowne odczyty, ponownie rozstrzygane pytania, zmiany kierunku i pominięte etapy.",
+        "Porównaj Input łącznie, Credits, liczbę wywołań i czas wykonania osobno dla małych i złożonych zadań.",
+        "Przyjmij wariant tylko wtedy, gdy zachowuje te same kryteria odbioru; pojedyncza para przebiegów pozostaje obserwacją."
+      ],
+      "relatedTechniqueIds": [
+        "T01",
+        "T11",
+        "T15"
+      ]
     },
     {
       "id": "T11",
-      "revision": 1,
-      "title": "Przekazuj duży wynik przez artefakt",
-      "explanation": "Duży research lub analiza może zostać zapisana do pliku. Kolejna faza otrzymuje referencję i czyta tylko potrzebne fragmenty zamiast przenosić pełną treść przez każdy handoff.",
-      "mechanism": "Trwały artefakt ogranicza ponowne generowanie i przepisywanie tej samej wiedzy, a jednocześnie umożliwia review oraz ponowne użycie.",
-      "firstExperimentGoal": "Sprawdzić, czy referencja do artefaktu zmniejszy koszt handoffu przy zachowaniu kompletności dokumentu końcowego.",
+      "revision": 2,
+      "title": "Duży wynik zapisz raz i przekazuj odnośnik",
+      "explanation": "Gdy duża analiza jest wklejana do kolejnych zleceń, ta sama treść może być ponownie przesyłana i zwiększać Input łącznie oraz Credits przy każdym przekazaniu. Warto sprawdzić zapis wyniku do uporządkowanego pliku i kierowanie odbiorcy tylko do potrzebnych sekcji.",
+      "mechanism": "Jednorazowo zapisany artefakt może ograniczyć ponowne generowanie i pośrednie kopiowanie tej samej treści oraz ułatwić jej weryfikację. Oczekiwanym rezultatem jest mniejszy koszt całego przepływu przy zachowaniu kompletności, ale odbiorca nadal ponosi koszt rzeczywiście odczytanych fragmentów, a przygotowanie i utrzymanie pliku także wymaga pracy.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, jeśli kolejny etap otrzyma odnośnik zamiast pełnej treści, końcowy rezultat przejdzie tę samą kontrolę kompletności, a Input łącznie lub Credits całego przepływu będą niższe po uwzględnieniu utworzenia i odczytu artefaktu.",
       "simplerAlternative": "Jeśli wynik jest średniej wielkości, zacznij od krótkiego streszczenia z odnośnikami do istniejących źródeł zamiast tworzyć nowy artefakt.",
-      "topics": ["WRITE_INTERMEDIATE", "WRITE_FINAL", "DELEGATE"],
+      "topics": [
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL",
+        "DELEGATE"
+      ],
       "whenUseful": [
         "Pośredni wynik jest duży i trafia do kolejnej fazy albo agenta.",
-        "Research ma być weryfikowalny lub używany ponownie.",
+        "Analiza źródeł ma być weryfikowalna lub używana ponownie.",
         "Orkiestrator nie musi interpretować pełnej treści, tylko przekazać ją dalej."
       ],
       "whenNotUseful": [
@@ -219,22 +815,25 @@
         "Zasada, kto tworzy, czyta i usuwa artefakt.",
         "Sposób wskazywania potrzebnych sekcji zamiast pełnego odczytu."
       ],
-      "applyAt": ["ARTIFACT_PIPELINE", "SKILL", "AGENT_ROLE"],
+      "applyAt": [
+        "ARTIFACT_PIPELINE",
+        "SKILL",
+        "AGENT_ROLE"
+      ],
       "firstExperiment": [
-        "Wybierz jeden duży wynik przekazywany między dwiema fazami.",
-        "Zapisz go w uporządkowanym pliku z krótkim spisem sekcji.",
-        "W handoffie przekaż ścieżkę, cel oraz sekcje potrzebne odbiorcy.",
-        "Porównaj koszt komunikacji i łatwość weryfikacji."
+        "Wybierz duży wynik, który jest obecnie wklejany co najmniej do dwóch kolejnych etapów, i zapisz metryki całego dotychczasowego przepływu.",
+        "Zapisz wynik w wersjonowanym pliku ze streszczeniem, spisem sekcji i źródłami; w przekazaniu podaj cel, ścieżkę oraz dokładne sekcje potrzebne odbiorcy.",
+        "Wykonaj kolejny etap, sprawdź rezultat i porównaj Input łącznie, Output, Credits, powtórzoną treść oraz nakład utworzenia i odczytu pliku."
       ],
       "example": {
-        "before": "Wklej pełny research do odpowiedzi orkiestratora, a potem do promptu dokumentera.",
-        "after": "Zapisz research w docs/research.md; dokumenter otrzymuje referencję oraz listę sekcji do odczytu."
+        "before": "Osoba lub proces wykonujący analizę migracji przygotowuje obszerny opis bibliotek, zagrożeń i wariantów. Pełny tekst trafia do koordynatora, następnie jest wklejany do zlecenia implementacji i ponownie do zlecenia dokumentacji, mimo że implementacja potrzebuje głównie decyzji i ryzyk, a dokumentacja tylko zmian widocznych dla użytkownika.",
+        "after": "Analiza zostaje zapisana w `docs/analysis/auth-migration.md` z sekcjami: krótkie podsumowanie, porównanie wariantów, wybrana decyzja, ryzyka, plan walidacji i źródła. Implementacja otrzymuje: „Zastosuj wariant B opisany w sekcji 3; przeczytaj także ryzyka 4.1–4.3 i bramkę z sekcji 5”. Dokumentacja otrzymuje: „Na podstawie podsumowania i sekcji 3.4 opisz zmianę logowania; nie odczytuj surowych notatek dostawcy”. Koordynator przekazuje ścieżkę i wersję pliku zamiast kopiować pełną analizę."
       },
       "setup": {
         "level": "SMALL",
         "tasks": [
           "Ustal format artefaktu i nazewnictwo plików.",
-          "Dodaj szablon handoffu z referencją, celem i zakresem odczytu.",
+          "Dodaj szablon przekazania wyniku z odnośnikiem, celem i zakresem odczytu.",
           "Ustal zasady retencji i danych wrażliwych."
         ]
       },
@@ -249,26 +848,186 @@
         ]
       },
       "qualityChecks": [
-        "Artefakt zawiera źródła lub dowody potrzebne do review.",
-        "Odbiorca otrzymał wystarczający zakres bez utraty ważnych szczegółów.",
-        "Dane tymczasowe i wrażliwe mają właściwą retencję."
+        "Artefakt ma streszczenie, czytelne sekcje, źródła i oznaczenie wersji lub aktualności.",
+        "Odbiorca ma dostęp do pliku i otrzymuje dokładny zakres odczytu wystarczający do swojego zadania.",
+        "Końcowy rezultat zachowuje fakty, ograniczenia i bramki jakości obecne w wariancie z pełnym przekazaniem.",
+        "Dane wrażliwe i tymczasowe mają właściwe miejsce, dostęp oraz regułę usunięcia."
       ],
       "compare": [
-        "Input i output na granicach faz.",
-        "Liczba powtórzeń tej samej treści.",
-        "Koszt zapisu, odczytu i utrzymania artefaktu."
+        "Porównaj Input łącznie, Output i Credits wszystkich etapów, a nie tylko krótszą wiadomość przekazującą.",
+        "Sprawdź liczbę powtórzeń tej samej treści, ponownego generowania oraz ponownej analizy źródeł.",
+        "Zmierz zakres rzeczywiście odczytanego artefaktu i nakład jego utworzenia, aktualizacji oraz retencji.",
+        "Nie uznawaj pliku za optymalizację, jeśli każdy odbiorca nadal czyta go w całości albo wynik traci potrzebne szczegóły."
       ],
-      "relatedTechniqueIds": ["T15"]
+      "relatedTechniqueIds": [
+        "T15"
+      ]
+    },
+    {
+      "id": "T12",
+      "revision": 2,
+      "title": "Połącz zależne etapy w jednej sesji",
+      "explanation": "Problem kosztowy: gdy jeden mały etap przygotowuje materiał wyłącznie dla następnego, osobna sesja może ponownie przesłać te same instrukcje i źródła oraz wygenerować długie przekazanie wyniku. Sprawdź wspólne wykonanie tylko wtedy, gdy nie potrzebujesz równoległości, izolacji ani niezależnej oceny.",
+      "mechanism": "Połączenie silnie zależnych etapów może usunąć jedno uruchomienie pomocniczej sesji i pełne przekazywanie materiału. Oczekiwanym rezultatem są mniej wywołań oraz mniejszy Nowy input, Output i Credits całego zadania; jeśli wspólna sesja zacznie gromadzić niepowiązane dane, rezultat może być odwrotny.",
+      "firstExperimentGoal": "Przy pełnym pokryciu Credits uznaj próbę za udaną tylko wtedy, gdy wspólny wariant przejdzie ten sam test lub niezależną weryfikację, a dla całego zadania spadną Credits i liczba wywołań bez wzrostu liczby korekt.",
+      "simplerAlternative": "Zostaw osobne etapy, ale przekaż krótkie podsumowanie z odnośnikami do źródeł zamiast pełnego wyniku.",
+      "topics": [
+        "DELEGATE",
+        "ACQUIRE_DATA",
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL"
+      ],
+      "whenUseful": [
+        "Drugi etap bezpośrednio wykorzystuje większość małego wyniku pierwszego.",
+        "Nie ma potrzeby równoległości ani niezależnej weryfikacji.",
+        "Połączony zakres nadal mieści się w jednej spójnej odpowiedzialności."
+      ],
+      "whenNotUseful": [
+        "Etapy mogą działać równolegle albo wymagają różnych uprawnień i izolacji.",
+        "Niezależny pomocniczy agent ma zweryfikować wcześniejsze założenia.",
+        "Połączenie tworzy długi, zaszumiony kontekst lub zbyt szeroką rolę."
+      ],
+      "prerequisites": [
+        "Dwa jasno określone, zależne etapy i wspólne kryterium zakończenia.",
+        "Brak wymagania niezależności, izolacji lub równoległości.",
+        "Możliwość porównania pełnego przebiegu obu wariantów."
+      ],
+      "applyAt": [
+        "SESSION_STRATEGY",
+        "AGENT_ROLE",
+        "SKILL"
+      ],
+      "firstExperiment": [
+        "Wybierz małe, powtarzalne zadanie, w którym drugi etap bezpośrednio wykorzystuje wynik pierwszego, i zapisz koszt oraz kryterium jakości dotychczasowego wariantu z delegacją.",
+        "Wykonaj oba etapy w jednej sesji, podając jeden wspólny cel, kolejność, oczekiwany wynik i warunek zakończenia; niezależną weryfikację pozostaw osobno.",
+        "Uruchom tę samą walidację i porównaj cały przebieg, w tym wywołania, Nowy input, Output, Credits, ponowne odczyty i korekty."
+      ],
+      "example": {
+        "before": "Zadanie brzmi: uzupełnić README o konfiguracji limitu czasu. Główny agent najpierw uruchamia pomocniczego agenta z poleceniem „znajdź ustawienia timeout”, odbiera obszerny opis, a potem uruchamia kolejny etap „napisz sekcję README”. Drugi etap ponownie otwiera application.yml i ScannerProperties.java, aby sprawdzić wartości z przekazanego opisu.",
+        "after": "Jedno zlecenie brzmi: „W application.yml i ScannerProperties.java potwierdź domyślny limit czasu oraz nazwę zmiennej środowiskowej. Następnie zaktualizuj wyłącznie sekcję Timeout w README, dodaj odnośniki do obu źródeł, uruchom kontrolę linków i zakończ. Jeśli źródła są sprzeczne, opisz brak zamiast przeszukiwać cały projekt”. Niezależna weryfikacja dokumentacji nadal pozostaje osobnym krokiem."
+      },
+      "setup": {
+        "level": "MEDIUM",
+        "tasks": [
+          "Zdefiniuj kryteria łączenia etapów i przypadki wymagające delegacji.",
+          "Ustal granice połączonej odpowiedzialności oraz walidację.",
+          "Przygotuj porównywalny wariant z osobnym przekazaniem wyniku."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Sprawdzaj, czy połączony sposób pracy nie rośnie o niezależne obowiązki.",
+          "Aktualizuj granice po zmianie ról, narzędzi lub wymagań niezależnej weryfikacji."
+        ],
+        "triggers": [
+          "Wzrost rozmiaru kontekstu albo liczby pomylonych celów.",
+          "Pojawienie się potrzeby równoległości, izolacji lub niezależnej oceny."
+        ]
+      },
+      "qualityChecks": [
+        "Wspólny wariant dostarcza ten sam wymagany rezultat i przechodzi tę samą walidację co wariant delegowany.",
+        "Nie usunięto niezależnej weryfikacji, izolacji uprawnień ani równoległości, jeśli były wymagane.",
+        "Zakres sesji pozostał spójny; agent nie zaczął odczytywać dodatkowych, niezwiązanych źródeł.",
+        "Braki w dowodach są jawne, a nie uzupełnione przypuszczeniem."
+      ],
+      "compare": [
+        "Credits, Nowy input, Output, czas i liczba wywołań dla całego zadania wraz z pomocniczymi sesjami.",
+        "Liczba ponownych odczytów tych samych źródeł, przekazań wyniku i rund korekty.",
+        "Wynik tych samych testów lub niezależnej weryfikacji oraz kompletność i poprawność końcowego artefaktu."
+      ],
+      "relatedTechniqueIds": [
+        "T11",
+        "T13",
+        "T15"
+      ]
+    },
+    {
+      "id": "T13",
+      "revision": 2,
+      "title": "Doprecyzuj zlecenie pomocniczego agenta",
+      "explanation": "Problem kosztowy: ogólne zlecenie może skłonić pomocniczego agenta do szerokiego przeszukiwania, długiego raportu i kolejnych pytań, mimo że potrzebna jest jedna konkretna informacja. Podaj cel, granice, źródła, format zwrotu i warunek zakończenia, aby ograniczyć pracę, której odbiorca nie wykorzysta.",
+      "mechanism": "Jasny kontrakt wskazuje, co pomocniczy agent ma sprawdzić, czego nie ma robić i po czym ma się zatrzymać. Oczekiwanym rezultatem są mniej zbędnych odczytów, krótszy zwrot i mniej rund poprawkowych, przy zachowaniu korzyści z delegacji.",
+      "firstExperimentGoal": "Uznaj próbę za udaną, gdy pomocniczy agent bez dodatkowego doprecyzowania dostarczy kompletny wynik przechodzący tę samą kontrolę jakości, a rozmiar zwrotu i Credits całej delegacji będą niższe niż w porównywalnym ogólnym zleceniu.",
+      "simplerAlternative": "Do istniejącego zlecenia dopisz tylko zakres, format zwrotu i jedno kryterium zakończenia.",
+      "topics": [
+        "DELEGATE"
+      ],
+      "whenUseful": [
+        "Pomocniczy agent regularnie zwraca zbyt szeroki, zbyt długi albo niekompletny wynik.",
+        "Główny agent ponownie wyjaśnia cel lub filtruje duże przekazanie wyniku.",
+        "Delegowana praca ma wyraźną granicę i własne kryterium jakości."
+      ],
+      "whenNotUseful": [
+        "Pomocniczy agent ma celowo przeprowadzić otwartą eksplorację bez znanych granic.",
+        "Opis kontraktu byłby dłuższy niż proste wykonanie małego zadania głównego.",
+        "Ograniczenie zakresu odebrałoby niezależność potrzebną do osobnej weryfikacji."
+      ],
+      "prerequisites": [
+        "Znany cel delegacji i granica między Agentem głównym a pomocniczym agentem.",
+        "Wskazane wejścia lub źródła, do których pomocniczy agent ma dostęp.",
+        "Format zwrotu oraz sprawdzalny warunek zakończenia."
+      ],
+      "applyAt": [
+        "AGENT_ROLE",
+        "PROMPT",
+        "SKILL"
+      ],
+      "firstExperiment": [
+        "Wybierz jedną powtarzalną delegację, po której główny agent zwykle dopytuje, filtruje długi zwrot albo powtarza część sprawdzeń.",
+        "Zapisz zlecenie w sześciu elementach: cel, zakres, wyłączenia, wskazane źródła, format zwrotu oraz warunek zakończenia lub zgłoszenia braku danych.",
+        "Powtórz podobne zadanie, zastosuj tę samą kontrolę jakości i porównaj działania narzędzi, rozmiar zwrotu, korekty, czas oraz Credits całej delegacji."
+      ],
+      "example": {
+        "before": "Zlecenie brzmi: „Sprawdź bezpieczeństwo logowania i napisz raport”. Pomocniczy agent przegląda cały moduł uwierzytelniania, opisuje hasła, role, OAuth i odświeżanie tokenów. Główny agent dopiero potem wyjaśnia, że potrzebował odpowiedzi wyłącznie o ponowieniu żądania po błędzie 401, więc część wyszukiwania i raportu nie trafia do rozwiązania.",
+        "after": "Zlecenie brzmi: „Cel: sprawdź wyłącznie, co dzieje się po odpowiedzi 401 podczas odświeżania tokenu. Źródła początkowe: AuthInterceptor.ts, TokenService.ts i ich testy. Nie analizuj haseł, ról ani konfiguracji OAuth. Zwróć maksymalnie 6 punktów: potwierdzony przebieg, źródło w kodzie, istniejący test, ryzyko i brakujące dowody. Zakończ po potwierdzeniu ścieżki interceptor → serwis → test; jeśli dowodu brakuje, nazwij brak zamiast rozszerzać zakres”."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Przygotuj krótki szablon kontraktu delegacji.",
+          "Rozdziel obowiązki pomocniczego i głównego agenta.",
+          "Dodaj sposób eskalacji brakujących danych lub konfliktu zakresu."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Aktualizuj granice po zmianie ról, dostępu lub sposobu przekazania wyniku.",
+          "Usuwaj pola, które nie wpływają na decyzje pomocniczego agenta ani odbiorcy."
+        ],
+        "triggers": [
+          "Powtarzające się przekroczenie zakresu lub brak wymaganej informacji.",
+          "Zmiana odpowiedzialności, narzędzi albo kryteriów niezależnej weryfikacji."
+        ]
+      },
+      "qualityChecks": [
+        "Zwrot odpowiada na cały zadeklarowany zakres i wskazuje źródło każdego ważnego wniosku.",
+        "Brak danych jest oznaczony jako brak, a nie zastąpiony przypuszczeniem.",
+        "Ograniczenie zakresu nie odbiera niezależności wymaganej w osobnej weryfikacji ani nie pomija wymaganej kontroli bezpieczeństwa.",
+        "Główny agent nie musi ponownie wykonywać pracy objętej zleceniem."
+      ],
+      "compare": [
+        "Liczba wywołań i działań narzędzi pomocniczego agenta oraz liczba rund doprecyzowania lub poprawy.",
+        "Nowy input, Output, Credits i czas całej delegacji wraz z włączeniem wyniku do zadania głównego.",
+        "Rozmiar przekazanego wyniku, trafność odpowiedzi, kompletność dowodów i wynik tej samej kontroli jakości."
+      ],
+      "relatedTechniqueIds": [
+        "T01",
+        "T11",
+        "T12"
+      ]
     },
     {
       "id": "T14",
-      "revision": 1,
-      "title": "Weryfikuj etapami",
-      "explanation": "Zamiast odkładać sprawdzenie na koniec, uruchom najmniejszą wiarygodną walidację tuż po zmianie lub decyzji, którą ma potwierdzić.",
-      "mechanism": "Wcześnie wykryty błąd ogranicza kolejne rundy zbudowane na złym założeniu i zmniejsza koszt diagnozy dużego zestawu zmian.",
-      "firstExperimentGoal": "Sprawdzić, czy wąska walidacja skróci drogę do wykrycia błędu bez osłabienia kontroli końcowej.",
+      "revision": 2,
+      "title": "Sprawdzaj zmianę po ważnym etapie",
+      "explanation": "Problem kosztowy: błąd zauważony dopiero po kilku zmianach zmusza do przeglądania większego zakresu i może wywołać kilka rund diagnozy oraz poprawek. Po ryzykownym etapie uruchom najmniejszą kontrolę, która wiarygodnie sprawdza właśnie ten etap, a pełną walidację zachowaj na koniec.",
+      "mechanism": "Wczesna, celowana kontrola może zatrzymać pracę przed zbudowaniem kolejnych zmian na błędnym założeniu. Oczekiwanym rezultatem są wcześniejsze wykrycie problemu, mniej cofania i mniej rund naprawczych; technika nie zastępuje obowiązkowego pełnego testu lub niezależnej weryfikacji.",
+      "firstExperimentGoal": "W przebiegach z błędem uznaj próbę za udaną tylko wtedy, gdy celowana kontrola wykryje problem przed kolejnym etapem, końcowa pełna walidacja po poprawce nadal przejdzie, a liczba rund naprawczych lub Credits całego zadania będą niższe niż przy kontroli dopiero na końcu. Przebieg bez błędu traktuj jako sprawdzenie jakości, nie jako dowód oszczędności.",
       "simplerAlternative": "Po jednej ryzykownej zmianie uruchom pojedynczy istniejący test, ale nie rezygnuj z obowiązkowej walidacji końcowej.",
-      "topics": ["VALIDATE", "MODIFY"],
+      "topics": [
+        "VALIDATE",
+        "MODIFY"
+      ],
       "whenUseful": [
         "Błędy są odkrywane dopiero po wielu kolejnych krokach.",
         "Istnieje szybki test lub kontrola obejmująca właśnie zmieniany fragment.",
@@ -284,16 +1043,19 @@
         "Znany warunek sukcesu i czytelny wynik błędu.",
         "Końcowy zestaw walidacji dla ryzyk przekrojowych."
       ],
-      "applyAt": ["SKILL", "PROJECT_INSTRUCTIONS", "TOOL_CODE"],
+      "applyAt": [
+        "SKILL",
+        "PROJECT_INSTRUCTIONS",
+        "TOOL_CODE"
+      ],
       "firstExperiment": [
-        "Wybierz typ zmiany, który ma szybki test jednostkowy lub kontraktowy.",
-        "Uruchom tę kontrolę bezpośrednio po minimalnej zmianie.",
-        "Pełną walidację zachowaj na koniec.",
-        "Porównaj moment wykrycia błędu i liczbę rund naprawczych."
+        "Wybierz powtarzalny typ zmiany i przypisz mu jeden szybki test, który bezpośrednio sprawdza zmieniane zachowanie.",
+        "Po minimalnej zmianie uruchom ten test; przy błędzie zatrzymaj kolejne etapy, popraw przyczynę i ponów tę samą kontrolę.",
+        "Na końcu uruchom niezmienioną pełną walidację i porównaj moment wykrycia problemu, rundy naprawcze, czas, działania narzędzi i Credits."
       ],
       "example": {
-        "before": "Po wielu zmianach uruchom cały zestaw testów i analizuj wszystkie błędy naraz.",
-        "after": "Po zmianie parsera uruchom jego test kontraktowy; po zakończeniu wykonaj pełny zestaw wymagany dla wydania."
+        "before": "Agent zmienia parser importu, mapowanie odpowiedzi API i komponent ekranu, a dopiero potem uruchamia cały zestaw testów. Test kontraktu parsera zgłasza błędną obsługę pustego pola, ale w tym momencie trzeba już ustalić, która z trzech warstw wprowadziła problem, i poprawić zależne zmiany.",
+        "after": "Po zmianie parsera agent najpierw uruchamia jego test kontraktowy obejmujący puste pole. Dopiero po jego przejściu zmienia API, uruchamia test endpointu, a następnie aktualizuje ekran. Na końcu nadal wykonuje pełny build i cały zestaw testów wymagany przez projekt; nie usuwa ani nie osłabia istniejących kontroli."
       },
       "setup": {
         "level": "SMALL",
@@ -314,26 +1076,33 @@
         ]
       },
       "qualityChecks": [
-        "Wąski test rzeczywiście pokrywa zmienione zachowanie.",
-        "Walidacja końcowa nadal obejmuje ryzyka integracyjne.",
-        "Nie zmieniono testu tylko po to, aby ukryć błąd produkcyjny."
+        "Celowany test sprawdza zachowanie zmienione w danym etapie, a nie tylko kompilację lub przypadek poboczny.",
+        "Błąd testu prowadzi do naprawy przyczyny; test nie jest zmieniany wyłącznie po to, aby uzyskać wynik pozytywny.",
+        "Pełna końcowa walidacja, niezależna weryfikacja i kontrole przekrojowe pozostają bez zmian.",
+        "Wynik końcowy spełnia te same kryteria poprawności i kompletności co wariant bazowy."
       ],
       "compare": [
-        "Czas i runda pierwszego wykrycia błędu.",
-        "Liczba zmian wykonanych przed pierwszą walidacją.",
-        "Łączny czas testów oraz jakość końcowa."
+        "Etap i czas pierwszego wykrycia problemu oraz liczba zmian wykonanych przed jego wykryciem.",
+        "Liczba rund diagnozy i naprawy, ponownych odczytów oraz uruchomień narzędzi.",
+        "Credits i czas całego zadania, łączny czas testów oraz wynik tej samej pełnej walidacji."
       ],
-      "relatedTechniqueIds": ["T01", "T04"]
+      "relatedTechniqueIds": [
+        "T01",
+        "T04"
+      ]
     },
     {
       "id": "T15",
-      "revision": 1,
-      "title": "Przygotuj kontekst do kompaktowania",
-      "explanation": "Przy długim zadaniu utrzymuj krótki stan: aktualny cel, podjęte decyzje, otwarte pytania i miejsca, w których znajdują się szczegóły. Sprawdź, czy runtime potrafi go wykorzystać.",
-      "mechanism": "Zwięzła reprezentacja ważnego stanu może ułatwić kontynuację po kompaktowaniu i ograniczyć ponowne odkrywanie. Samo wywołanie kompaktora ani spadek inputu nie dowodzą jednak sukcesu.",
-      "firstExperimentGoal": "Sprawdzić, czy jawny stan zmniejsza ponowne odczyty i pomaga poprawnie kontynuować po kompaktowaniu.",
+      "revision": 2,
+      "title": "Zapisz krótki stan przed kompaktowaniem",
+      "explanation": "Problem kosztowy: po skróceniu długiej historii mogą zniknąć ważne decyzje lub miejsca źródeł, przez co agent ponownie odczytuje materiały, odtwarza ustalenia albo idzie w niewłaściwą stronę. Przed spodziewanym kompaktowaniem zachowaj krótki, aktualny stan pracy z referencjami zamiast kopiowania dużych treści.",
+      "mechanism": "Zwięzły stan może pomóc późniejszej części zadania wznowić pracę od celu, potwierdzonych decyzji, otwartych pytań i konkretnych źródeł. Oczekiwanym rezultatem są mniej ponownych odczytów i korekt po kompaktowaniu, ale można go ocenić dopiero po potwierdzeniu, że wynik kompaktowania trafił do późniejszego wywołania; trzeba też doliczyć koszt samego kompaktora.",
+      "firstExperimentGoal": "Uznaj próbę za udaną tylko wtedy, gdy telemetria potwierdzi odbiór wyniku kompaktowania, późniejsza praca zachowa zapisane decyzje i przejdzie tę samą walidację, a łączny koszt kompaktora i dalszej pracy oraz liczba dokładnie potwierdzonych ponownych odczytów będą niższe niż w porównywalnym przebiegu.",
       "simplerAlternative": "Przed dłuższą przerwą zapisz tylko cel, trzy najważniejsze decyzje, otwarte pytania i odnośniki do źródeł.",
-      "topics": ["MANAGE_CONTEXT", "CONTEXT_COMPACTION"],
+      "topics": [
+        "MANAGE_CONTEXT",
+        "CONTEXT_COMPACTION"
+      ],
       "whenUseful": [
         "Długie zadanie zbliża się do granicy kontekstu lub już zawiera kompaktowanie.",
         "Po kompaktowaniu agent ponownie odczytuje te same pliki albo pyta o wcześniejsze decyzje.",
@@ -341,7 +1110,7 @@
       ],
       "whenNotUseful": [
         "Zadanie jest krótkie i nie zbliża się do ograniczeń kontekstu.",
-        "Runtime nie pozwala wykorzystać przygotowanego stanu przy kompaktowaniu.",
+        "Środowisko nie pozwala wykorzystać przygotowanego stanu przy kompaktowaniu.",
         "Aktualizowanie stanu po każdej drobnej czynności kosztowałoby więcej niż możliwy efekt."
       ],
       "prerequisites": [
@@ -349,16 +1118,19 @@
         "Odnośniki do źródeł zamiast kopiowania pełnych treści.",
         "Możliwość obserwacji wywołania kompaktora i późniejszego odbioru wyniku."
       ],
-      "applyAt": ["SESSION_STRATEGY", "SKILL", "ARTIFACT_PIPELINE"],
+      "applyAt": [
+        "SESSION_STRATEGY",
+        "SKILL",
+        "ARTIFACT_PIPELINE"
+      ],
       "firstExperiment": [
-        "Wybierz jedno dłuższe zadanie, w którym spodziewasz się kompaktowania.",
-        "Utrzymuj krótki stan celu, decyzji, otwartych pytań i referencji.",
-        "Po kompaktowaniu sprawdź, czy wynik został odebrany w późniejszym requeście.",
-        "Porównaj koszt kompaktora, późniejsze wywołania, ponowne odczyty i poprawność kontynuacji."
+        "W jednym długim zadaniu, przed spodziewanym kompaktowaniem, zapisz tylko aktualny cel, potwierdzone decyzje, otwarte pytania, następny krok i odnośniki do źródeł.",
+        "Po kompaktowaniu potwierdź w telemetrii, że jego wynik został odebrany przez późniejsze wywołanie, i kontynuuj od zapisanego stanu, otwierając źródła tylko wtedy, gdy trzeba je ponownie zweryfikować.",
+        "Sprawdź końcowy rezultat i porównaj koszt kompaktora wraz z dalszymi wywołaniami, dokładnie powiązane ponowne odczyty, korekty oraz zachowanie wcześniejszych decyzji."
       ],
       "example": {
-        "before": "W historii pozostają duże surowe wyniki, a ważne decyzje są rozproszone między wieloma rundami.",
-        "after": "Stan roboczy zawiera aktualny cel, decyzje, otwarte pytania i referencje; szczegóły pozostają w źródłach."
+        "before": "W długiej historii znajdują się pełne logi, wyniki kilku wyszukiwań i decyzje rozproszone między rundami. Po kompaktowaniu agent nie ma czytelnej informacji, czy ponawiać błędy 429 i 503, więc ponownie przegląda cały moduł klienta HTTP oraz testy i jeszcze raz ustala regułę.",
+        "after": "Przed kompaktowaniem powstaje stan: „Cel: dodać retry tylko dla 429; decyzje: maksymalnie 2 ponowienia, bez retry dla pozostałych 4xx; źródła: RetryPolicy.java — reguła, RetryPolicyTest.java — przypadki; otwarte: nazwa metryki; następny krok: implementacja i test celowany”. Duże logi pozostają w artefakcie pod podaną ścieżką. Po potwierdzonym odbiorze streszczenia agent korzysta z tego stanu i otwiera konkretny plik tylko wtedy, gdy potrzebuje sprawdzić aktualną treść."
       },
       "setup": {
         "level": "MEDIUM",
@@ -374,21 +1146,112 @@
           "Usuwaj nieaktualne wpisy i nie kopiuj dużych wyników narzędzi."
         ],
         "triggers": [
-          "Zmiana sposobu kompaktowania lub możliwości runtime'u.",
+          "Zmiana sposobu kompaktowania lub możliwości środowiska.",
           "Wzrost liczby ponownych odczytów albo błędnych kontynuacji."
         ]
       },
       "qualityChecks": [
-        "Późniejszy request faktycznie odebrał wynik kompaktowania, jeśli oceniasz jego wpływ.",
-        "Agent potrafi wskazać aktualny cel, decyzje i źródła po kompaktowaniu.",
-        "Brak odbioru nie jest przedstawiany jako dowód sukcesu ani oszczędności."
+        "Stan zawiera aktualny cel, potwierdzone decyzje, otwarte pytania, następny krok i działające referencje, ale nie kopiuje dużych wyników.",
+        "Odbiór wyniku kompaktowania w późniejszym wywołaniu jest potwierdzony; samo wywołanie kompaktora nie jest uznane za sukces.",
+        "Po kompaktowaniu zachowano istotne decyzje, ograniczenia i wymagane kontrole jakości.",
+        "Ponowny odczyt jest oceniany jako koszt tylko na podstawie dokładnego powiązania i nie jest automatycznie nazywany zbędnym."
       ],
       "compare": [
-        "Emisja kompaktora: input, output, czas i Credits.",
-        "Input oraz ponowne odczyty w potwierdzonych późniejszych requestach.",
-        "Poprawność kontynuacji i zachowanie ważnych decyzji."
+        "Input, Output, czas i Credits samego kompaktora oraz pełnych późniejszych wywołań.",
+        "Liczba dokładnie potwierdzonych ponownych odczytów, ponownie przekazanej treści i rund odtwarzania wcześniejszych ustaleń.",
+        "Zachowanie decyzji, poprawność kontynuacji, wynik końcowych testów oraz koszt aktualizowania stanu przez użytkownika lub agenta."
       ],
-      "relatedTechniqueIds": ["T03", "T11"]
+      "relatedTechniqueIds": [
+        "T03",
+        "T11"
+      ]
+    },
+    {
+      "id": "T16",
+      "revision": 2,
+      "title": "Testuj jedną zmianę na podobnych zadaniach",
+      "explanation": "Problem decyzyjny: po jednoczesnej zmianie polecenia, modelu i narzędzi nie wiadomo, co obniżyło lub podniosło koszt, a pojedyncza udana sesja może prowadzić do błędnego standardu. Zmieniaj jeden element i porównuj kilka podobnych zadań według z góry ustalonej miary kosztu oraz tej samej kontroli jakości.",
+      "mechanism": "Kontrolowana próba nie obniża kosztu sama w sobie, ale pomaga odróżnić użyteczną technikę od naturalnych różnic między zadaniami. Oczekiwanym rezultatem jest decyzja „wdrażamy”, „odrzucamy” albo „potrzeba więcej danych” oparta na całych przebiegach, a nie na najlepszym pojedynczym wyniku.",
+      "firstExperimentGoal": "Uznaj zmianę za kandydata do wdrożenia, jeśli w trzech porównywalnych parach oba warianty przejdą tę samą kontrolę jakości, a mediana wybranej wcześniej miary kosztu całego zadania będzie niższa bez wzrostu korekt i pracy użytkownika.",
+      "simplerAlternative": "Wykonaj jedną próbę na dwóch możliwie podobnych zadaniach i zapisz wynik jako obserwację, nie jako ogólny wniosek.",
+      "topics": [
+        "GENERAL",
+        "ACQUIRE_DATA",
+        "MODIFY",
+        "WRITE_INTERMEDIATE",
+        "WRITE_FINAL",
+        "VALIDATE",
+        "DELEGATE",
+        "MANAGE_CONTEXT",
+        "RESPOND",
+        "OTHER",
+        "UNKNOWN",
+        "CONTEXT_COMPACTION",
+        "UNMAPPED",
+        "UNATTRIBUTED"
+      ],
+      "whenUseful": [
+        "Chcesz ocenić jedną technikę bez mieszania kilku zmian procesu.",
+        "Da się znaleźć podobne zadania i wspólne kryterium jakości.",
+        "Telemetria pokazuje koszt całego przebiegu, ale nie przesądza o jego przyczynie."
+      ],
+      "whenNotUseful": [
+        "Porównywane zadania różnią się zakresem, modelem, narzędziami lub wymaganiami jakości.",
+        "Próba jest zbyt mała, aby odróżnić efekt od naturalnej zmienności.",
+        "Zmiana wpływa na bezpieczeństwo lub zgodność i nie może być testowana bez dodatkowych kontroli."
+      ],
+      "prerequisites": [
+        "Jedna jasno opisana zmiana między wariantami.",
+        "Porównywalne zadania, środowisko, model i zasady walidacji.",
+        "Wspólne kryteria jakości, kosztu całego przebiegu i nakładu utrzymania."
+      ],
+      "applyAt": [
+        "SESSION_STRATEGY",
+        "PROJECT_INSTRUCTIONS"
+      ],
+      "firstExperiment": [
+        "Wybierz jedną technikę, trzy pary możliwie podobnych zadań, jedną główną miarę kosztu oraz niezmienną kontrolę jakości.",
+        "W każdej parze zachowaj ten sam model, stan projektu, narzędzia i wymagania; zmień wyłącznie testowaną technikę i zapisz jawnie każdą różnicę, której nie udało się utrzymać.",
+        "Porównaj całe przebiegi, medianę i rozrzut wyników; decyzję ogranicz do badanego typu zadania i powtórz próbę po zmianie modelu, narzędzi lub procesu."
+      ],
+      "example": {
+        "before": "Zespół jednocześnie skraca polecenie, zmienia model i ogranicza zestaw narzędzi. Jedna kolejna sesja zużywa mniej Credits, więc zespół przypisuje wynik krótszemu poleceniu i stosuje je do wszystkich zadań, choć nie wiadomo, która zmiana zadziałała ani czy zadanie było porównywalne.",
+        "after": "Zespół testuje wyłącznie dopisanie zakresu i warunku zakończenia. Dla trzech podobnych zmian endpointu wariant A używa dotychczasowego polecenia, a wariant B dodaje tylko tę regułę; model, narzędzia, stan repozytorium i zestaw testów pozostają takie same. Przed próbą zespół wybiera Credits całego zadania jako główną miarę i wymaga przejścia tych samych testów bez dodatkowej korekty. Wynik zapisuje jako obserwację dla tego typu zmian, nie jako uniwersalną obietnicę."
+      },
+      "setup": {
+        "level": "SMALL",
+        "tasks": [
+          "Zdefiniuj testowany wariant i warunki porównywalności.",
+          "Wybierz metryki całego przebiegu oraz niezależne kryteria jakości.",
+          "Zapisz różnice środowiska i brakujące pomiary."
+        ]
+      },
+      "maintenance": {
+        "tasks": [
+          "Powtarzaj pomiar po zmianie modelu, narzędzia, projektu lub sposobu pracy.",
+          "Wycofuj wnioski, których nie potwierdzają kolejne porównywalne próby."
+        ],
+        "triggers": [
+          "Zmiana modelu, wersji narzędzia lub sposobu naliczania Credits.",
+          "Spadek jakości albo wzrost nakładu utrzymania mimo lepszej pojedynczej metryki."
+        ]
+      },
+      "qualityChecks": [
+        "Warianty różnią się przede wszystkim jedną testowaną techniką, a pozostałe różnice są jawnie zapisane.",
+        "Oba warianty spełniają tę samą definicję sukcesu, przechodzą te same testy lub niezależną weryfikację i nie mają nowych potwierdzonych błędów.",
+        "Braki w pokryciu Credits lub telemetrii są widoczne i nie są zastępowane zerem ani domysłem.",
+        "Wniosek uwzględnia wszystkie próby, koszt pracy użytkownika i utrzymania, a nie tylko najlepszy przebieg."
+      ],
+      "compare": [
+        "Wybraną wcześniej główną miarę dla całego przebiegu, na przykład Credits albo Nowy input, oraz jej rozrzut między zadaniami.",
+        "Poprawność, kompletność, wynik testów, liczbę korekt i potwierdzone błędy dla obu wariantów.",
+        "Czas całego zadania, liczbę wywołań oraz nakład wdrożenia, obsługi i późniejszego utrzymania techniki."
+      ],
+      "relatedTechniqueIds": [
+        "T01",
+        "T02",
+        "T14"
+      ]
     }
   ]
 }

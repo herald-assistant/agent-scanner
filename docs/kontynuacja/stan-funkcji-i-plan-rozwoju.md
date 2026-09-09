@@ -191,10 +191,12 @@ sekcji — te elementy zmieniały się w trakcie prac.
 ## Priorytet P1 — rekomendacje optymalizacyjne
 
 Pierwszy przekrój poradnika bez AI jest wdrożony: topbar otwiera wspólny prawy
-panel, a wersjonowany katalog `techniques-v1` udostępnia pełne T01, T03, T04,
-T11, T14 i T15 przez lokalne `GET /api/optimization/techniques`. Użytkownik może
-wybrać temat, poznać warunki, prostszy wariant, pierwszy eksperyment, nakład oraz
-utrzymanie i skopiować plan próby bez sesji oraz wywołania modelu.
+panel, a wersjonowany katalog `techniques-v1` udostępnia pełne T01–T16 przez
+lokalne `GET /api/optimization/techniques`. Użytkownik może
+wybrać temat i od razu zobaczyć problem kosztowy, oczekiwany rezultat, rozbudowany
+przykład oraz sposób porównania całych przebiegów przed/po. Warunki, prostszy
+wariant, pierwszy eksperyment, nakład i utrzymanie pozostają częścią techniki,
+a kompletny plan próby można skopiować bez sesji oraz wywołania modelu.
 
 Integracja G3 jest wdrożona: ranking i dominujący obszar, karty faz oraz
 faktyczne kompaktowanie otwierają ten sam poradnik z zakresem, pochodzeniem

@@ -12,10 +12,13 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "src/main.ts",
-            "tsConfig": "tsconfig.app.json",
-            "inlineStyleLanguage": "css",
-            "outputPath": {
+          "browser": "src/main.ts",
+          "tsConfig": "tsconfig.app.json",
+          "inlineStyleLanguage": "css",
+          "assets": [
+            "src/favicon.svg"
+          ],
+          "outputPath": {
               "base": "../target/classes/static",
               "browser": ""
             },

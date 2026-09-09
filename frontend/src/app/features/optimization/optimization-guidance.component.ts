@@ -38,6 +38,14 @@ const GUIDE_TOPICS: GuideTopic[] = [
   {id: 'CONTEXT', label: 'Kontekst', icon: 'compress', topics: ['MANAGE_CONTEXT', 'CONTEXT_COMPACTION']}
 ];
 
+const TECHNIQUE_CATALOG_ORDER = Array.from(
+  {length: 16},
+  (_, index) => `T${String(index + 1).padStart(2, '0')}`
+);
+const TECHNIQUE_CATALOG_POSITION = new Map(
+  TECHNIQUE_CATALOG_ORDER.map((id, index) => [id, index])
+);
+
 @Component({
   selector: 'as-optimization-guidance',
   imports: [MatIconModule, MatTooltipModule, AdvicePreviewComponent, AdviceResultComponent],
@@ -73,12 +81,11 @@ export class OptimizationGuidanceComponent {
     return context?.kind === 'COMPACTION' && context.evidence.filter(item => item.kind === 'COMPACTION').length === 1;
   });
   readonly filteredTechniques = computed(() => {
-    const priority = ['T03', 'T01', 'T04', 'T11', 'T14', 'T15'];
     const techniques = [...(this.catalogState()?.techniques ?? [])]
       .sort((left, right) => {
-        const leftOrder = priority.indexOf(left.id);
-        const rightOrder = priority.indexOf(right.id);
-        return (leftOrder < 0 ? priority.length : leftOrder) - (rightOrder < 0 ? priority.length : rightOrder)
+        const leftOrder = TECHNIQUE_CATALOG_POSITION.get(left.id) ?? TECHNIQUE_CATALOG_ORDER.length;
+        const rightOrder = TECHNIQUE_CATALOG_POSITION.get(right.id) ?? TECHNIQUE_CATALOG_ORDER.length;
+        return leftOrder - rightOrder
           || left.id.localeCompare(right.id);
       });
     if (this.contextualMode() && this.context()) return this.contextualTechniques();
@@ -221,7 +228,13 @@ export class OptimizationGuidanceComponent {
     return [
       `Próba optymalizacyjna: ${technique.title} (${technique.id})`,
       '',
-      'Cel próby',
+      'Problem do rozwiązania',
+      technique.explanation,
+      '',
+      'Oczekiwany rezultat',
+      technique.mechanism,
+      '',
+      'Cel i kryterium próby',
       technique.firstExperimentGoal,
       '',
       'Prostszy wariant',
@@ -230,11 +243,17 @@ export class OptimizationGuidanceComponent {
       'Kroki',
       numbered(technique.firstExperiment),
       '',
-      'Warunki jakości',
-      bullets(technique.qualityChecks),
+      'Przykład — obecnie',
+      technique.example.before,
       '',
-      'Porównaj przed i po',
+      'Przykład — wariant do przetestowania',
+      technique.example.after,
+      '',
+      'Jak sprawdzić rezultat — porównaj przed i po',
       bullets(technique.compare),
+      '',
+      'Rezultat jest akceptowalny, jeśli',
+      bullets(technique.qualityChecks),
       '',
       `Nakład: ${this.setupLabel(technique.setup.level)}`,
       bullets(technique.setup.tasks),

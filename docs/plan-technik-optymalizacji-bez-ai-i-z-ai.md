@@ -1,7 +1,7 @@
 # Plan wdrożenia technik optymalizacji — poradnik, doradztwo i rozmowa o przebiegu
 
 Data: 2026-09-08. Status: wdrażanie rozpoczęte; dostępny jest lokalny przekrój
-G1–G2 z sześcioma technikami pilotażowymi, G3 łączy kategorię, fazę i
+G1–G2 z pełnym katalogiem 16 technik, G3 łączy kategorię, fazę i
 kompaktowanie z konkretnymi dowodami oraz bezpiecznym powrotem do poradnika,
 a G4 udostępnia zweryfikowaną migawkę oraz jawne, izolowane doradztwo AI dla fazy
 albo pojedynczego kompaktowania.
@@ -219,16 +219,16 @@ Każda opublikowana technika musi mieć:
 | Pole widoczne użytkownikowi | Wymagana treść |
 |---|---|
 | Nazwa | krótka czynność, np. „Zawęź wyniki wyszukiwania” |
-| Na czym polega | najwyżej dwa zdania bez wymogu znajomości architektury |
-| Dlaczego może pomóc | mechanizm: mniej przesłanej treści, rund, kopiowania lub powtórzeń |
+| Problem do rozwiązania | konkretny sposób, w jaki obecna praca może zwiększać Credits, input, output, liczbę rund albo koszt poprawek; najwyżej dwa zdania bez wymogu znajomości przepływu Agent–model |
+| Jakiego rezultatu oczekiwać | obserwowalna zmiana, np. mniej przesłanej treści, rund, kopiowania lub powtórzeń, zawsze z warunkiem zachowania jakości i bez obietnicy oszczędności |
 | Kiedy warto sprawdzić | jawne warunki, w tym częstotliwość podobnych zadań |
 | Kiedy odpuścić | konkretny kontrprzykład lub koszt przewyższający korzyść |
 | Od czego zacząć | jedna niewielka próba, maksymalnie trzy kroki |
-| Przykład przed/po | syntetyczny prompt lub przepływ bez obiecanego wyniku liczbowego |
+| Przykład obecnie / do przetestowania | rozbudowany, realistyczny prompt lub przepływ pokazujący dokładnie co zmienić, z zakresem, fallbackiem i kontrolą wyniku; bez obiecanego wyniku liczbowego |
 | Co musisz mieć | uprawnienia, wsparcie runtime'u, narzędzia, wiedza |
 | Nakład na start | mały/średni/duży z opisem konkretnej pracy |
 | Co utrzymywać | obiekt do aktualizacji i zdarzenie wymagające aktualizacji |
-| Jak sprawdzić efekt | metryki, kryteria jakości i koszt pracy użytkownika |
+| Jak sprawdzić, czy zadziałało | porównanie całych przebiegów przed/po, wspólne kryteria jakości, koszt pracy użytkownika i jawny warunek odrzucenia wariantu |
 | Co dalej | powiązana prostsza lub bardziej zaawansowana technika |
 
 Nakład jest redakcyjną orientacją, a nie wyliczeniem z telemetrii. Nie podawać
@@ -1063,8 +1063,8 @@ edukacyjna nie wymaga wykrycia błędu.
 Zależności: G0. Priorytet: P0.
 
 - [x] Utworzyć typowany katalog JSON i walidator jego spójności.
-- [x] Na próbę interfejsu opracować pełne T01, T03, T04, T11, T14 i T15.
-- [ ] Przed wydaniem uzupełnić wszystkie 16 technik zgodnie z kontraktem treści.
+- [x] Opracować pełne treści T01–T16 zgodnie z kontraktem treści.
+- [x] Udostępnić komplet 16 technik w wersjonowanym katalogu.
 - [x] Dodać lokalny endpoint i cache odczytu w aplikacji.
 - [x] Sprawdzić unikalność ID, zgodność tematów, odnośniki, wymagane pola i
   brak odwołania do nieistniejącej techniki.
@@ -1316,7 +1316,7 @@ Użytkownik widzi, co zostało odczytane i wysłane, a projekt pozostaje niezmie
 
 ## 16. Końcowa definicja gotowości
 
-- [ ] Wszystkie 16 technik mają objaśnienie, pierwszy krok, warunki, nakład,
+- [x] Wszystkie 16 technik mają objaśnienie, pierwszy krok, warunki, nakład,
   obowiązki utrzymania, miejsce zastosowania i sposób oceny.
 - [ ] Katalog działa bez sesji i bez konfiguracji modelu.
 - [ ] Kategorie, fazy, kompaktowanie i nieustalone stany mają wejście do poradnika.

@@ -51,12 +51,37 @@ describe('OptimizationGuidanceComponent', () => {
     await fixture.componentInstance.load();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('bez danych sesji i bez wywołania AI');
-    expect(fixture.nativeElement.textContent).toContain('Najpierw mapa');
+    const pageText: string = fixture.nativeElement.textContent;
+    expect(pageText).toContain('bez danych sesji i bez wywołania AI');
+    expect(pageText).toContain('Najpierw mapa');
+    expect(pageText).toContain('PROBLEM DO ROZWIĄZANIA');
+    expect(pageText).toContain('Jakiego rezultatu oczekiwać');
+    expect(pageText).toContain('Jak sprawdzić, czy zadziałało');
+    expect(pageText.indexOf('PROBLEM DO ROZWIĄZANIA')).toBeLessThan(pageText.indexOf('Jakiego rezultatu oczekiwać'));
+    expect(pageText.indexOf('Jakiego rezultatu oczekiwać')).toBeLessThan(pageText.indexOf('Jak sprawdzić, czy zadziałało'));
+    expect(pageText.indexOf('Jak sprawdzić, czy zadziałało')).toBeLessThan(pageText.indexOf('Kiedy warto sprawdzić'));
     fixture.componentInstance.selectTopic('QUALITY');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Waliduj wcześnie');
     expect(fixture.nativeElement.textContent).not.toContain('Najpierw mapa');
+  });
+
+  it('shows and orders the complete T01–T16 catalog without a six-item presentation limit', async () => {
+    await fixture.componentInstance.load();
+    const completeCatalog = Array.from({length: 16}, (_, index) => `T${String(index + 1).padStart(2, '0')}`)
+      .reverse()
+      .map((id): OptimizationTechniqueCatalog['techniques'][number] => ({
+        ...catalog.techniques[0],
+        id,
+        title: id,
+        relatedTechniqueIds: []
+      }));
+    fixture.componentInstance.catalogState.set({version: 'techniques-v1', techniques: completeCatalog});
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.filteredTechniques().map(technique => technique.id))
+      .toEqual(Array.from({length: 16}, (_, index) => `T${String(index + 1).padStart(2, '0')}`));
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.technique-list > button')).toHaveLength(16);
   });
 
   it('copies a complete trial plan and confirms the action', async () => {
@@ -64,8 +89,11 @@ describe('OptimizationGuidanceComponent', () => {
     Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
     await fixture.componentInstance.copyTrialPlan(catalog.techniques[0]);
 
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Cel próby'));
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Warunki jakości'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Cel i kryterium próby'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Problem do rozwiązania'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Oczekiwany rezultat'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Przykład — wariant do przetestowania'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Jak sprawdzić rezultat'));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Utrzymanie'));
     expect(success).toHaveBeenCalledWith('Plan próby skopiowany do schowka.');
   });

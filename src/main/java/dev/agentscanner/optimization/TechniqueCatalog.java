@@ -90,6 +90,9 @@ public final class TechniqueCatalog {
             requireTextList(technique.applyAt(), technique.id() + ".applyAt");
             requireKnownValues(technique.applyAt(), KNOWN_APPLICATION_POINTS, technique.id() + ".applyAt");
             requireTextList(technique.firstExperiment(), technique.id() + ".firstExperiment");
+            if (technique.firstExperiment().size() > 3) {
+                throw new IllegalStateException("Pierwszy eksperyment może mieć najwyżej trzy kroki: " + technique.id());
+            }
             if (technique.example() == null) {
                 throw new IllegalStateException("Brak przykładu dla techniki: " + technique.id());
             }

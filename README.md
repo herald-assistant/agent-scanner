@@ -147,13 +147,18 @@ ustrukturyzowanego wyniku narzędzia.
 
 Przycisk **Techniki optymalizacji** w górnym pasku otwiera lokalny poradnik w
 wspólnym prawym panelu. Nie wymaga wybranej sesji, konfiguracji GitHub Copilot ani
-wywołania modelu. Pierwsza wersja zawiera sześć technik: doprecyzowanie celu,
-zawężenie researchu, mapę projektu, handoff przez artefakt, etapową walidację i
-przygotowanie kontekstu do kompaktowania.
+wywołania modelu. Wersjonowany katalog zawiera pełne 16 technik T01–T16: od
+doprecyzowania celu, zakresu i formatu wyniku, przez research, narzędzia, skille,
+reguły, zmiany, walidację i delegowanie, po zarządzanie kontekstem oraz porównanie
+wariantów na podobnych zadaniach.
 
-Każda technika pokazuje warunki użycia i ostrożności, pierwszy eksperyment,
-prostszy wariant, przykład, nakład oraz obowiązki utrzymania. **Skopiuj plan
-próby** zapisuje do schowka cel, kroki, bramki jakości i kryteria porównania;
+Każda technika zaczyna od konkretnego problemu kosztowego, oczekiwanego rezultatu
+i sposobu sprawdzenia go na porównywalnych zadaniach. Rozbudowany przykład
+„obecnie / wariant do przetestowania” pokazuje gotową zmianę sposobu pracy bez
+wymagania znajomości przepływu Agent–model. Poradnik pokazuje też warunki użycia
+i ostrożności, pierwszy eksperyment, prostszy wariant, nakład oraz obowiązki
+utrzymania. **Skopiuj plan próby** zapisuje do schowka problem, oczekiwany rezultat,
+przykład, kroki, bramki jakości i kryteria porównania;
 nie zmienia projektu. Katalog jest wersjonowany w
 `src/main/resources/optimization/techniques-v1.json` i dostępny lokalnie pod
 `GET /api/optimization/techniques`.

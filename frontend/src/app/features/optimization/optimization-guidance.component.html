@@ -131,8 +131,19 @@
             </button>
           </header>
 
-          <p class="lead">{{ technique.explanation }}</p>
-          <div class="mechanism"><mat-icon>neurology</mat-icon><div><strong>Jak to może pomóc</strong><p>{{ technique.mechanism }}</p></div></div>
+          <section class="problem-statement">
+            <span>PROBLEM DO ROZWIĄZANIA</span>
+            <p>{{ technique.explanation }}</p>
+          </section>
+          <div class="mechanism"><mat-icon>track_changes</mat-icon><div><strong>Jakiego rezultatu oczekiwać</strong><p>{{ technique.mechanism }}</p></div></div>
+
+          <section class="result-check">
+            <header><mat-icon>query_stats</mat-icon><div><span>OCENA PRÓBY</span><h4>Jak sprawdzić, czy zadziałało</h4></div></header>
+            <div class="result-check-grid">
+              <div><strong>Porównaj przed i po</strong><ul>@for (item of technique.compare; track item) {<li>{{ item }}</li>}</ul></div>
+              <div><strong>Rezultat jest akceptowalny, jeśli</strong><ul>@for (item of technique.qualityChecks; track item) {<li>{{ item }}</li>}</ul></div>
+            </div>
+          </section>
 
           <div class="fit-grid">
             <section class="fit-card useful"><h4><mat-icon>check_circle</mat-icon>Kiedy warto sprawdzić</h4><ul>@for (item of technique.whenUseful; track item) {<li>{{ item }}</li>}</ul></section>
@@ -146,23 +157,21 @@
 
           <section class="simpler-alternative"><mat-icon>speed</mat-icon><div><strong>Prostszy wariant</strong><p>{{ technique.simplerAlternative }}</p></div></section>
 
-          <section class="detail-section">
-            <h4>Przykład zmiany</h4>
+          <section class="detail-section example-section">
+            <h4>Przykład: co zrobić inaczej</h4>
             <div class="example-grid">
-              <div><span>PRZED</span><p>{{ technique.example.before }}</p></div>
+              <div><span>OBECNIE</span><p>{{ technique.example.before }}</p></div>
               <mat-icon>arrow_forward</mat-icon>
-              <div><span>PO</span><p>{{ technique.example.after }}</p></div>
+              <div><span>WARIANT DO PRZETESTOWANIA</span><p>{{ technique.example.after }}</p></div>
             </div>
           </section>
 
           <details class="extended-details">
-            <summary>Wdrożenie, jakość i utrzymanie <mat-icon>expand_more</mat-icon></summary>
+            <summary>Wdrożenie i utrzymanie <mat-icon>expand_more</mat-icon></summary>
             <div class="extended-content">
               <div class="details-grid">
                 <section class="detail-section"><h4>Co musisz mieć</h4><ul>@for (item of technique.prerequisites; track item) {<li>{{ item }}</li>}</ul></section>
                 <section class="detail-section"><h4>Gdzie zastosować</h4><div class="tags">@for (point of technique.applyAt; track point) {<span>{{ applicationPointLabel(point) }}</span>}</div></section>
-                <section class="detail-section"><h4>Jak sprawdzić jakość</h4><ul>@for (item of technique.qualityChecks; track item) {<li>{{ item }}</li>}</ul></section>
-                <section class="detail-section"><h4>Co porównać</h4><ul>@for (item of technique.compare; track item) {<li>{{ item }}</li>}</ul></section>
               </div>
 
               <section class="maintenance">

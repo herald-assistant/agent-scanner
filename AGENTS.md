@@ -489,7 +489,13 @@ Preserve these product decisions unless the user explicitly changes them:
 - the general `Techniki optymalizacji` guide is available from the topbar without
   a session or AI configuration. Opening, filtering and copying a trial plan must
   not invoke Copilot or send session data. Techniques are hypotheses to test and
-  include quality checks, setup and maintenance costs rather than promised savings;
+  include quality checks, setup and maintenance costs rather than promised savings.
+  The versioned local catalog contains the complete T01–T16 set; do not silently
+  reduce it to the earlier six-technique pilot. Write every technique for a user
+  who does not need to understand the agent–model loop: lead with the concrete
+  cost problem, expected observable result and a before/after verification method.
+  Examples must be practical, sufficiently detailed variants to try rather than
+  short slogans;
 - category and phase `Poznaj techniki` actions reuse that guide with an explicit
   scope, provenance, credits and coverage. They use only a saved classification
   and the static matcher; opening them never invokes AI. Category credit shares
