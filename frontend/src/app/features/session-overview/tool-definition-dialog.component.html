@@ -1,0 +1,109 @@
+<section class="definition-dialog">
+  <header class="dialog-header">
+    <div class="title-icon"><mat-icon aria-hidden="true">build</mat-icon></div>
+    <div>
+      <span class="eyebrow">DEFINICJA NARZĘDZIA</span>
+      <h2 mat-dialog-title>{{ data.tool.name }}</h2>
+      <p>{{ data.tool.agents.join(' · ') }}</p>
+    </div>
+    <button mat-icon-button mat-dialog-close type="button" aria-label="Zamknij definicję narzędzia" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip">
+      <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+  </header>
+
+  <mat-dialog-content>
+    <div class="definition-summary">
+      <span><small>DOSTĘPNA</small><strong>{{ data.tool.availableCalls }}×</strong><em>w requestach modelu</em></span>
+      <span><small>WERSJE</small><strong>{{ data.tool.definitionVersions }}</strong><em>przechwyconych definicji</em></span>
+      <span><small>ESTYMACJA INPUTU</small><strong>≈ {{ data.tool.definitionTokens }}</strong><em>tokenów definicji</em></span>
+    </div>
+
+    <section class="duplicate-summary" aria-labelledby="duplicate-summary-heading">
+      <header>
+        <div>
+          <span>POWTÓRZONE WYWOŁANIA</span>
+          <h3 id="duplicate-summary-heading">Ta sama nazwa i identyczne parametry</h3>
+        </div>
+        <strong [class.has-duplicates]="data.tool.duplicates.total > 0">{{ data.tool.duplicates.total }}</strong>
+      </header>
+      <p>Każde wywołanie po pierwszym liczymy globalnie w całej powiązanej sesji. To wskazówka do sprawdzenia kontekstu, nie automatyczny dowód nieefektywności.</p>
+      <div class="duplicate-metrics">
+        <span><strong>{{ data.tool.duplicates.acrossAgents }}</strong><small>między różnymi agentami</small></span>
+        <span><strong>{{ data.tool.duplicates.afterCompaction }}</strong><small>po kompaktowaniu</small></span>
+        <span><strong>{{ data.tool.duplicates.identicalResult }}</strong><small>z identycznym rezultatem</small></span>
+        <span><strong>{{ data.tool.duplicates.differentResult }}</strong><small>z innym rezultatem</small></span>
+        <span><strong>{{ data.tool.duplicates.missingResult }}</strong><small>bez przechwyconego rezultatu</small></span>
+      </div>
+      @if (data.tool.duplicates.argumentGroups.length) {
+        <section class="duplicate-arguments" aria-label="Powtarzane zestawy parametrów">
+          <h4>Powtarzane zestawy parametrów</h4>
+          @for (group of data.tool.duplicates.argumentGroups; track group.argumentsJson; let index = $index) {
+            <article>
+              <header>
+                <strong>Zestaw {{ index + 1 }}</strong>
+                <span>{{ group.repetitions }}× powtórzony</span>
+              </header>
+              <div class="argument-rounds">
+                <span><small>Pierwsze wywołanie</small><b>{{ group.firstRoundLabel }}</b></span>
+                <span><small>Powtórzenia</small><b>{{ group.repeatedRoundLabels.join(', ') }}</b></span>
+              </div>
+              <pre>{{ group.argumentsJson }}</pre>
+            </article>
+          }
+        </section>
+      }
+      @if (data.tool.duplicates.roundLabels.length) {
+        <div class="duplicate-rounds">
+          <h4>Rundy, w których wystąpiło powtórzenie</h4>
+          <div>
+            @for (label of data.tool.duplicates.roundLabels; track label) { <span>{{ label }}</span> }
+          </div>
+        </div>
+      } @else {
+        <p class="no-duplicates">Nie wykryto powtórzeń z porównywalnymi parametrami.</p>
+      }
+      <small class="duplicate-note">Kategorie „między agentami” i „po kompaktowaniu” mogą się nakładać. Trzy kategorie rezultatu są rozłączne i sumują się do liczby powtórzeń.</small>
+    </section>
+
+    @if (definitions.length) {
+      @for (definition of definitions; track definition.version) {
+        <article class="definition-version">
+          <header>
+            <div>
+              <span>WERSJA {{ definition.version }}</span>
+              <h3>{{ definition.description || 'Opis nie został wyemitowany' }}</h3>
+            </div>
+            <b>{{ definition.schemaType }}</b>
+          </header>
+
+          <section class="parameters" aria-label="Parametry narzędzia">
+            <h4>Parametry</h4>
+            @if (definition.parameters.length) {
+              @for (parameter of definition.parameters; track parameter.name) {
+                <div class="parameter-row">
+                  <code>{{ parameter.name }}</code>
+                  <span class="parameter-type">{{ parameter.type }}</span>
+                  <span class="requirement" [class.required]="parameter.required">{{ parameter.required ? 'Wymagany' : 'Opcjonalny' }}</span>
+                  <p>{{ parameter.description || 'Opis parametru nie został wyemitowany.' }}</p>
+                  @if (parameter.allowedValues) { <small>Dozwolone wartości: {{ parameter.allowedValues }}</small> }
+                </div>
+              }
+            } @else {
+              <p class="empty-parameters">Definicja nie zawiera listy właściwości parametrów.</p>
+            }
+          </section>
+
+          <details>
+            <summary>Pełna definicja JSON</summary>
+            <pre>{{ definition.rawJson }}</pre>
+          </details>
+        </article>
+      }
+    } @else {
+      <div class="missing-definition">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        <p><strong>Brak przechwyconej definicji.</strong> Nazwa narzędzia pochodzi z jego wywołania, ale pełny opis i schemat parametrów nie były dostępne w telemetrii.</p>
+      </div>
+    }
+  </mat-dialog-content>
+</section>

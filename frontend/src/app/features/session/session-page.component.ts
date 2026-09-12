@@ -1,14 +1,16 @@
 import {ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal, TemplateRef, untracked, viewChild} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {MatButtonModule} from '@angular/material/button';
-import {MAT_ICON_DEFAULT_OPTIONS, MatIconModule} from '@angular/material/icon';
+import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
 import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, Session, SessionDetail, SpanRecord, Tab, UserInteraction} from '../../models/scanner.models';
 import {ScannerApiService} from '../../core/scanner-api.service';
 import {NotificationService} from '../../core/notification.service';
 import {CostBreakdownRow, CostDashboardComponent, CostDashboardView, DashboardRecord} from '../session-overview/cost-dashboard.component';
+import {ToolOptimizationOverviewComponent} from '../session-overview/tool-optimization-overview.component';
 import {SessionAnalysisService} from '../../core/session-analysis.service';
+import {analyzeToolUsage} from '../../core/tool-usage-analysis';
 import {TechnicalViewComponent} from '../technical/technical-view.component';
 import {InteractionTimelineComponent} from '../interaction-timeline/interaction-timeline.component';
 import {WorkflowViewComponent} from '../workflow/workflow-view.component';
@@ -26,9 +28,8 @@ import {
 
 @Component({
   selector: 'as-session-page',
-  imports: [MatButtonModule, MatIconModule, MatTooltipModule, CostDashboardComponent, TechnicalViewComponent,
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule, CostDashboardComponent, ToolOptimizationOverviewComponent, TechnicalViewComponent,
     InteractionTimelineComponent, WorkflowViewComponent, OptimizationGuidanceComponent],
-  providers: [{provide: MAT_ICON_DEFAULT_OPTIONS, useValue: {fontSet: 'material-symbols-outlined'}}],
   templateUrl: './session-page.component.html',
   styleUrl: './session-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -67,6 +68,12 @@ export class SessionPageComponent {
   readonly creditTooltip = 'Uproszczony zapis: liczba oznacza GitHub Copilot AI credits. Scanner dzieli wartość nano AIU z telemetrii przez 1 000 000 000. To zużycie kredytów, nie kwota pieniężna.';
 
   readonly sessionStatus = computed(() => this.detail ? this.analysis.sessionStatus(this.detail, this.relatedDetails) : '');
+  readonly toolUsageOverview = computed(() => {
+    const view = this.sessionView();
+    return view ? analyzeToolUsage(view) : {
+      rows: [], modelCalls: 0, callsWithDefinitions: 0, callsWithOutput: 0, unusedTools: 0, unlinkedResultOccurrences: 0
+    };
+  });
   readonly costDashboard = computed<CostDashboardView>(() => {
     const record = (turn: ModelTurn | undefined, value: string): DashboardRecord | undefined => turn
       ? {reference: this.turnReference(turn), value}

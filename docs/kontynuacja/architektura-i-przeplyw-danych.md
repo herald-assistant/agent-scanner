@@ -1,6 +1,6 @@
 # Architektura i przepływ danych
 
-Stan dokumentu: 2026-09-08.
+Stan dokumentu: 2026-09-11.
 
 ## Widok całości
 
@@ -152,8 +152,9 @@ Frontendowe interfejsy transportowe muszą pozostać zgodne z `ApiView` i
 
 ### Kompozycja aplikacji
 
-`AppComponent` odpowiada za polling, wybór sesji, ładowanie danych powiązanych,
-aktywne zakładki i osadzenie wspólnego prawego panelu. Nie powinien przejmować
+`AppComponent` jest shellem: uruchamia polling, obsługuje wybór sesji i osadza
+wspólny prawy panel. `SessionPageComponent` ładuje dane wybranej sesji, posiada
+aktywne zakładki i koordynuje widoki sesji. Żaden z nich nie powinien przejmować
 interpretacji mapy ani formatowania szczegółów rund.
 
 Główne zakładki:
@@ -170,9 +171,12 @@ wyspecjalizowane role:
 
 | Moduł | Odpowiedzialność |
 |---|---|
+| `app.config.ts` | Wspólne providery startowe aplikacji, w tym routing i globalny `material-symbols-outlined`; konfiguracja na poziomie root zapewnia prawidłowe ikony także w dynamicznych overlayach i modalach. |
 | `auxiliary-model-calls.ts` | Wspólne rozpoznawanie nazw agentów technicznych oraz deterministyczne oddzielanie ich inline wywołań i powiązanych narzędzi. |
 | `context-compaction.ts` | Powiązanie wywołania kompaktującego z rozmową po dokładnych ID, opcjonalne wykrycie późniejszego użycia wyniku oraz odczyt requestu, rezultatu i kosztów. |
 | `CostDashboardComponent` | Łączny bilans całej sesji oraz zwijane, kolumnowo porównywalne rozliczenie agenta głównego, kolejnych subagentów i kompaktowań. |
+| `tool-usage-analysis.ts` | Globalny, deterministyczny audyt przechwyconych definicji, żądań narzędzi i wyników wracających po dokładnym call ID. Wynik liczy raz przy pierwszym odbiorze. Dla jego późniejszych przechwyconych wystąpień, tylko do następnego kompaktowania sesji, osobno estymuje udział w cache przez proporcję wyemitowanego `cache read / input łącznie` i zachowuje pokrycie metryką. Buduje oznaczone `≈` wartości per tool bez AI i sortuje przez pomocnicze `input + 10 × output`, bez przypisywania credits. |
+| `ToolOptimizationOverviewComponent` | Początkowo zwinięta karta hipotez pod bilansem sesji z zakładkami `Niewykorzystane` i `Wykorzystane`; rozwija się inline z dostępnego chevrona, używa jednej neutralnej białej ikony toola i czerwonego pilla tylko dla niewykorzystanych. Rozdziela definicje, wywołania, pierwszy odbiór odpowiedzi i szacowany cache kolejnych rund, nie pokazuje ich mylącej sumy. Definicje mają kolor cache read, a tooltip wyjaśnia proporcjonalną estymację oraz to, że wynik jest już sumą wszystkich rund z dostępną definicją; nie tłumaczy wyboru koloru. Dla użytych tooli pokazuje prostą, czerwoną powyżej zera liczbę kolejnych wywołań tej samej nazwy z identycznymi kanonicznymi parametrami w całej powiązanej sesji, także przez granice agentów i kompaktowania. Kliknięcie tożsamości toola otwiera `ToolDefinitionDialogComponent` z opisem, parametrami wszystkich przechwyconych wersji, pełnym kanonicznym JSON-em oraz rozbiciem powtórzeń na różne strumienie agentów, okres po kompaktowaniu i rozłączne stany rezultatu powiązanego po call ID; modal wymienia też rundy `M…`/`S…:M…`. Pierwsza zakładka wskazuje konsolę agenta oraz konfigurację `tools`/toolsetów w VS Code. |
 | `session-episodes.ts` | Rekonstrukcja epizodów agenta i subagentów z raw ID i drzewa spanów. |
 | `workflow/telemetry.ts` | Bezpieczny odczyt atrybutów, wartości trójstanowe, sortowanie i hashowanie. |
 | `workflow/observations.ts` | Obserwacje rund, narzędzi, tokenów i markerów. |

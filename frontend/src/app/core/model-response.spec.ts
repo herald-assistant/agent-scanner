@@ -22,9 +22,17 @@ describe('captured model response', () => {
   it('collects result IDs from message envelopes without walking into returned content', () => {
     const values = [{role: 'tool', id: 'message-id', parts: [{type: 'tool_call_response', id: 'a', response: {type: 'tool_result', tool_use_id: 'fake'}}]},
       {role: 'tool', tool_call_id: 'b', content: '{"type":"tool_result","id":"fake"}'},
-      {type: 'function_call_output', call_id: 'c', output: 'result'}, {type: 'tool_result', tool_use_id: 'd', content: []}];
-    expect([...toolResultIds(values)]).toEqual(['a', 'b', 'c', 'd']);
+      {type: 'function_call_output', call_id: 'c', output: 'result'}, {type: 'tool_result', tool_use_id: 'd', content: []},
+      {type: 'tool_call_response', id: 'e', response: [{type: 'text', text: 'result'}]}];
+    expect([...toolResultIds(values)]).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(toolResults(values).map(result => result.characters).every(characters => characters > 0)).toBe(true);
+    expect(toolResults(values).map(result => result.content)).toEqual([
+      {type: 'tool_result', tool_use_id: 'fake'},
+      '{"type":"tool_result","id":"fake"}',
+      'result',
+      [],
+      'result'
+    ]);
   });
   it('uses normalized messages once, with raw attributes as a fallback, and distinguishes missing from empty', () => {
     const model = chat(1, 100, 0, 10, {'gen_ai.output.messages': []}), source = detail([model]), reader = new TelemetryReader();

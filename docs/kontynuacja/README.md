@@ -1,6 +1,6 @@
 # Agent Scanner — punkt startowy do kontynuacji
 
-Stan dokumentu: 2026-09-08.
+Stan dokumentu: 2026-09-11.
 
 Ten katalog przekazuje kontekst potrzebny do kontynuowania rozwoju Agent Scanner
 w nowym zadaniu Codexa. Opisuje aktualny kierunek produktu i implementacji. Nie
@@ -100,8 +100,9 @@ wywołania. Nawigacja `<` i `>` przechodzi po rundach sekwencji.
 - GitHub Copilot Java SDK 1.0.11; wymagany zgodny Copilot CLI.
 - Kontrakt analizy AI: `model-actions-v5`.
 - Kontrakt rekonstrukcji epizodów: `copilot-episode-v1`.
-- Frontend: 151 testów przechodzi po dodaniu pakietu dowodowego
-  `optimization-advice-v1`, jego redakcji, fingerprintu, podglądu oraz wcześniejszego
+- Frontend: 181 testów przechodzi po dodaniu globalnego, bez-AI zestawienia
+  dostępności i wykorzystania narzędzi pod bilansem sesji oraz pakietu dowodowego
+  `optimization-advice-v1`, jego redakcji, fingerprintu, podglądu i wcześniejszego
   poradnika i nawigacji do dokładnego dowodu. Dane wejściowe używają teraz kontraktu
   `guidance-evidence-v2`: każda wybrana runda ma jeden zweryfikowany skrót kosztu,
   natomiast surowa treść jest reprezentatywną próbką pierwszej, ostatniej,
@@ -113,8 +114,8 @@ wywołania. Nawigacja `<` i `>` przechodzi po rundach sekwencji.
   30 minut bez uruchamiania modelu. Jawny przycisk może następnie uruchomić izolowane
   doradztwo `optimization-advice-v1`; wynik jest walidowany, cache'owany i połączony
   z dokładnymi dowodami. Klasyfikacja i doradztwo współdzielą jeden slot wykonania AI.
-- `npm run build` przechodzi; initial bundle ma 944,30 kB i przekracza budżet
-  750 kB o 194,30 kB.
+- `npm run build` przechodzi; po podziale aplikacji na lazy routes initial bundle
+  ma 295,77 kB, a strona sesji jest osobnym chunkiem 394,40 kB.
 - Working tree zawiera szeroki, niezatwierdzony zestaw zmian tej funkcji. Nie
   wykonywać resetu ani automatycznego formatowania całego repozytorium.
 

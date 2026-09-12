@@ -69,6 +69,9 @@ describe('SessionPageComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
+    expect([...element.querySelector('.loop-view')!.children].map(child => child.tagName)).toEqual([
+      'AS-COST-DASHBOARD', 'AS-TOOL-OPTIMIZATION-OVERVIEW', 'AS-INTERACTION-TIMELINE'
+    ]);
     const tab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.trim() === 'Mapa pracy');
     expect(tab).toBeDefined(); tab!.click();
     await vi.waitFor(() => expect(fixture.componentInstance.workflowState()?.streams).toHaveLength(2));

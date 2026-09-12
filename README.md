@@ -18,11 +18,11 @@ mvn clean package
 java -jar target/agent-scanner.jar
 ```
 
-Po uruchomieniu otwórz `http://localhost:8080`.
+Po uruchomieniu otwórz `http://localhost:8081`.
 
 ## Podłączenie GitHub Copilot
 
-Scanner przyjmuje OTLP/HTTP pod adresem `http://localhost:8080`. W obu IDE należy
+Scanner przyjmuje OTLP/HTTP pod adresem `http://localhost:8081`. W obu IDE należy
 włączyć przechwytywanie treści, jeżeli UI ma pokazywać prompty, odpowiedzi modelu,
 definicje narzędzi oraz argumenty tool calli.
 
@@ -38,7 +38,7 @@ definicje narzędzi oraz argumenty tool calli.
   "github.copilot.chat.otel.enabled": true,
   "github.copilot.chat.otel.exporterType": "otlp-http",
   "github.copilot.chat.otel.protocol": "http/protobuf",
-  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:8080",
+  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:8081",
   "github.copilot.chat.otel.captureContent": true,
   "github.copilot.chat.otel.maxAttributeSizeChars": 0
 }
@@ -54,7 +54,7 @@ obiektu głównego.
    OpenTelemetry.
 2. Otwórz `File → Settings → Tools → GitHub Copilot → Chat → OpenTelemetry`.
 3. Włącz eksport OpenTelemetry.
-4. Ustaw collector endpoint na `http://localhost:8080`.
+4. Ustaw collector endpoint na `http://localhost:8081`.
 5. Wybierz protokół `http/protobuf` (OTLP przez HTTP, protobuf).
 6. Włącz `Capture content`, aby Scanner otrzymywał treść promptów, odpowiedzi i
    argumentów narzędzi.
@@ -81,7 +81,7 @@ bazie co najmniej jeden odebrany sygnał; nie jest testem żywego połączenia z
 Stan odbiornika można również sprawdzić przez API:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/api/status
+Invoke-RestMethod http://localhost:8081/api/status
 ```
 
 ## Jak czytać dane
@@ -133,6 +133,57 @@ powiązanych subagentów oraz kompaktowania. Pod nim znajduje się początkowo z
 `Rozliczenie kosztu`: agent główny, kolejne subagenty i kolejne kompaktowania mają
 te same kolumny `Nowy input`, `Input z cache`, `Cache write`, `Output`, `Czas modeli`
 i `Credits`. Czas całej sesji wraz z przerwami pozostaje osobno w nagłówku.
+
+Bezpośrednio pod bilansem znajduje się globalne zestawienie **Potencjalne
+usprawnienia · bez AI**. Dla głównego agenta i dokładnie powiązanych subagentów
+rozdziela narzędzia na zakładki `Niewykorzystane` i `Wykorzystane`. Pokazuje nazwę
+narzędzia, liczbę requestów z przechwyconą definicją, liczbę użyć oraz orientacyjną
+liczbę tokenów treści definicji i żądań `M → A`. Dla wyników odnalezionych po
+dokładnym call ID pokazuje osobno pierwszy odbiór `A → M`, liczony raz dla każdego
+wywołania, oraz późniejsze wystąpienia przed najbliższym kompaktowaniem sesji.
+Ich udział w cache read jest szacowany dla każdego późniejszego requestu jako
+`≈ tokeny wyniku × wyemitowany cache read / wyemitowany input łącznie`. Pokrycie
+metryką jest widoczne, a jej brak pozostaje znakiem `—`. Narzędzie jest
+oznaczone jako niewykorzystane tylko wtedy, gdy output wszystkich requestów, w
+których bezpośrednio zaobserwowano jego definicję, został przechwycony. Niepełne
+pokrycie pozostaje nieustalone. Nie ma kolumny sumującej wywołania i wyniki, ponieważ
+ukrywałaby większą wagę outputu. Kolejność ustala wyłącznie pomocniczy wskaźnik:
+`≈ tokeny inputu + 10 × ≈ tokeny outputu`; definicje, pierwszy odbiór wyników i
+osobna estymacja późniejszego cache są w nim inputem, a żądania narzędzia zwrócone
+przez model — outputem. Zakładka niewykorzystanych wyjaśnia, że przesłane
+definicje są częścią inputu uwzględnianego w zużyciu GitHub Copilot AI credits,
+oraz wskazuje konsolę pracy z agentem w VS Code i listy `tools`/toolsetów w
+konfiguracji agenta jako miejsca do przeprowadzenia eksperymentu. Estymacja definicji
+liczy każde przechwycone przesłanie i używa proporcji jej znaków w requestcie do
+wyemitowanego `input_tokens`; przy braku pełnych danych przechodzi na kalibrację
+modelu, a ostatecznie `4,25 znaku/token`. Pokazana liczba jest już sumą estymacji
+ze wszystkich rund, w których definicja była dostępna, i nie wymaga ponownego
+mnożenia przez liczbę rund. Wartość ma kolor cache read, ponieważ
+powtarzane definicje są obszarem do sprawdzenia, ale telemetria nie dowodzi, że
+provider umieścił konkretną definicję w cache. Także estymacja późniejszych wyników
+nie dowodzi, że provider umieścił konkretny fragment w cache. Wszystkie wartości per
+tool mają znak `≈`: służą
+do wskazania miejsc, gdzie warto sprawdzić ograniczenie zestawu narzędzi, skrócenie
+wyniku albo bardziej celowaną alternatywę, ale nie dowodzą oszczędności i nie są
+rachunkiem providera. Karta jest początkowo zwinięta. Po rozwinięciu wszystkie
+wiersze używają tej samej białej ikony narzędzia, a stan `Niewykorzystane` wyróżnia
+czerwony pill zamiast ikony wyłącznika. Kliknięcie nazwy lub ikony otwiera modal
+wszystkich przechwyconych wersji definicji. Modal pokazuje opis, typ i wymaganie
+każdego parametru oraz wartości enum; pełny kanoniczny JSON pozostaje dostępny w
+zwijanej sekcji. Narzędzie znane wyłącznie z wywołania pokazuje jawny brak definicji.
+Dla wykorzystanych narzędzi osobna kolumna pokazuje liczbę potencjalnych powtórzeń:
+każde kolejne wywołanie tej samej nazwy z identycznymi, kanonicznie porównanymi
+parametrami w całej powiązanej sesji. Granic agentów ani kompaktowania nie traktujemy
+jako resetu porównania, a wywołania bez przechwyconych parametrów są pomijane. Wartość ponad
+zero jest czerwona. Modal rozbija ją na przypadki między strumieniami agentów i po
+kompaktowaniu oraz na rozłączne stany rezultatu: identyczny, inny lub nieprzechwycony,
+ustalane tylko z jednoznacznego call ID. Pokazuje też etykiety rund `M…` i `S…:M…`.
+Przy porównaniu pojedyncza transportowa tablica części tekstowej jest równoważna
+temu samemu stringowi; sama treść, kolejność linii i pozostałe struktury nie są
+normalizowane. Dla każdego powtarzanego zestawu modal pokazuje również pełne
+kanoniczne parametry wejściowe, rundę pierwszego wywołania, rundy powtórzeń i ich
+liczbę; długi JSON pozostaje przewijalny, bez ukrytego skracania.
+To wskazówki do sprawdzenia przyczyny, nie dowód zbędnego wywołania.
 
 Jeżeli co najmniej jedna runda na prezentowanej liście zawiera jawną metrykę
 `cache write`, belki wszystkich rund pokazują jej osobną kolumnę obok outputu.
@@ -373,6 +424,12 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 
 ## Development
 
+Domyślny zestaw ikon `material-symbols-outlined` jest rejestrowany globalnie w
+`frontend/src/app/app.config.ts`. Provider nie może być ograniczony do komponentu
+strony, ponieważ dynamiczne overlaye `MatDialog` korzystają z głównego injectora;
+w przeciwnym razie nazwy ligatur, takie jak `close` lub `smart_toy`, pojawiają się
+jako ucięty tekst.
+
 ### Backend bez przebudowy Angulara
 
 ```powershell
@@ -388,7 +445,7 @@ npm start
 ```
 
 Angular działa wtedy pod adresem wskazanym przez CLI, a `/api` i `/v1` są
-przekazywane do `http://localhost:8080` przez `frontend/proxy.conf.json`.
+przekazywane do `http://localhost:8081` przez `frontend/proxy.conf.json`.
 
 ### Testy i build
 
@@ -412,7 +469,7 @@ mvn clean package
 
 | Zmienna | Domyślna wartość | Znaczenie |
 |---|---:|---|
-| `PORT` | `8080` | wspólny port UI, REST API i OTLP/HTTP |
+| `PORT` | `8081` | wspólny port UI, REST API i OTLP/HTTP |
 | `AGENT_SCANNER_DB_URL` | `jdbc:h2:file:./agent-scanner-data/agent-scanner` | lokalizacja plikowej bazy H2 |
 | `AGENT_SCANNER_RETENTION_DAYS` | `30` | retencja sygnałów w dniach |
 | `AGENT_SCANNER_MAX_PAYLOAD_BYTES` | `67108864` | limit rozpakowanego payloadu oraz importu |
@@ -437,7 +494,9 @@ Widok techniczny i surowe sygnały są źródłem prawdy. Widoki przyjazne użyt
 są deterministyczną interpretacją dostępnych atrybutów. Projekt celowo:
 
 - nie estymuje brakującego `cache write`;
-- nie przypisuje pojedynczego request-part do cache bez jawnej telemetrii;
+- nie przypisuje pojedynczego request-part definitywnie do cache; zestawienie tooli
+  pokazuje wyłącznie oznaczoną `≈` estymację późniejszych, dokładnie powiązanych
+  wyników na podstawie jawnej proporcji cache całego requestu;
 - nie traktuje liczby znaków jako dokładnej liczby tokenów;
 - nie uznaje ponownego wysłania instructions za błąd bez jednoznacznego sygnału;
 - nie pokazuje „połączenia aktywnego” tylko dlatego, że wcześniej odebrano dane.

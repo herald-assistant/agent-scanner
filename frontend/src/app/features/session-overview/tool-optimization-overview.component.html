@@ -1,0 +1,92 @@
+<section class="tool-opportunities" aria-labelledby="tool-opportunities-heading">
+  <header>
+    <div>
+      <span class="eyebrow">POTENCJALNE USPRAWNIENIA · BEZ AI</span>
+      <h2 id="tool-opportunities-heading">Które narzędzia warto sprawdzić?</h2>
+      <p>Zestawienie pokazuje widoczną w telemetrii dostępność narzędzi, ich użycia oraz orientacyjny udział treści. To hipotezy do weryfikacji, nie automatyczna rekomendacja wyłączenia.</p>
+    </div>
+    <div class="header-actions">
+      <div class="overview-summary">
+        <span><strong>{{ overview().rows.length }}</strong> narzędzi</span>
+        <span class="unused"><strong>{{ overview().unusedTools }}</strong> niewykorzystanych</span>
+        <small>Definicje: {{ overview().callsWithDefinitions }}/{{ overview().modelCalls }} wywołań · output: {{ overview().callsWithOutput }}/{{ overview().modelCalls }}</small>
+      </div>
+      <button class="expand-toggle" type="button" aria-controls="tool-opportunities-content" [attr.aria-expanded]="expanded()" [attr.aria-label]="expanded() ? 'Zwiń zestawienie narzędzi' : 'Rozwiń zestawienie narzędzi'" [matTooltip]="expanded() ? 'Zwiń zestawienie' : 'Rozwiń zestawienie'" matTooltipClass="scanner-info-tooltip" (click)="expanded.set(!expanded())">
+        <mat-icon aria-hidden="true">{{ expanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  @if (expanded()) {
+    <div id="tool-opportunities-content" class="tool-content">
+      @if (overview().rows.length) {
+        <nav class="tool-tabs" role="tablist" aria-label="Wykorzystanie narzędzi">
+          <button id="unused-tools-tab" type="button" role="tab" [class.active]="activeTab() === 'unused'" [attr.aria-selected]="activeTab() === 'unused'" aria-controls="unused-tools-panel" (click)="activeTab.set('unused')">Niewykorzystane <span>{{ unusedRows().length }}</span></button>
+          <button id="used-tools-tab" type="button" role="tab" [class.active]="activeTab() === 'used'" [attr.aria-selected]="activeTab() === 'used'" aria-controls="used-tools-panel" (click)="activeTab.set('used')">Wykorzystane <span>{{ usedRows().length }}</span></button>
+        </nav>
+
+        <section class="tab-panel" [attr.id]="activeTab() === 'unused' ? 'unused-tools-panel' : 'used-tools-panel'" [attr.aria-labelledby]="activeTab() === 'unused' ? 'unused-tools-tab' : 'used-tools-tab'" role="tabpanel">
+          @if (activeTab() === 'unused') {
+            <div class="tab-explanation unused-explanation">
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              <p><strong>Dlaczego warto to sprawdzić?</strong> Definicje narzędzi dostępnych w sesji są przekazywane do modelu jako część inputu. Tokeny tej treści są uwzględniane w naliczaniu zużycia GitHub Copilot AI credits. Jeśli narzędzie nie jest potrzebne dla danego typu pracy, możesz wyłączyć je w konsoli pracy z agentem w VS Code albo ograniczyć konfigurację definicji agenta przez listę tools i używanych toolsetów.</p>
+            </div>
+          } @else {
+            <div class="tab-explanation used-explanation">
+              <mat-icon aria-hidden="true">query_stats</mat-icon>
+              <p><strong>Gdzie szukać usprawnień?</strong> Odpowiedź narzędzia liczymy raz — przy pierwszym odbiorze przez model. Osobno szacujemy jej udział w cache read kolejnych rund, nie dalej niż do najbliższego kompaktowania. Kolejność ustala pomocniczy wskaźnik: ≈ tokeny inputu + 10 × ≈ tokeny outputu.</p>
+            </div>
+          }
+
+          @if (visibleRows().length) {
+            <div class="tool-table" [class.unused-table]="activeTab() === 'unused'" role="table" [attr.aria-label]="activeTab() === 'unused' ? 'Niewykorzystane narzędzia' : 'Wykorzystane narzędzia'">
+              <div class="tool-table-header" role="row">
+                <span role="columnheader">Narzędzie i hipoteza</span>
+                <span role="columnheader">Dostępne</span>
+                @if (activeTab() === 'used') { <span role="columnheader">Użycia</span> }
+                @if (activeTab() === 'used') { <span role="columnheader">Powtórzenia <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Jak wykrywamy powtórzenia" matTooltip="Każde kolejne wywołanie tego samego narzędzia z identycznymi parametrami w całej powiązanej sesji. Granice agentów i kompaktowania nie zerują porównania. Wywołania bez przechwyconych parametrów pomijamy." matTooltipClass="scanner-info-tooltip">info</mat-icon></span> }
+                <span role="columnheader">≈ Definicje <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Jak szacujemy tokeny definicji" matTooltip="Estymacja udziału definicji w input_tokens: udział jej znaków w przechwyconej treści requestu mnożymy przez wyemitowane input_tokens. Każde zaobserwowane przesłanie definicji liczymy osobno, a pokazana wartość jest sumą dla wszystkich rund, w których definicja była dostępna — nie należy jej ponownie mnożyć przez liczbę rund. Przy braku pełnych danych używamy przelicznika skalibrowanego dla modelu, awaryjnie 4,25 znaku na token." matTooltipClass="scanner-info-tooltip">info</mat-icon></span>
+                @if (activeTab() === 'used') {
+                  <span role="columnheader">≈ Wywołania M→A <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Jak szacujemy tokeny wywołań" matTooltip="Orientacyjna część output_tokens zajęta przez nazwę i argumenty żądań narzędzia." matTooltipClass="scanner-info-tooltip">info</mat-icon></span>
+                  <span role="columnheader">≈ Odpowiedzi A→M <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Jak szacujemy tokeny odpowiedzi" matTooltip="Suma estymowanej wielkości pierwszego, jednoznacznego odbioru odpowiedzi dla każdego wywołania narzędzia." matTooltipClass="scanner-info-tooltip">info</mat-icon></span>
+                  <span role="columnheader">≈ Cache kolejnych rund <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Jak szacujemy cache odpowiedzi" matTooltip="Szacowany udział ponownych obecności tych odpowiedzi w cache read późniejszych requestów, do najbliższego kompaktowania. Używamy proporcji wyemitowanego cache read do inputu łącznie." matTooltipClass="scanner-info-tooltip">info</mat-icon></span>
+                }
+              </div>
+              @for (row of visibleRows(); track row.name) {
+                <article class="tool-row" [class.unused]="row.state === 'unused'" [class.unverified]="row.state === 'unverified'" role="row">
+                  <div class="tool-identity" role="cell">
+                    <button class="tool-open" type="button" [attr.aria-label]="'Otwórz definicję narzędzia ' + row.name" (click)="openDefinition(row)">
+                      <span class="tool-icon"><mat-icon aria-hidden="true">build</mat-icon></span>
+                      <span><strong>{{ row.name }}</strong><small>{{ row.agents.join(' · ') }}@if (row.definitionVersions > 1) { · {{ row.definitionVersions }} wersje definicji }</small><em>{{ recommendation(row) }}</em></span>
+                      <b>{{ stateLabel(row) }}</b>
+                    </button>
+                  </div>
+                  <span role="cell"><strong>{{ row.availableCalls }}</strong><small>wywołań modelu</small></span>
+                  @if (activeTab() === 'used') { <span role="cell"><strong>{{ row.invocations }}</strong><small>{{ row.resultOccurrences }} odpowiedzi odnalezionych</small></span> }
+                  @if (activeTab() === 'used') { <span class="duplicate-invocations" [class.has-duplicates]="row.duplicates.total > 0" role="cell"><strong>{{ row.duplicates.total }}</strong></span> }
+                  <span class="definition-tokens" role="cell"><strong>≈ {{ number(row.definitionTokens) }}</strong><small>tokenów input</small></span>
+                  @if (activeTab() === 'used') {
+                    <span class="invocation-tokens" role="cell"><strong>≈ {{ number(row.invocationTokens) }}</strong><small>tokenów output</small></span>
+                    <span class="result-tokens" role="cell">
+                      @if (row.resultOccurrences) { <strong>≈ {{ number(row.resultTokens) }}</strong><small>tokenów input · pierwszy odbiór</small> }
+                      @else { <strong>—</strong><small>brak odnalezionej odpowiedzi</small> }
+                    </span>
+                    <span class="cached-result-tokens" role="cell">
+                      @if (row.cachedResultTokens !== undefined) { <strong>≈ {{ number(row.cachedResultTokens) }}</strong><small>tokenów cache read · {{ row.retainedResultOccurrences }} ponownych obecności@if (row.retainedResultOccurrences) { · {{ row.cacheEstimateCoverage }}/{{ row.retainedResultOccurrences }} z metryką }</small> }
+                      @else { <strong>—</strong><small>brak metryk dla {{ row.retainedResultOccurrences }} ponownych obecności</small> }
+                    </span>
+                  }
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="empty-tab"><mat-icon aria-hidden="true">check_circle</mat-icon><p>{{ activeTab() === 'unused' ? 'Nie znaleziono narzędzi bez potwierdzonego użycia.' : 'Model nie wywołał żadnego przechwyconego narzędzia.' }}</p></div>
+          }
+        </section>
+        <p class="tool-boundary"><b>Jak czytać zestawienie:</b> definicja oznacza treść udostępnioną modelowi, wywołanie — nazwę i argumenty zwrócone przez model, a odpowiedź — jej pierwszy odbiór odnaleziony po dokładnym call ID. Powtórzenie to kolejne globalne wystąpienie tej samej nazwy narzędzia i identycznych parametrów; jest sygnałem do sprawdzenia, a nie dowodem zbędnej pracy. Cache kolejnych rund jest osobną estymacją ponownych obecności odpowiedzi do najbliższego kompaktowania; nie dowodzi, które fragmenty provider faktycznie umieścił w cache. Wartości „≈” są kalibrowanymi estymacjami części pełnego requestu lub response, nie są rachunkiem providera i nie dowodzą oszczędności. @if (overview().unlinkedResultOccurrences) { {{ overview().unlinkedResultOccurrences }} wystąpień wyników pozostało nieprzypisanych z powodu braku jednoznacznego powiązania. }</p>
+      } @else {
+        <div class="empty-tools"><mat-icon aria-hidden="true">construction</mat-icon><p><strong>Brak przechwyconych definicji i wywołań narzędzi.</strong> Włącz capture content, aby przygotować to zestawienie.</p></div>
+      }
+    </div>
+  }
+</section>

@@ -68,6 +68,13 @@ describe('InteractionTimelineComponent', () => {
     expect(cycle.querySelector('.round-context-summary strong')?.textContent).toBe('0,0%');
   });
 
+  it('names the primary execution section as the main agent work and result', () => {
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.rounds-section > .rounds-heading h2')?.textContent?.trim())
+      .toBe('Praca i rezultat głównego Agenta');
+  });
+
   it('does not calculate fresh input or window usage from missing or invalid operands', () => {
     const model = span({inputTokens: 500, attributesJson: JSON.stringify({'gen_ai.usage.input_tokens': 500,
       'gen_ai.usage.cache_read.input_tokens': false, 'gen_ai.usage.output_tokens': -1})});
@@ -253,6 +260,7 @@ describe('InteractionTimelineComponent', () => {
     expect(nextPanel?.kind === 'round' ? nextPanel.data.turn.model.id : null).toBe(22);
     expect(nextPanel?.kind === 'round' ? nextPanel.data.sourceTurn?.model.id : null).toBe(21);
     expect(nextPanel?.kind === 'round' ? nextPanel.data.mode : null).toBe('cycle');
+    expect(nextPanel?.kind === 'round' ? nextPanel.data.headingContext : null).toBe('INTERAKCJA 1 · M1 → A → M2');
     const cycle = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.cycle-row .detail-trigger')!;
     expect(cycle.textContent).toContain('M1 → A → M2');
     expect(cycle.textContent).not.toContain('Cykl 1 ·');
@@ -261,6 +269,27 @@ describe('InteractionTimelineComponent', () => {
     expect(directlyOpened?.kind === 'round' ? directlyOpened.data.sourceTurn?.model.id : null).toBe(21);
     expect(directlyOpened?.kind === 'round' ? directlyOpened.data.turn.model.id : null).toBe(22);
     expect((fixture.nativeElement as HTMLElement).querySelector('.final-response-row')?.textContent).toContain('M2 → odpowiedź');
+  });
+
+  it('uses the stable subagent and model round identities on the bar and in the round panel', () => {
+    const [root, child] = mixedEpisodeFixture();
+    fixture.componentRef.setInput('detail', root);
+    fixture.componentRef.setInput('relatedDetails', [child]);
+    fixture.detectChanges();
+    const launch = root.spans.find(item => item.id === 2000)!;
+    const turns = component.subagentTurns(launch);
+
+    expect(component.subagentCallLabel(launch, turns[0])).toBe('S2:M1');
+    expect(component.subagentCallLabel(launch, turns[1])).toBe('S2:M2');
+    expect(component.subagentDelegationLabel(launch, {index: 5, interactionIndex: 2, interactionTurnIndex: 5,
+      model: span(), tools: []})).toBe('INTERAKCJA 2 · M5:S2');
+    expect(component.subagentWorkTitle(launch)).toBe('Praca i rezultat Subagenta 2');
+    expect(component.subagentTimelineTitle(launch)).toBe('Subagent 2');
+
+    component.openSubagentRoundDetails(launch, turns[0], new Event('click'));
+    const panel = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(panel?.kind === 'round' ? panel.data.headingContext : null)
+      .toBe('SUBAGENT · S2:M1 → A → S2:M2');
   });
 
   it('shows cache write on every round row when at least one round emitted the metric', () => {

@@ -1,6 +1,6 @@
 # Stan funkcji i plan rozwoju
 
-Stan dokumentu: 2026-09-08.
+Stan dokumentu: 2026-09-11.
 
 ## Co działa obecnie
 
@@ -37,6 +37,26 @@ Stan dokumentu: 2026-09-08.
   późniejszego requestu;
 - łączny bilans kosztu agenta głównego, subagentów i kompaktowań oraz zwijane
   rozliczenie tych pozycji w identycznych kolumnach;
+- globalne zestawienie narzędzi bez AI pod bilansem sesji, rozdzielone na zakładki
+  `Niewykorzystane` i `Wykorzystane`, początkowo zwinięte i rozwijane chevronem;
+  wiersze mają wspólną białą ikonę toola, a czerwony pill wyróżnia tylko stan
+  niewykorzystany: bezpośrednio przechwycona dostępność
+  definicji, liczba żądań modelu, wyniki odnalezione po
+  dokładnym call ID oraz oznaczone `≈` estymacje treści definicji, wywołań i
+  pierwszych odbiorów wyników; późniejsze przechwycone wystąpienia tego samego
+  wyniku, tylko przed następnym kompaktowaniem sesji, mają osobną estymację udziału
+  w cache read opartą na wyemitowanej proporcji `cache read / input łącznie` wraz
+  z pokryciem metryką; kompletne zero użyć jest odróżnione od niepełnego capture
+  outputu, a osobna suma wywołań i wyników jest pominięta; kolejność ustala
+  pomocnicze `input + 10 × output`, gdzie definicje, pierwszy wynik i oszacowany
+  cache należą do inputu, a żądania narzędzia do outputu;
+  definicje używają cyjanu cache read, a tooltip opisuje proporcjonalną estymację
+  i podkreśla, że wartość jest już sumą wszystkich rund z dostępną definicją,
+  bez tłumaczenia wyboru koloru;
+  kliknięcie nazwy lub ikony toola otwiera modal z wszystkimi wersjami definicji,
+  czytelną listą parametrów i zwijanym pełnym JSON-em;
+  zakładka niewykorzystanych wskazuje miejsca ograniczania narzędzi w VS Code bez
+  opisywania mechaniki cache providera;
 - aside kompaktowania z systemowymi zasadami i formatem rezultatu, poleceniem
   kompaktowania, opcjonalnym poleceniem użytkownika, messages, tools i rezultatem;
   wpływ na następny input jest
@@ -137,8 +157,10 @@ kontroli nie wolno przypisywać spadku credits jednej zmianie.
 
 - bardzo długie sesje nadal tworzą szeroki szczegółowy diagram;
 - zagregowane karty są skrótem, ale wieloetykietowe fazy mogą mieć długie nazwy;
-- initial bundle Angulara przy ostatniej weryfikacji miał 943,11 kB i przekraczał
-  budżet 750 kB o 193,11 kB;
+- globalny provider `material-symbols-outlined` obejmuje routed UI i dynamiczne
+  modale, dzięki czemu ligatury ikon nie są prezentowane jako obcięty tekst;
+- po podziale na lazy routes initial bundle Angulara ma 295,77 kB, ale chunk
+  strony sesji pozostaje duży — 394,40 kB;
 - CSS komponentu mapy jest duży i mocno skompresowany, co utrudnia dalsze zmiany.
 
 ## Priorytet P0 — utrwalenie poprawności

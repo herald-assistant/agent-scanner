@@ -22,7 +22,7 @@ export class HomePageComponent {
   "github.copilot.chat.otel.enabled": true,
   "github.copilot.chat.otel.exporterType": "otlp-http",
   "github.copilot.chat.otel.protocol": "http/protobuf",
-  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:8080",
+  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:8081",
   "github.copilot.chat.otel.captureContent": true,
   "github.copilot.chat.otel.maxAttributeSizeChars": 0
 }`;

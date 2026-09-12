@@ -77,7 +77,7 @@ the repository.
 ├── src/test                          integration tests and synthetic OTLP fixture
 └── frontend
     ├── angular.json                  Angular build to target/classes/static
-    ├── proxy.conf.json               /api and /v1 proxy to port 8080
+    ├── proxy.conf.json               /api and /v1 proxy to port 8081
     └── src/app
         ├── app.component.*            composition and application state
         ├── core/                       API, analysis and notification services
@@ -258,7 +258,10 @@ Do not:
 - compare a sum across rounds with a single current context window;
 - add reasoning to output without provider evidence that it is excluded;
 - claim exact per-request-part token counts;
-- assign request parts to cache/fresh buckets from position or content similarity;
+- assign request parts to exact cache/fresh buckets from position or content
+  similarity. The tool overview may show only its explicitly marked aggregate
+  estimate for later exact-call-ID result occurrences, based on the receiving
+  request's emitted cache-read ratio and bounded by the next compaction;
 - infer model price from color or from the relative size of counters.
 
 Per-request-part token values prefixed by `≈` are calibrated estimates for
@@ -383,6 +386,56 @@ together.
 - `SessionSidebarComponent`: primary session selection, import and destructive
   cleanup entry points.
 - `CostDashboardComponent`: session totals and per-round records.
+- `ToolOptimizationOverviewComponent`: global, no-AI tool inventory below the
+  session cost card. Its pure analysis lives in `core/tool-usage-analysis.ts` and
+  compares directly captured definitions with captured model tool requests and
+  exact-call-ID result occurrences. It separates unused and used tools into two
+  tabs. The unused tab explains that definitions enter model input and therefore
+  participate in Copilot AI credits usage, and points to the VS Code agent console
+  plus agent `tools`/toolset configuration as places to test a narrower set.
+  Definition estimates count every directly captured exposure. They use the
+  definition's character share of captured request content multiplied by emitted
+  input tokens; model-calibrated characters per token and finally 4.25 are
+  fallbacks. Definitions use the cache-read cyan because repeated exposure is a
+  likely cache optimization area, but copy must state that telemetry does not
+  attribute a specific definition to cache. The definition tooltip explains that
+  the displayed number already sums every round/request exposure and must not be
+  multiplied by the round count again; it does not explain the color choice.
+  Per-tool definition, invocation,
+  first-result receipt and later-result cache values remain separate `≈` navigation
+  estimates. Count an exact-call-ID result once on its first model receipt. For
+  later captured occurrences before the next session compaction, estimate a
+  separate cache-read share as `estimated result tokens × emitted cache read /
+  emitted total input` for that receiving request and expose metric coverage.
+  Missing cache metrics stay missing. Do not show a raw sum: order rows using the
+  deliberately simplified `(definition + first result + estimated later cache)
+  input tokens + 10 × invocation output tokens` priority. It is only a sorting
+  aid; the card presents hypotheses to verify, never a command to disable a tool
+  or a provider cost breakdown. For used tools, count every invocation after the
+  first with the same tool name and canonical arguments across the whole linked
+  session as a potential duplicate; agent and compaction boundaries do not reset
+  this comparison. Calls without captured arguments are not comparable. Show only
+  the count in the table and use red when it is greater than zero. The tool modal
+  breaks this count down into repeats across agent streams, repeats after a
+  compaction, and the mutually exclusive result states: identical, different
+  or not captured. Compare results only through exact call-ID receipts. Normalize
+  only the equivalent single-text-part transport wrapper before comparing content;
+  do not normalize text, line order or substantive result structure. List the
+  affected round labels (`M…`, `S…:M…`). For every duplicated signature, the modal
+  also shows the full canonical input arguments, the first round, repeated rounds
+  and repetition count; keep long JSON bounded and scrollable without silently
+  truncating it. These are inspection signals, not proof of
+  unnecessary work. The whole card starts collapsed and expands inline
+  from an accessible chevron. Tool rows always use the same neutral white tool
+  icon; state is not encoded by changing it to a power control. Only the
+  `Niewykorzystane` status pill uses red emphasis.
+- `ToolDefinitionDialogComponent`: factual modal opened by clicking a tool row's
+  identity. It renders every captured canonical definition version as a readable
+  description and top-level parameter contract, including required/optional state
+  and enum values. The complete canonical JSON stays available in a collapsed
+  disclosure so unsupported schema fields are never discarded or guessed. A tool
+  observed only in a model request opens the same modal with an explicit missing
+  definition state.
 - `InteractionTimelineComponent`: interaction/round ordering, subagent and
   auxiliary call presentation, confirmed alerts, opening round details.
 - `RoundDetailsDialogComponent`: exact initial request, `M → A → M` cycle or final
@@ -437,6 +490,13 @@ Use Angular Material for:
 - `MatIcon` with Material Symbols;
 - `MatSidenav` for the collapsible session panel.
 
+The application-wide `MAT_ICON_DEFAULT_OPTIONS` provider belongs in
+`app.config.ts`, with `material-symbols-outlined` as the font set. Do not scope it
+only to routed components: dynamically created CDK overlays and `MatDialog`
+components use the root environment injector and would otherwise render icon
+ligature names as clipped text. Route and dialog tests should assert the resolved
+font-set class.
+
 Round, auxiliary-call and subagent details use the shared right-side aside. It
 closes from its button, backdrop or Escape and restores focus to the trigger.
 Keep scrollbar space stable (`scrollbar-gutter`) so expanding content does not
@@ -486,6 +546,44 @@ metric in one isolated component.
 Preserve these product decisions unless the user explicitly changes them:
 
 - the main view contains `Koszt i przebieg`, `Mapa pracy` and `Dane techniczne` tabs;
+- below the `Koszt i przebieg` session card, a global no-AI tool overview should
+  make otherwise hidden customization opportunities visible. It covers the main
+  agent and uniquely linked subagents, separates `Niewykorzystane` and
+  `Wykorzystane` into tabs, leads with tools whose definitions were captured but
+  whose use was not observed, and ranks rows with the simplified input tokens plus
+  ten times output tokens priority. For this purpose definitions, the first receipt
+  of each exact-call-ID result and the separately estimated cache share of its later
+  occurrences are input, while captured M→A tool requests are output. Do not
+  display a combined invocation-plus-result column because it hides the weighting.
+  A tool is
+  labelled unused only when every model
+  response in which its definition was directly observed has captured output;
+  incomplete output stays unverified. Definition exposure, M→A invocation content,
+  first exact-call-ID A→M result receipt and later retained-result cache are
+  separate columns. Count the direct result once. Estimate cache only for later
+  captured occurrences before the nearest following session compaction, using the
+  receiving request's emitted `cache_read / input` ratio; show partial coverage and
+  keep missing metrics as `—`. This is not proof that the provider cached a
+  particular fragment. All per-part token totals use `≈`, do not convert to credits
+  and remain hypotheses for a user experiment. The card starts collapsed; its
+  neutral tool icon is identical for every state and the unused state is emphasized
+  by a red pill. Clicking the tool identity opens its factual definition modal;
+  multiple captured versions remain separate and full JSON stays inspectable. For
+  used tools the table also shows a plain potential-duplicate count, red only above
+  zero. The comparison is global across the linked session and uses exact tool name
+  plus canonical captured arguments, without resetting at agent or compaction
+  boundaries. The modal shows overlapping cross-agent and post-compaction counts,
+  a disjoint identical/different/missing-result split based on exact call-ID
+  receipts, and the affected `M…`/`S…:M…` round labels. Calls without captured
+  arguments are excluded. For each duplicated argument signature the modal exposes
+  readable canonical JSON together with its first and repeated rounds; no duplicate
+  count proves inefficiency.
+  The unused tab may explain
+  that definitions are model input contributing to Copilot AI credits and where
+  VS Code lets the user limit tools. Definition values use cache-read cyan to mark
+  a repeated-input area worth checking. The tooltip stays calculation-focused:
+  it says that the value already sums all rounds where the definition was exposed
+  and omits any explanation of the color;
 - the general `Techniki optymalizacji` guide is available from the topbar without
   a session or AI configuration. Opening, filtering and copying a trial plan must
   not invoke Copilot or send session data. Techniques are hypotheses to test and
@@ -663,7 +761,7 @@ The configuration panel and onboarding offer a VS Code/IntelliJ IDEA switch.
 VS Code shows a complete valid JSON object. IntelliJ shows form values, not JSON:
 
 - OpenTelemetry export: enabled;
-- collector endpoint: `http://localhost:8080`;
+- collector endpoint: `http://localhost:8081`;
 - protocol: `http/protobuf`;
 - capture content: enabled when detailed content is desired.
 

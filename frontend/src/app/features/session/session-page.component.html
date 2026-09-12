@@ -20,6 +20,7 @@
         @if (activeTab === 'loop') {
           <section class="loop-view">
             <as-cost-dashboard [view]="costDashboard()" [creditTooltip]="creditTooltip" />
+            <as-tool-optimization-overview [overview]="toolUsageOverview()" />
             <as-interaction-timeline
               [turns]="modelTurns()"
               [interactions]="interactions()"

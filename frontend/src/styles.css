@@ -42,6 +42,17 @@ code, pre, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", m
 .scanner-detail-dialog .mat-mdc-dialog-content {
   max-height: none;
 }
+.tool-definition-dialog-panel .mat-mdc-dialog-surface {
+  overflow: hidden;
+  color: var(--text, #eef0f3);
+  background: #0d1116;
+  border: 1px solid #313a45;
+  border-radius: 12px;
+  box-shadow: 0 28px 90px #000c;
+}
+.tool-definition-dialog-panel .mat-mdc-dialog-content {
+  max-height: calc(90vh - 96px);
+}
 .round-problem-tooltip .mat-mdc-tooltip-surface {
   max-width: min(480px, calc(100vw - 32px));
   padding: 11px 13px;

@@ -1,8 +1,8 @@
 import {TestBed} from '@angular/core/testing';
-import {provideRouter, Router} from '@angular/router';
+import {Router} from '@angular/router';
 import {RouterTestingHarness} from '@angular/router/testing';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {appRoutes} from './app.routes';
+import {appConfig} from './app.config';
 import {workflowFixture} from './core/workflow/workflow.fixtures';
 
 const status = {
@@ -24,7 +24,7 @@ describe('application routes', () => {
       const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [source.session] : source;
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
-    TestBed.configureTestingModule({providers: [provideRouter(appRoutes)]});
+    TestBed.configureTestingModule({providers: appConfig.providers});
   });
 
   afterEach(() => {

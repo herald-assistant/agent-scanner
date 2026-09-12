@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal, TemplateRef} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {MatButtonModule} from '@angular/material/button';
-import {MAT_ICON_DEFAULT_OPTIONS, MatIconModule} from '@angular/material/icon';
+import {MatIconModule} from '@angular/material/icon';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {NavigationEnd, Router, RouterOutlet} from '@angular/router';
@@ -20,8 +20,7 @@ import {Session} from './models/scanner.models';
   imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatTooltipModule, RouterOutlet, TopbarComponent,
     SessionSidebarComponent, RoundDetailsAsideComponent, OptimizationGuidanceComponent],
   providers: [
-    ScannerShellStateService,
-    {provide: MAT_ICON_DEFAULT_OPTIONS, useValue: {fontSet: 'material-symbols-outlined'}}
+    ScannerShellStateService
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',

@@ -2,7 +2,7 @@ import {SessionDetail, SpanRecord} from '../models/scanner.models';
 import {parse, record, TelemetryReader} from './workflow/telemetry';
 
 export interface ModelToolRequest { id?: string; name: string; arguments: unknown; }
-export interface ModelToolResult { id: string; characters: number; }
+export interface ModelToolResult { id: string; characters: number; content: unknown; }
 export interface ModelResponse { observed: boolean; text: string; calls: ModelToolRequest[]; }
 const structuralKeys = ['parts', 'output', 'content', 'messages', 'tool_calls'];
 const requestTypes = new Set(['tool_call', 'function_call', 'tool_use']);
@@ -56,13 +56,32 @@ export function toolResults(values: unknown[]): ModelToolResult[] {
       const id = callId(item, isResult);
       if (id) {
         const serialized = JSON.stringify(item);
-        results.push({id, characters: serialized?.length ?? 0});
+        results.push({id, characters: serialized?.length ?? 0, content: resultContent(item)});
       }
       return false;
     }
     return !requestTypes.has(String(item['type'] ?? '')) && !item['function'];
   });
   return results;
+}
+
+function resultContent(item: Record<string, unknown>): unknown {
+  for (const key of ['response', 'output', 'result', 'content', 'value']) {
+    if (Object.hasOwn(item, key)) return normalizeResultContent(item[key]);
+  }
+  const metadata = new Set([
+    'type', 'role', 'name', 'call_id', 'callId', 'tool_call_id', 'toolCallId', 'tool_use_id', 'id'
+  ]);
+  return Object.fromEntries(Object.entries(item).filter(([key]) => !metadata.has(key)));
+}
+
+/** Normalize only a transport wrapper that carries one plain text result. */
+function normalizeResultContent(value: unknown): unknown {
+  if (!Array.isArray(value) || value.length !== 1) return value;
+  const part = record(value[0]);
+  const keys = Object.keys(part);
+  return part['type'] === 'text' && typeof part['text'] === 'string' &&
+    keys.every(key => key === 'type' || key === 'text') ? part['text'] : value;
 }
 export function capturedMessages(model: SpanRecord, source: Pick<SessionDetail, 'messages'>, direction: 'input' | 'output', reader: TelemetryReader): unknown[] {
   const messages = source.messages.filter(message => message.spanId === model.id && message.direction === direction).sort((a, b) => a.sequenceNo - b.sequenceNo);

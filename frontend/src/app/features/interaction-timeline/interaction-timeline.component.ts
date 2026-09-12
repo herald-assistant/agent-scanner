@@ -44,6 +44,11 @@ export class InteractionTimelineComponent {
   readonly subagentCreditsMetricTooltip = 'Suma GitHub Copilot AI credits z dokładnie powiązanych wywołań modelu subagenta. Każda wartość pochodzi z nano AIU wyemitowanego w telemetrii i jest dzielona przez 1 000 000 000.';
   private readonly episodes = computed(() => sessionEpisodes(this.detail(), this.relatedDetails()));
   private readonly launches = computed(() => episodeLaunches(this.episodes()));
+  private readonly subagentNumbers = computed(() => new Map(
+    [...this.launches().keys()]
+      .sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt) || left.id - right.id)
+      .map((tool, index) => [tool, index + 1] as const)
+  ));
 
   private readonly detailsPanel = inject(RoundDetailsPanelService);
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
@@ -82,28 +87,31 @@ export class InteractionTimelineComponent {
 
   openSubagentInitialRequest(tool: SpanRecord, turn: ModelTurn, event: Event): void {
     const calls = this.subagentModelCalls(tool);
-    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const items = this.sequencePanelItems(
+      this.subagentTurns(tool), item => `SUBAGENT · ${item}`, item => this.subagentCallLabel(tool, item));
     const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'request');
     if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
   }
 
   openSubagentRoundDetails(tool: SpanRecord, turn: ModelTurn, event: Event): void {
     const calls = this.subagentModelCalls(tool);
-    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const items = this.sequencePanelItems(
+      this.subagentTurns(tool), item => `SUBAGENT · ${item}`, item => this.subagentCallLabel(tool, item));
     const current = items.find(item => item.sourceTurn?.model.id === turn.model.id && item.mode === 'cycle');
     if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
   }
 
   openSubagentFinalResponse(tool: SpanRecord, turn: ModelTurn, event: Event): void {
     const calls = this.subagentModelCalls(tool);
-    const items = this.sequencePanelItems(this.subagentTurns(tool), item => `SUBAGENT · ${item}`);
+    const items = this.sequencePanelItems(
+      this.subagentTurns(tool), item => `SUBAGENT · ${item}`, item => this.subagentCallLabel(tool, item));
     const current = items.find(item => item.turn.model.id === turn.model.id && item.mode === 'final');
     if (current) this.showRoundDetails(items, current, calls, true, event.currentTarget);
   }
 
   openSubagentDetails(template: TemplateRef<unknown>, tool: SpanRecord, turn: ModelTurn, event: Event): void {
-    const eyebrow = `INTERAKCJA ${turn.interactionIndex} · CYKL ${this.turnNumber(turn)} · DELEGACJA PO M${this.turnNumber(turn)}`;
-    this.detailsPanel.openTemplate(template, {$implicit: tool}, eyebrow, this.friendlyToolTitle(tool), 'Szczegóły pracy subagenta', event.currentTarget);
+    this.detailsPanel.openTemplate(template, {$implicit: tool}, this.subagentDelegationLabel(tool, turn),
+      this.friendlyToolTitle(tool), 'Szczegóły pracy subagenta', event.currentTarget);
   }
 
   openCompactionDetails(template: TemplateRef<unknown>, compaction: ContextCompactionMeasurement, event: Event): void {
@@ -128,12 +136,13 @@ export class InteractionTimelineComponent {
     return this.sequencePanelItems(this.turns(), (label, turn) => `INTERAKCJA ${turn.interactionIndex ?? 1} · ${label}`);
   }
 
-  private sequencePanelItems(turns: ModelTurn[], heading: (label: string, turn: ModelTurn) => string): RoundPanelItem[] {
+  private sequencePanelItems(turns: ModelTurn[], heading: (label: string, turn: ModelTurn) => string,
+                             callLabel: (turn: ModelTurn) => string = turn => this.modelCallLabel(turn)): RoundPanelItem[] {
     const items: RoundPanelItem[] = [];
     for (const [index, turn] of turns.entries()) {
       const previous = index > 0 && turns[index - 1].model.traceId === turn.model.traceId ? turns[index - 1] : undefined;
       items.push(previous
-        ? {turn, sourceTurn: previous, mode: 'cycle', headingContext: heading(`CYKL ${this.turnNumber(previous)}`, turn)}
+        ? {turn, sourceTurn: previous, mode: 'cycle', headingContext: heading(`${callLabel(previous)} → A → ${callLabel(turn)}`, turn)}
         : {turn, mode: 'request', headingContext: heading('START', turn)});
       const next = turns[index + 1];
       if (!next || next.model.traceId !== turn.model.traceId)
@@ -269,7 +278,22 @@ export class InteractionTimelineComponent {
 
   modelCallLabel(turn: ModelTurn): string { return `M${this.turnNumber(turn)}`; }
 
-  subagentCallLabel(turn: ModelTurn): string { return `S${turn.index}`; }
+  subagentCallLabel(tool: SpanRecord, turn: ModelTurn): string {
+    return `S${this.subagentNumber(tool)}:M${this.turnNumber(turn)}`;
+  }
+
+  subagentNumber(tool: SpanRecord): number | '?' { return this.subagentNumbers().get(tool) ?? '?'; }
+
+  subagentDelegationLabel(tool: SpanRecord, turn: ModelTurn): string {
+    return `INTERAKCJA ${turn.interactionIndex ?? 1} · M${this.turnNumber(turn)}:S${this.subagentNumber(tool)}`;
+  }
+
+  subagentWorkTitle(tool: SpanRecord): string { return `Praca i rezultat Subagenta ${this.subagentNumber(tool)}`; }
+
+  subagentTimelineTitle(tool: SpanRecord): string {
+    const number = this.subagentNumbers().get(tool);
+    return number ? `Subagent ${number}` : this.friendlyToolTitle(tool);
+  }
 
   cycleReceiptLabel(source: ModelTurn, receiver: ModelTurn): string {
     return `${this.toolResultsLabel(source.tools.length)} po ${this.modelCallLabel(source)} → input ${this.modelCallLabel(receiver)}`;

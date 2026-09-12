@@ -48,7 +48,7 @@ public class ScannerApiController {
         settings.put("github.copilot.chat.otel.enabled", true);
         settings.put("github.copilot.chat.otel.exporterType", "otlp-http");
         settings.put("github.copilot.chat.otel.protocol", "http/protobuf");
-        settings.put("github.copilot.chat.otel.otlpEndpoint", "http://localhost:8080");
+        settings.put("github.copilot.chat.otel.otlpEndpoint", "http://localhost:8081");
         settings.put("github.copilot.chat.otel.captureContent", true);
         settings.put("github.copilot.chat.otel.maxAttributeSizeChars", 0);
         return Map.of(
