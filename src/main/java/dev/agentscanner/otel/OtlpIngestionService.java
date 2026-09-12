@@ -171,7 +171,7 @@ public class OtlpIngestionService {
             span.getStatus().getCode().name(), span.getStatus().getMessage(), model,
             text(attrs, "gen_ai.agent.name"), conversation,
             number(attrs, "gen_ai.usage.input_tokens"), number(attrs, "gen_ai.usage.output_tokens"),
-            number(attrs, "gen_ai.usage.cache_read.input_tokens"), number(attrs, "gen_ai.usage.cache_creation.input_tokens"),
+            number(attrs, "gen_ai.usage.cache_read.input_tokens"), cacheWrite(attrs),
             Math.max(number(attrs, "gen_ai.usage.reasoning.output_tokens"), number(attrs, "gen_ai.usage.reasoning_tokens")),
             decimal(attrs, "copilot_chat.time_to_first_token"), attrs.toString(), events.toString());
         long spanDatabaseId = store.insertSpan(values);
@@ -185,12 +185,14 @@ public class OtlpIngestionService {
         long input = number(attrs, "gen_ai.usage.input_tokens");
         long output = number(attrs, "gen_ai.usage.output_tokens");
         long cacheRead = number(attrs, "gen_ai.usage.cache_read.input_tokens");
-        long cacheCreate = number(attrs, "gen_ai.usage.cache_creation.input_tokens");
+        long cacheCreate = cacheWrite(attrs);
         long reasoning = Math.max(number(attrs, "gen_ai.usage.reasoning.output_tokens"), number(attrs, "gen_ai.usage.reasoning_tokens"));
         if (input == 0) input = sum(spans, "gen_ai.usage.input_tokens", "chat");
         if (output == 0) output = sum(spans, "gen_ai.usage.output_tokens", "chat");
         if (cacheRead == 0) cacheRead = sum(spans, "gen_ai.usage.cache_read.input_tokens", "chat");
-        if (cacheCreate == 0) cacheCreate = sum(spans, "gen_ai.usage.cache_creation.input_tokens", "chat");
+        if (cacheCreate == 0) cacheCreate = spans.stream()
+            .filter(item -> "chat".equals(text(item.attributes(), "gen_ai.operation.name")))
+            .mapToLong(item -> cacheWrite(item.attributes())).sum();
         if (reasoning == 0) reasoning = Math.max(sum(spans, "gen_ai.usage.reasoning.output_tokens", "chat"),
             sum(spans, "gen_ai.usage.reasoning_tokens", "chat"));
         Instant started = spans.stream().map(item -> instant(item.span().getStartTimeUnixNano())).filter(Objects::nonNull)
@@ -199,7 +201,7 @@ public class OtlpIngestionService {
             .max(Comparator.naturalOrder()).orElse(receivedAt);
         int tools = (int) spans.stream().filter(item -> "execute_tool".equals(text(item.attributes(), "gen_ai.operation.name"))).count();
         int errors = (int) spans.stream().filter(item -> item.span().getStatus().getCode() == io.opentelemetry.proto.trace.v1.Status.StatusCode.STATUS_CODE_ERROR || text(item.attributes(), "error.type") != null).count();
-        int turns = (int) Math.max(number(attrs, "copilot_chat.turn_count"),
+        int turns = (int) Math.max(Math.max(number(attrs, "copilot_chat.turn_count"), number(attrs, "github.copilot.turn_count")),
             spans.stream().filter(item -> "chat".equals(text(item.attributes(), "gen_ai.operation.name"))).count());
         boolean captured = spans.stream().anyMatch(item -> item.attributes().has("gen_ai.input.messages")
             || item.attributes().has("gen_ai.output.messages") || item.attributes().has("gen_ai.tool.call.arguments"));
@@ -216,6 +218,11 @@ public class OtlpIngestionService {
     private long sum(List<SpanEnvelope> spans, String key, String operation) {
         return spans.stream().filter(item -> operation.equals(text(item.attributes(), "gen_ai.operation.name")))
             .mapToLong(item -> number(item.attributes(), key)).sum();
+    }
+
+    private long cacheWrite(ObjectNode attributes) {
+        return number(attributes, attributes.has("gen_ai.usage.cache_creation.input_tokens")
+            ? "gen_ai.usage.cache_creation.input_tokens" : "gen_ai.usage.cache_write.input_tokens");
     }
 
     private void extractMessages(long spanId, ObjectNode attrs, String key, String direction) {

@@ -10,6 +10,8 @@ import {NotificationService} from '../../core/notification.service';
 import {CostBreakdownRow, CostDashboardComponent, CostDashboardView, DashboardRecord} from '../session-overview/cost-dashboard.component';
 import {ToolOptimizationOverviewComponent} from '../session-overview/tool-optimization-overview.component';
 import {SessionAnalysisService} from '../../core/session-analysis.service';
+import {cacheWriteValue, creditsValue, inputCacheTotals, InputCacheTotals} from '../../core/copilot-telemetry';
+import {TelemetryReader} from '../../core/workflow/telemetry';
 import {analyzeToolUsage} from '../../core/tool-usage-analysis';
 import {TechnicalViewComponent} from '../technical/technical-view.component';
 import {InteractionTimelineComponent} from '../interaction-timeline/interaction-timeline.component';
@@ -35,6 +37,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SessionPageComponent {
+  private readonly telemetry = new TelemetryReader();
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(ScannerApiService);
   private readonly notifications = inject(NotificationService);
@@ -74,6 +77,8 @@ export class SessionPageComponent {
       rows: [], modelCalls: 0, callsWithDefinitions: 0, callsWithOutput: 0, unusedTools: 0, unlinkedResultOccurrences: 0
     };
   });
+  readonly sdkTelemetry = computed(() => this.modelTurns().some(turn =>
+    Object.hasOwn(this.parsedAttributes(turn.model), 'github.copilot.nano_aiu')));
   readonly costDashboard = computed<CostDashboardView>(() => {
     const record = (turn: ModelTurn | undefined, value: string): DashboardRecord | undefined => turn
       ? {reference: this.turnReference(turn), value}
@@ -90,7 +95,8 @@ export class SessionPageComponent {
     const compactions = this.contextCompactions();
     const completeTotal = (values: (number | undefined)[]): number | undefined =>
       values.length && values.every((value): value is number => value != null) ? values.reduce((sum, value) => sum + value!, 0) : undefined;
-    const combinedMetric = (base: number, extras: (number | undefined)[]): string => {
+    const combinedMetric = (base: number | undefined, extras: (number | undefined)[]): string => {
+      if (base === undefined) return 'brak danych';
       if (!extras.length) return this.compact(base);
       const extra = completeTotal(extras);
       return extra == null ? 'brak danych' : this.compact(base + extra);
@@ -109,13 +115,18 @@ export class SessionPageComponent {
     const rowForSpans = (id: string, kind: 'main' | 'subagent', label: string, spans: SpanRecord[]): CostBreakdownRow => {
       const durations = coverage(spans.map(span => span.durationMs), 'wywołań z czasem');
       const credits = coverage(spans.map(span => this.spanCredits(span)), 'wywołań z credits');
-      const hasCacheWrite = this.hasCacheWriteTelemetryFor(spans);
+      const inputCache = this.inputCacheForSpans(spans);
+      const freshInput = inputCache.freshInputTokens;
+      const cacheRead = inputCache.cacheReadTokens;
+      const cacheWrite = this.sumCacheWrite(spans);
       return {
         id, kind, label,
         detail: `${this.modelCallsLabel(spans.length)} · ${modelsLabel(spans)}`,
-        freshInput: this.compact(spans.reduce((sum, span) => sum + this.freshInputTokens(span), 0)),
-        cacheRead: this.compact(spans.reduce((sum, span) => sum + span.cacheReadTokens, 0)),
-        cacheWrite: hasCacheWrite ? this.compact(spans.reduce((sum, span) => sum + span.cacheCreationTokens, 0)) : '—',
+        freshInput: freshInput == null ? '—' : this.compact(freshInput),
+        cacheRead: cacheRead == null ? '—' : this.compact(cacheRead),
+        tokenAggregateSource: inputCache.aggregateFallbacks && cacheRead !== undefined && freshInput !== undefined
+          ? 'z agregatu invoke_agent' : undefined,
+        cacheWrite: cacheWrite == null ? '—' : this.compact(cacheWrite),
         output: this.compact(spans.reduce((sum, span) => sum + span.outputTokens, 0)),
         duration: durations.value == null ? '—' : this.modelDurationLabel(durations.value),
         durationCoverage: durations.label,
@@ -145,8 +156,8 @@ export class SessionPageComponent {
     ];
     const allDurations = coverage([...billingSpans.map(span => span.durationMs), ...compactions.map(call => call.durationMs)], 'wywołań z czasem');
     const allCredits = coverage([...billingSpans.map(span => this.spanCredits(span)), ...compactions.map(call => call.credits)], 'wywołań z credits');
+    const sessionInputCache = this.inputCacheForSpans(billingSpans);
     const hasCacheWrite = this.hasCacheWriteTelemetryFor(billingSpans) || compactions.some(call => call.cacheWriteTokens != null);
-    const emittedCacheWrite = this.totalSessionCacheWriteTokens() + compactions.reduce((sum, call) => sum + (call.cacheWriteTokens ?? 0), 0);
     const primaryCalls = this.primaryModelSpans().length;
     const subagentCalls = subagentGroups.reduce((sum, group) => sum + group.spans.length, 0);
     const compactionLabel = `${compactions.length} ${this.polishPlural(compactions.length, 'kompaktowanie', 'kompaktowania', 'kompaktowań')}`;
@@ -161,9 +172,18 @@ export class SessionPageComponent {
       breakdownSummary: `Agent główny · Subagenci: ${subagentGroups.length} · Kompaktowania: ${compactions.length}`,
       breakdown,
       totals: {
-        freshInput: combinedMetric(this.totalSessionInputOutsideCache(), compactions.map(call => call.freshInputTokens)),
-        cacheRead: combinedMetric(this.totalSessionCacheTokens(), compactions.map(call => call.cacheReadTokens)),
-        cacheWrite: hasCacheWrite ? this.compact(emittedCacheWrite) : 'brak danych',
+        freshInput: combinedMetric(billingSpans.length ? sessionInputCache.freshInputTokens : 0,
+          compactions.map(call => call.freshInputTokens)),
+        cacheRead: combinedMetric(billingSpans.length ? sessionInputCache.cacheReadTokens : 0,
+          compactions.map(call => call.cacheReadTokens)),
+        tokenAggregateSource: sessionInputCache.aggregateFallbacks && sessionInputCache.cacheReadTokens !== undefined
+          && sessionInputCache.freshInputTokens !== undefined
+          && compactions.every(call => call.cacheReadTokens !== undefined && call.freshInputTokens !== undefined)
+          ? 'z agregatu invoke_agent' : undefined,
+        cacheWrite: hasCacheWrite
+          ? combinedMetric(billingSpans.length ? this.totalSessionCacheWriteTokens() : 0,
+            compactions.map(call => call.cacheWriteTokens))
+          : 'brak danych',
         hasCacheWrite,
         output: combinedMetric(this.totalSessionOutputTokens(), compactions.map(call => call.outputTokens)),
         duration: allDurations.value == null ? 'brak danych' : this.modelDurationLabel(allDurations.value),
@@ -174,7 +194,7 @@ export class SessionPageComponent {
       records: {
         freshInput: record(fresh, fresh ? `${this.compact(this.freshInputTokens(fresh.model))} tokenów` : ''),
         cacheRead: record(cache, cache ? `${this.compact(cache.model.cacheReadTokens)} tokenów` : ''),
-        cacheWrite: record(cacheWrite, cacheWrite ? `${this.compact(cacheWrite.model.cacheCreationTokens)} tokenów` : ''),
+        cacheWrite: record(cacheWrite, cacheWrite ? `${this.compact(this.cacheWriteTokens(cacheWrite.model))} tokenów` : ''),
         output: record(output, output ? `${this.compact(output.model.outputTokens)} tokenów` : ''),
         longest: record(longest, longest ? this.duration(longest.model.durationMs) : ''),
         mostExpensive: record(expensive, expensive ? this.spanCreditsLabel(expensive.model) : '')
@@ -428,19 +448,35 @@ export class SessionPageComponent {
     return turn.interactionTurnIndex ?? turn.index;
   }
 
-  freshInputTokens(span: SpanRecord): number { return Math.max(0, span.inputTokens - span.cacheReadTokens); }
+  freshInputTokens(span: SpanRecord): number | undefined {
+    const input = this.telemetry.metric(span, 'gen_ai.usage.input_tokens');
+    const cache = this.telemetry.metric(span, 'gen_ai.usage.cache_read.input_tokens');
+    return input.availability === 'emitted' && cache.availability === 'emitted' && cache.value! <= input.value!
+      ? input.value! - cache.value! : undefined;
+  }
+
+  private inputCacheForSpans(spans: SpanRecord[]): InputCacheTotals {
+    const ids = new Set(spans.map(span => span.id));
+    const sources = [this.detail, ...this.relatedDetails].filter((source): source is SessionDetail =>
+      source !== undefined && source.spans.some(span => ids.has(span.id)));
+    return inputCacheTotals(this.telemetry, spans, sources.flatMap(source => source.spans));
+  }
+
+  private sumCacheWrite(spans: SpanRecord[]): number | undefined {
+    if (!spans.length) return undefined;
+    const values = spans.map(span => this.cacheWriteTokens(span));
+    return values.every((value): value is number => value !== undefined)
+      ? values.reduce((sum, value) => sum + value!, 0) : undefined;
+  }
 
   totalSessionOutputTokens(): number { return this.billingModelSpans().reduce((sum, span) => sum + span.outputTokens, 0); }
-  totalSessionCacheTokens(): number { return this.billingModelSpans().reduce((sum, span) => sum + span.cacheReadTokens, 0); }
-  totalSessionCacheWriteTokens(): number { return this.billingModelSpans().reduce((sum, span) => sum + span.cacheCreationTokens, 0); }
-  totalSessionInputOutsideCache(): number { return this.billingModelSpans().reduce((sum, span) => sum + this.freshInputTokens(span), 0); }
+  totalSessionCacheWriteTokens(): number | undefined { return this.sumCacheWrite(this.billingModelSpans()); }
 
   spanCredits(span: SpanRecord): number | null {
-    const raw = this.parsedAttributes(span)['copilot_chat.copilot_usage_nano_aiu'];
-    if (raw == null || raw === '') return null;
-    const nanoAiu = Number(raw);
-    return Number.isFinite(nanoAiu) ? nanoAiu / 1_000_000_000 : null;
+    return creditsValue(this.telemetry, span) ?? null;
   }
+
+  private cacheWriteTokens(span: SpanRecord): number | undefined { return cacheWriteValue(this.telemetry, span); }
 
   spanCreditsLabel(span: SpanRecord): string {
     const value = this.spanCredits(span);
@@ -448,17 +484,19 @@ export class SessionPageComponent {
   }
 
   highestFreshInputTurn(): ModelTurn | undefined {
-    return this.modelTurns().reduce<ModelTurn | undefined>((highest, turn) =>
-      !highest || this.freshInputTokens(turn.model) > this.freshInputTokens(highest.model) ? turn : highest, undefined);
+    return this.modelTurns().filter(turn => this.freshInputTokens(turn.model) !== undefined)
+      .reduce<ModelTurn | undefined>((highest, turn) =>
+        !highest || this.freshInputTokens(turn.model)! > this.freshInputTokens(highest.model)! ? turn : highest, undefined);
   }
 
   highestCacheReadTurn(): ModelTurn | undefined {
-    return this.highestTurnBy(turn => turn.model.cacheReadTokens);
+    return this.highestTurnBy(turn => turn.model.cacheReadTokens,
+      turn => this.telemetry.metric(turn.model, 'gen_ai.usage.cache_read.input_tokens').availability === 'emitted');
   }
 
   highestCacheWriteTurn(): ModelTurn | undefined {
     return this.highestTurnBy(
-      turn => turn.model.cacheCreationTokens,
+      turn => this.cacheWriteTokens(turn.model) ?? 0,
       turn => this.hasCacheWriteTelemetry(turn.model)
     );
   }
@@ -508,8 +546,7 @@ export class SessionPageComponent {
   }
 
   private hasCacheWriteTelemetryFor(spans: SpanRecord[]): boolean {
-    return spans.some(item => Object.prototype.hasOwnProperty.call(
-      this.parsedAttributes(item), 'gen_ai.usage.cache_creation.input_tokens'));
+    return spans.some(span => this.cacheWriteTokens(span) !== undefined);
   }
 
   private billingModelSpans(): SpanRecord[] {

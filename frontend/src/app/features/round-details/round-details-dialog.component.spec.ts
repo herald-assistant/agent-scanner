@@ -138,7 +138,8 @@ describe('RoundDetailsDialogComponent', () => {
   it('shows captured reasoning content for the source model response of a cycle', () => {
     const fixture: ComponentFixture<RoundDetailsDialogComponent> = TestBed.createComponent(RoundDetailsDialogComponent);
     const source = span({id: 20, reasoningTokens: 45, attributesJson: JSON.stringify({
-      'copilot_chat.reasoning_content': 'Sprawdzę zależności przed wybraniem kolejnych narzędzi.'
+      'copilot_chat.reasoning_content': 'Sprawdzę zależności przed wybraniem kolejnych narzędzi.',
+      'gen_ai.usage.reasoning.output_tokens': 45
     })});
     const receiver = span({id: 21, reasoningTokens: 12, attributesJson: JSON.stringify({
       'copilot_chat.reasoning_content': 'Treść następnego wywołania.'
@@ -158,7 +159,8 @@ describe('RoundDetailsDialogComponent', () => {
 
   it('explains when the provider emits only an encrypted reasoning marker', () => {
     const fixture: ComponentFixture<RoundDetailsDialogComponent> = TestBed.createComponent(RoundDetailsDialogComponent);
-    const model = span({reasoningTokens: 999, attributesJson: JSON.stringify({'copilot_chat.reasoning_content': '[encrypted]'})});
+    const model = span({reasoningTokens: 999, attributesJson: JSON.stringify({
+      'copilot_chat.reasoning_content': '[encrypted]', 'gen_ai.usage.reasoning.output_tokens': 999})});
     fixture.componentRef.setInput('turn', {index: 1, model, tools: []});
     fixture.componentRef.setInput('messages', []);
     fixture.componentRef.setInput('calibrationSpans', [model]);
@@ -166,6 +168,26 @@ describe('RoundDetailsDialogComponent', () => {
 
     expect(fixture.componentInstance.responseReasoningTooltip()).toContain('999 tokenów');
     expect(fixture.componentInstance.responseReasoningTooltip()).toContain('ukryta przez providera');
+  });
+
+  it('shows exact SDK reasoning content while keeping a missing token count missing', () => {
+    const fixture: ComponentFixture<RoundDetailsDialogComponent> = TestBed.createComponent(RoundDetailsDialogComponent);
+    const model = span({id: 199, reasoningTokens: 0, attributesJson: JSON.stringify({
+      'github.copilot.service_request_id': 'sdk-request-199', 'github.copilot.server_duration': 2450
+    })});
+    fixture.componentRef.setInput('turn', {index: 1, model, tools: []});
+    fixture.componentRef.setInput('mode', 'final');
+    fixture.componentRef.setInput('messages', [{id: 1, spanId: 199, direction: 'output', roleName: 'assistant', sequenceNo: 0,
+      content: JSON.stringify({role: 'assistant', parts: [{type: 'reasoning', content: 'Wyemitowana treść SDK.'}]}), sourceKind: 'telemetry'}]);
+    fixture.componentRef.setInput('calibrationSpans', [model]);
+    fixture.componentRef.setInput('headingContext', 'INTERAKCJA 1 · RUNDA 1');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.responseReasoningLabel()).toBe('—');
+    expect(fixture.componentInstance.responseReasoningTooltip()).toContain('Wyemitowana treść SDK.');
+    expect(fixture.componentInstance.responseReasoningTooltip()).toContain('Licznik tokenów reasoning niewyemitowany');
+    expect(fixture.componentInstance.requestParameters()).toContainEqual({label: 'Server request ID', value: 'sdk-request-199'});
+    expect(fixture.componentInstance.requestParameters()).toContainEqual({label: 'Czas serwera SDK (surowy)', value: '2450'});
   });
 });
 

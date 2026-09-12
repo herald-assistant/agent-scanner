@@ -18,6 +18,20 @@ import java.util.*;
 
 @Repository
 public class ScannerStore {
+    private static final String SESSION_VIEW_SQL = """
+        SELECT a.id, a.conversation_id, a.agent_name, a.agent_type, a.requested_model, a.response_model,
+          a.repository, a.branch_name, a.commit_sha, a.started_at, a.ended_at, a.last_seen_at,
+          a.input_tokens, a.output_tokens, a.cache_read_tokens, a.cache_creation_tokens, a.reasoning_tokens,
+          COALESCE(c.turn_count, a.turn_count) AS turn_count,
+          COALESCE(c.tool_count, a.tool_count) AS tool_count,
+          a.error_count, a.content_captured
+        FROM agent_session a LEFT JOIN (
+          SELECT session_id,
+            SUM(CASE WHEN operation_name='chat' THEN 1 ELSE 0 END) AS turn_count,
+            SUM(CASE WHEN operation_name='execute_tool' THEN 1 ELSE 0 END) AS tool_count
+          FROM span_record GROUP BY session_id
+        ) c ON c.session_id=a.id
+        """;
     private final JdbcTemplate jdbc;
     private final NamedParameterJdbcTemplate named;
     private final ObjectMapper mapper;
@@ -124,17 +138,11 @@ public class ScannerStore {
     }
 
     public List<Map<String, Object>> sessions() {
-        return jdbc.queryForList("""
-            SELECT id, conversation_id, agent_name, agent_type, requested_model, response_model,
-              repository, branch_name, commit_sha, started_at, ended_at, last_seen_at,
-              input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens,
-              turn_count, tool_count, error_count, content_captured
-            FROM agent_session ORDER BY last_seen_at DESC
-            """);
+        return jdbc.queryForList(SESSION_VIEW_SQL + " ORDER BY a.last_seen_at DESC");
     }
 
     public Optional<Map<String, Object>> session(long id) {
-        List<Map<String, Object>> result = jdbc.queryForList("SELECT * FROM agent_session WHERE id=?", id);
+        List<Map<String, Object>> result = jdbc.queryForList(SESSION_VIEW_SQL + " WHERE a.id=?", id);
         return result.stream().findFirst();
     }
 

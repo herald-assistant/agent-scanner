@@ -89,7 +89,12 @@ export class RoundDetailsDialogComponent {
       {label: 'Stan poprzedniej odpowiedzi', value: this.usesPreviousResponseState() ? 'tak' : 'nie'},
       {label: 'Finish reason', value: this.attributeOrFallback(span, 'gen_ai.response.finish_reasons')},
       {label: 'Response ID', value: this.attributeOrFallback(span, 'gen_ai.response.id')},
-      {label: 'Server request ID', value: this.attributeOrFallback(span, 'copilot_chat.server_request_id')}
+      {label: 'Server request ID', value: Object.hasOwn(this.attributes(span), 'copilot_chat.server_request_id')
+        ? this.attributeOrFallback(span, 'copilot_chat.server_request_id')
+        : this.attributeOrFallback(span, 'github.copilot.service_request_id')},
+      ...(Object.hasOwn(this.attributes(span), 'github.copilot.server_duration')
+        ? [{label: 'Czas serwera SDK (surowy)', value: this.attributeOrFallback(span, 'github.copilot.server_duration')}]
+        : [])
     ];
   }
 
@@ -180,17 +185,48 @@ export class RoundDetailsDialogComponent {
       arguments: typeof call.arguments === 'string' ? call.arguments : JSON.stringify(call.arguments, null, 2)}));
   }
   responseOutputTokens(): number { return this.responseTurn().model.outputTokens; }
-  responseReasoningTokens(): number { return this.responseTurn().model.reasoningTokens; }
+  responseReasoningTokens(): number | undefined {
+    const attrs = this.attributes(this.responseTurn().model);
+    const values = ['gen_ai.usage.reasoning.output_tokens', 'gen_ai.usage.reasoning_tokens']
+      .filter(key => Object.hasOwn(attrs, key)).map(key => Number(attrs[key]))
+      .filter(value => Number.isFinite(value) && value >= 0);
+    return values.length ? Math.max(...values) : undefined;
+  }
+  responseReasoningLabel(): string {
+    const value = this.responseReasoningTokens();
+    return value === undefined ? '—' : this.compact(value);
+  }
   responseReasoningTooltip(): string {
     const span = this.responseTurn().model;
-    const raw = this.attributes(span)['copilot_chat.reasoning_content'];
-    const tokenDescription = `${this.exact(span.reasoningTokens)} tokenów reasoning raportowanych przez telemetrię.`;
+    const attrs = this.attributes(span);
+    const emittedTokens = this.responseReasoningTokens();
+    const tokenDescription = emittedTokens === undefined ? 'Licznik tokenów reasoning niewyemitowany.'
+      : `${this.exact(emittedTokens)} tokenów reasoning raportowanych przez telemetrię.`;
+    const raw = attrs['copilot_chat.reasoning_content'] ?? this.sdkReasoningContent(span);
     if (raw == null) return `${tokenDescription} Provider nie wyemitował treści rozumowania.`;
     const content = (typeof raw === 'string' ? raw : this.serializedValue(raw)).trim();
     if (!content) return `${tokenDescription} Provider wyemitował pustą treść rozumowania.`;
     if (/^[\[\(<]?\s*(?:encrypted|redacted|hidden|omitted|unavailable|not captured)\s*[\]\)>]?$/i.test(content))
       return `${tokenDescription} Treść rozumowania została ukryta przez providera (${content}).`;
     return `Treść reasoning z telemetrii:\n\n${content}\n\n${tokenDescription} Reasoning pozostaje osobną metryką i nie jest dodawany ponownie do outputu.`;
+  }
+  private sdkReasoningContent(span: SpanRecord): string | undefined {
+    const blocks: string[] = [];
+    for (const message of this.messages().filter(item => item.spanId === span.id && item.direction === 'output')) {
+      let parsed: unknown;
+      try { parsed = JSON.parse(message.content) as unknown; } catch { continue; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue;
+      const parts = (parsed as Record<string, unknown>)['parts'];
+      if (!Array.isArray(parts)) continue;
+      for (const part of parts) {
+        if (part && typeof part === 'object' && !Array.isArray(part)) {
+          const record = part as Record<string, unknown>;
+          if (record['type'] === 'reasoning' && typeof record['content'] === 'string' && record['content'].trim())
+            blocks.push(record['content']);
+        }
+      }
+    }
+    return blocks.length ? blocks.join('\n\n') : undefined;
   }
   responseTtftMs(): number | undefined { return this.responseTurn().model.ttftMs; }
 

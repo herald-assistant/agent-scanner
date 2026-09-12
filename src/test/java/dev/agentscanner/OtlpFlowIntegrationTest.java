@@ -103,6 +103,25 @@ class OtlpFlowIntegrationTest {
     }
 
     @Test
+    void readsSdkCacheWriteAndCountsRoundsAndToolsAcrossBatches() throws Exception {
+        for (var batch : CopilotTraceFixture.sdkBatches()) {
+            mvc.perform(post("/v1/traces").contentType("application/x-protobuf").content(batch.toByteArray()))
+                .andExpect(status().isOk());
+        }
+        long sessionId = store.sessionIdByConversationId("sdk-fixture-conversation").orElseThrow();
+        mvc.perform(get("/api/sessions"))
+            .andExpect(jsonPath("$[0].turnCount").value(2))
+            .andExpect(jsonPath("$[0].toolCount").value(1))
+            .andExpect(jsonPath("$[0].cacheCreationTokens").value(300));
+        mvc.perform(get("/api/sessions/{id}", sessionId))
+            .andExpect(jsonPath("$.spans", hasSize(4)))
+            .andExpect(jsonPath("$.session.turnCount").value(2))
+            .andExpect(jsonPath("$.session.toolCount").value(1))
+            .andExpect(jsonPath("$.spans[1].cacheCreationTokens").value(100))
+            .andExpect(jsonPath("$.spans[2].cacheCreationTokens").value(200));
+    }
+
+    @Test
     void acceptsGzipAndReturnsStandardEmptyProtobufResponse() throws Exception {
         byte[] compressed = gzip(CopilotTraceFixture.request().toByteArray());
         mvc.perform(post("/v1/traces")

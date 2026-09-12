@@ -127,6 +127,40 @@ describe('SessionPageComponent', () => {
     expect(component.interactions()[1].turns[0].tools).toEqual([secondTool]);
   });
 
+  it('shows SDK credits and cache write from old sessions whose normalized cache write is zero', () => {
+    const component = fixture.componentInstance;
+    const session = {id: 199, conversationId: 'sdk-session', agentName: 'github-copilot',
+      startedAt: '2026-01-01T10:00:00Z', endedAt: '2026-01-01T10:00:04Z', lastSeenAt: '2026-01-01T10:00:04Z',
+      inputTokens: 300, outputTokens: 30, cacheReadTokens: 100, cacheCreationTokens: 0,
+      reasoningTokens: 0, turnCount: 1, toolCount: 0, errorCount: 0, contentCaptured: true};
+    const makeChat = (id: number, at: string, input: number, cache: number | undefined, write: number, nano: number) => span({
+      id, spanId: `chat-${id}`, operationName: 'chat', startedAt: at, endedAt: at, model: 'sdk-model',
+      inputTokens: input, cacheReadTokens: cache ?? 0, cacheCreationTokens: 0, outputTokens: 15, durationMs: 1000,
+      attributesJson: JSON.stringify({'gen_ai.conversation.id': 'sdk-session', 'gen_ai.usage.input_tokens': input,
+        ...(cache === undefined ? {} : {'gen_ai.usage.cache_read.input_tokens': cache}), 'gen_ai.usage.output_tokens': 15,
+        'gen_ai.usage.cache_write.input_tokens': write, 'github.copilot.nano_aiu': nano})
+    });
+    (component as any).detailState.set({session, spans: [
+      span({id: 1, spanId: 'root', operationName: 'invoke_agent', startedAt: '2026-01-01T10:00:00Z',
+        attributesJson: JSON.stringify({'gen_ai.conversation.id': 'sdk-session', 'gen_ai.usage.input_tokens': 300,
+          'gen_ai.usage.cache_read.input_tokens': 100, 'gen_ai.usage.output_tokens': 30,
+          'github.copilot.turn_count': 2})}),
+      makeChat(2, '2026-01-01T10:00:01Z', 100, undefined, 100, 1_000_000_000),
+      makeChat(3, '2026-01-01T10:00:03Z', 200, 100, 200, 2_000_000_000)
+    ], messages: [], signals: []});
+
+    expect(component.costDashboard().totals.credits).toBe('3,00');
+    expect(component.sdkTelemetry()).toBe(true);
+    expect(component.costDashboard().totals.cacheWrite).toBe('300');
+    expect(component.costDashboard().totals.freshInput).toBe('200');
+    expect(component.costDashboard().totals.cacheRead).toBe('100');
+    expect(component.costDashboard().totals.tokenAggregateSource).toBe('z agregatu invoke_agent');
+    expect(component.costDashboard().breakdown[0]).toMatchObject({credits: '3,00', cacheWrite: '300', cacheRead: '100',
+      freshInput: '200', tokenAggregateSource: 'z agregatu invoke_agent',
+      creditCoverage: '2/2 wywołań z credits'});
+    expect(component.costDashboard().records.mostExpensive?.reference).toContain('runda 2');
+  });
+
   it('loads a compaction session created after the selected session ended', async () => {
     await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
     const mainSession = {

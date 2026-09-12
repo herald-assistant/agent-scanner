@@ -184,6 +184,24 @@ describe('WorkflowViewComponent', () => {
     expect(fixture.componentInstance.selected()).toBeTruthy();
   });
 
+  it('shows SDK window state on the map without changing request occupancy', async () => {
+    const model = span(1, {'gen_ai.conversation.id': 'root', 'gen_ai.usage.input_tokens': 100_425}, {
+      eventsJson: JSON.stringify([{name: 'github.copilot.session.usage_info', attributes: {
+        'github.copilot.current_tokens': 73_401, 'github.copilot.token_limit': 200_000}}])
+    });
+    const analysis = await new WorkflowAnalysisService().analyze(detail([model]), []);
+    fixture.componentRef.setInput('analysis', analysis);
+    fixture.detectChanges();
+
+    const round = fixture.componentInstance.columns()[0];
+    expect(known(round.occupancy)).toBeUndefined();
+    expect(known(round.sdkContext!)).toBeCloseTo(73_401 / 200_000);
+    expect(fixture.componentInstance.sdkContextMode()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.map-legend')?.textContent).toContain('Stan okna sesji z SDK');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.model-round-node .node-data')?.textContent).toContain('36,7%');
+    expect(fixture.componentInstance.roundLayerTooltip(round)).toContain('stanu okna SDK');
+  });
+
   it('keeps a one-round chart and node on the same fixed-width column without stretching svg geometry', async () => {
     fixture.componentRef.setInput('analysis', await new WorkflowAnalysisService().analyze(detail([chat(91)]), []));
     fixture.detectChanges();

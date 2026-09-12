@@ -14,6 +14,7 @@ export interface CostBreakdownRow {
   detail: string;
   freshInput: string;
   cacheRead: string;
+  tokenAggregateSource?: string;
   cacheWrite: string;
   output: string;
   duration: string;
@@ -31,6 +32,7 @@ export interface CostDashboardView {
   totals: {
     freshInput: string;
     cacheRead: string;
+    tokenAggregateSource?: string;
     cacheWrite: string;
     hasCacheWrite: boolean;
     output: string;

@@ -43,6 +43,7 @@ export interface RoundObservation {
   outputLimit: Metric;
   pressure: Metric;
   occupancy: Metric;
+  sdkContext?: Metric;
   deltaPressure: Metric;
   band: ContextBand;
   tools: ToolObservation[];

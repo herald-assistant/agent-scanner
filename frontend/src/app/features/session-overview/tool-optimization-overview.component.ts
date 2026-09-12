@@ -15,6 +15,7 @@ import {ToolDefinitionDialogComponent} from './tool-definition-dialog.component'
 export class ToolOptimizationOverviewComponent {
   private readonly dialog = inject(MatDialog);
   readonly overview = input.required<ToolUsageOverview>();
+  readonly sdkTelemetry = input(false);
   readonly expanded = signal(false);
   readonly activeTab = signal<'unused' | 'used'>('unused');
   readonly unusedRows = computed(() => this.overview().rows.filter(row => row.state !== 'used'));

@@ -1,5 +1,6 @@
 import {SessionDetail, SpanRecord} from '../../models/scanner.models';
 import {Metric, RoundObservation, ToolObservation} from '../../models/workflow.models';
+import {cacheWriteMetric, creditsMetric, sdkContextState} from '../copilot-telemetry';
 import {derived, known, measured, ordered, parse, ratio, record, spanRef, TelemetryReader, time, uniqueBytes} from './telemetry';
 
 export async function observeRounds(streamId: string, source: SessionDetail, spans: SpanRecord[], reader: TelemetryReader,
@@ -36,6 +37,14 @@ export async function observeRounds(streamId: string, source: SessionDetail, spa
     const p = known(promptLimit), o = known(outputLimit);
     const fullLimit = derived(p !== undefined && o !== undefined ? p + o : undefined, [promptLimit, outputLimit], 'Pmax + Omax');
     const pressure = ratio(input, promptLimit, 'I / Pmax', true), occupancy = ratio(input, fullLimit, 'I / (Pmax + Omax)', true);
+    const sdkState = sdkContextState(reader, model);
+    const sdkContext: Metric = {
+      value: sdkState ? sdkState.currentTokens / sdkState.tokenLimit : undefined,
+      availability: sdkState ? 'derived' : 'missing',
+      sourceAttributes: ['github.copilot.current_tokens', 'github.copilot.token_limit'],
+      evidenceRefs: [spanRef(model)],
+      formula: 'stan okna SDK: current_tokens / token_limit'
+    };
     const pressureValue = known(pressure);
     const refs = roundTools.map(tool => spanRef(tool.span));
     const results = roundTools.flatMap(tool => tool.result ? [tool.result] : []);
@@ -63,14 +72,14 @@ export async function observeRounds(streamId: string, source: SessionDetail, spa
       (!root || reader.events(root).filter(event => event['name'] === 'github.copilot.session.compaction_complete').every(event => Number.isFinite(eventTime(event))));
     const compactionRefs = eventSpans.filter(span => reader.events(span).some(event =>
       event['name'] === 'github.copilot.session.compaction_complete')).map(spanRef);
-    const nano = reader.metric(model, 'copilot_chat.copilot_usage_nano_aiu');
+    const nano = creditsMetric(reader, model);
     const credits = derived(known(nano) === undefined ? undefined : nano.value! / 1_000_000_000, [nano], 'nano AIU / 1 000 000 000');
     return {
       ref: spanRef(model), streamId, model: reader.string(model, 'gen_ai.response.model') ?? reader.string(model, 'gen_ai.request.model') ?? model.model,
       turn: {index: index + 1, interactionIndex: traceIds.indexOf(model.traceId) + 1, interactionTurnIndex: position + 1,
         interactionPrompt: prompt, interactionStartedAt: root?.startedAt, model, tools: roundTools.map(tool => tool.span), diagnostics},
-      sequence: '', orderKnown, input, cache, fresh, output, cacheWrite: reader.metric(model, 'gen_ai.usage.cache_creation.input_tokens'), credits,
-      promptLimit, outputLimit, pressure, occupancy, deltaPressure: derived(undefined, [], 'pressure(t) − pressure(t−1)'),
+      sequence: '', orderKnown, input, cache, fresh, output, cacheWrite: cacheWriteMetric(reader, model), credits,
+      promptLimit, outputLimit, pressure, occupancy, sdkContext, deltaPressure: derived(undefined, [], 'pressure(t) − pressure(t−1)'),
       band: pressureValue === undefined ? 'UNKNOWN' : pressureValue < .25 ? 'LOW' : pressureValue < .6 ? 'MODERATE' : pressureValue < .85 ? 'HIGH' : 'CRITICAL',
       tools: roundTools, toolCoverage, resultBytes, uniqueResultBytes, duplicateRatio: ratio(duplicateBytes, resultBytes, '(total − unique) / total'),
       distinctResults: new Set(results.filter(item => item.bytes > 0).map(item => item.hash)).size,

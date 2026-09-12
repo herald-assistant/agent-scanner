@@ -305,7 +305,7 @@
                     @if (!aiResult()) { <span class="cycle-route">{{ cycleFlowLabel(round) }}</span> }
                     <span class="node-data">
                       @if (layer() === 'context') {
-                        <span class="mini-bar"><i [style.width.%]="percent(round.occupancy)"></i></span><small>{{ known(round.occupancy) ? value(round.occupancy, '%') : 'brak danych' }}</small>
+                        <span class="mini-bar"><i [style.width.%]="percent(contextMetric(round))"></i></span><small>{{ known(contextMetric(round)) ? value(contextMetric(round), '%') : 'brak danych' }}</small>
                       }
                       @if (layer() === 'tokens') {
                         @if (known(round.cache) && known(round.fresh) && known(round.output)) {
@@ -336,7 +336,7 @@
       </div>
       <div class="map-legend">
         @if (layer() === 'tokens') { <span><i class="fresh-fill"></i> Nowy input</span><span><i class="cache-fill"></i> Input z cache</span><span><i class="output-fill"></i> Output</span> }
-        @else { <span>{{ layer() === 'context' ? 'Input / całe okno kontekstowe' : 'Wyemitowane credits' }}</span> }
+        @else { <span>{{ layer() === 'context' ? sdkContextMode() ? 'Stan okna sesji z SDK' : 'Input / całe okno kontekstowe' : 'Wyemitowane credits' }}</span> }
         <span class="legend-note">Kolejność kroków · szerokość nie oznacza czasu</span>
       </div>
       }

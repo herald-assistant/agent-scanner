@@ -22,6 +22,7 @@ import io.opentelemetry.proto.metrics.v1.ScopeMetrics;
 import io.opentelemetry.proto.metrics.v1.Sum;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public final class CopilotTraceFixture {
     public static final String CONVERSATION = "fixture-conversation-001";
@@ -89,6 +90,46 @@ public final class CopilotTraceFixture {
         return ExportTraceServiceRequest.newBuilder()
             .addResourceSpans(ResourceSpans.newBuilder().setResource(resource).addScopeSpans(scope))
             .build();
+    }
+
+    public static List<ExportTraceServiceRequest> sdkBatches() {
+        long start = 1_750_100_000_000_000_000L;
+        ByteString traceId = bytes("sdktrace00000001");
+        ByteString rootId = bytes("sdkroot1");
+        String conversation = "sdk-fixture-conversation";
+        Span root = Span.newBuilder().setTraceId(traceId).setSpanId(rootId).setName("invoke_agent github-copilot")
+            .setStartTimeUnixNano(start).setEndTimeUnixNano(start + 4_000_000_000L)
+            .addAttributes(string("gen_ai.operation.name", "invoke_agent"))
+            .addAttributes(string("gen_ai.conversation.id", conversation))
+            .addAttributes(number("gen_ai.usage.input_tokens", 300))
+            .addAttributes(number("gen_ai.usage.cache_write.input_tokens", 300))
+            .addAttributes(number("github.copilot.nano_aiu", 3_000_000_000L))
+            .addAttributes(number("github.copilot.turn_count", 2)).build();
+        Span first = Span.newBuilder().setTraceId(traceId).setSpanId(bytes("sdkchat1"))
+            .setParentSpanId(rootId).setName("chat sdk-model")
+            .setStartTimeUnixNano(start + 100_000_000L).setEndTimeUnixNano(start + 1_000_000_000L)
+            .addAttributes(string("gen_ai.operation.name", "chat"))
+            .addAttributes(string("gen_ai.conversation.id", conversation))
+            .addAttributes(number("gen_ai.usage.input_tokens", 100))
+            .addAttributes(number("gen_ai.usage.cache_write.input_tokens", 100))
+            .addAttributes(number("github.copilot.nano_aiu", 1_000_000_000L)).build();
+        Span second = Span.newBuilder().setTraceId(traceId).setSpanId(bytes("sdkchat2"))
+            .setParentSpanId(rootId).setName("chat sdk-model")
+            .setStartTimeUnixNano(start + 2_000_000_000L).setEndTimeUnixNano(start + 3_000_000_000L)
+            .addAttributes(string("gen_ai.operation.name", "chat"))
+            .addAttributes(string("gen_ai.conversation.id", conversation))
+            .addAttributes(number("gen_ai.usage.input_tokens", 200))
+            .addAttributes(number("gen_ai.usage.cache_write.input_tokens", 200))
+            .addAttributes(number("github.copilot.nano_aiu", 2_000_000_000L)).build();
+        Span tool = Span.newBuilder().setTraceId(traceId).setSpanId(bytes("sdktool1"))
+            .setParentSpanId(rootId).setName("execute_tool read")
+            .setStartTimeUnixNano(start + 3_100_000_000L).setEndTimeUnixNano(start + 3_200_000_000L)
+            .addAttributes(string("gen_ai.operation.name", "execute_tool"))
+            .addAttributes(string("gen_ai.conversation.id", conversation)).build();
+        Resource resource = Resource.newBuilder().addAttributes(string("service.name", "github-copilot")).build();
+        return List.of(List.of(root, first), List.of(second, tool)).stream().map(spans ->
+            ExportTraceServiceRequest.newBuilder().addResourceSpans(ResourceSpans.newBuilder()
+                .setResource(resource).addScopeSpans(ScopeSpans.newBuilder().addAllSpans(spans))).build()).toList();
     }
 
     public static ExportMetricsServiceRequest metricsRequest() {

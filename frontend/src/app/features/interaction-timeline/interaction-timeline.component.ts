@@ -4,6 +4,8 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
 import {episodeLaunches, sessionEpisodes} from '../../core/session-episodes';
+import {cacheWriteValue, creditsValue, inputCacheTotals, InputCacheTotals, sdkContextState} from '../../core/copilot-telemetry';
+import {TelemetryReader} from '../../core/workflow/telemetry';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 import {ContextCompactionDetailsComponent} from '../context-compaction/context-compaction-details.component';
 
@@ -38,6 +40,7 @@ export class InteractionTimelineComponent {
   readonly creditTooltip = input.required<string>();
   readonly contextMetricTooltip = 'Wartość wyliczona dla requestu: gen_ai.usage.input_tokens podzielone przez limit kontekstu, czyli max prompt + max output wyemitowane w telemetrii.';
   readonly freshInputMetricTooltip = 'Wartość wyliczona dla requestu: max(0, gen_ai.usage.input_tokens − gen_ai.usage.cache_read.input_tokens). Telemetria nie przypisuje jej do pojedynczych części requestu.';
+  readonly aggregateInputCacheTooltip = 'Suma z wyemitowanego agregatu invoke_agent, po sprawdzeniu zgodności liczby rund oraz sum inputu i outputu. Brak cache read pojedynczej rundy nadal pozostaje brakiem.';
   readonly outputMetricTooltip = 'Wartość gen_ai.usage.output_tokens wyemitowana w telemetrii dla odpowiedzi modelu.';
   readonly subagentFreshInputMetricTooltip = 'Suma inputu po odjęciu sumy cache read dla dokładnie powiązanych wywołań modelu subagenta.';
   readonly subagentOutputMetricTooltip = 'Suma gen_ai.usage.output_tokens z dokładnie powiązanych wywołań modelu subagenta.';
@@ -51,6 +54,7 @@ export class InteractionTimelineComponent {
   ));
 
   private readonly detailsPanel = inject(RoundDetailsPanelService);
+  private readonly telemetry = new TelemetryReader();
   private readonly attributeCache = new WeakMap<SpanRecord, Record<string, unknown>>();
   private readonly jsonAttributeCache = new WeakMap<SpanRecord, Map<string, unknown>>();
   private readonly standardNumberFormat = new Intl.NumberFormat('pl-PL');
@@ -180,12 +184,16 @@ export class InteractionTimelineComponent {
     return value == null ? '—' : this.callCreditFormat.format(value);
   }
 
-  interactionFreshInputTokens(interaction: UserInteraction): number {
-    return interaction.turns.reduce((sum, turn) => sum + this.freshInputTokens(turn.model), 0);
+  interactionFreshInputTokens(interaction: UserInteraction): number | undefined {
+    return this.interactionInputCache(interaction).freshInputTokens;
   }
 
-  interactionCacheReadTokens(interaction: UserInteraction): number {
-    return interaction.turns.reduce((sum, turn) => sum + turn.model.cacheReadTokens, 0);
+  interactionCacheReadTokens(interaction: UserInteraction): number | undefined {
+    return this.interactionInputCache(interaction).cacheReadTokens;
+  }
+
+  interactionInputCache(interaction: UserInteraction): InputCacheTotals {
+    return this.inputCacheForSpans(interaction.turns.map(turn => turn.model));
   }
 
   interactionOutputTokens(interaction: UserInteraction): number {
@@ -205,12 +213,12 @@ export class InteractionTimelineComponent {
 
   auxiliarySpans(): SpanRecord[] { return this.auxiliaryModelCalls().map(call => call.span); }
 
-  auxiliaryFreshInputTokens(): number {
-    return this.auxiliaryModelCalls().reduce((sum, call) => sum + this.freshInputTokens(call.span), 0);
+  auxiliaryFreshInputTokens(): number | undefined {
+    return this.sumFreshInput(this.auxiliaryModelCalls().map(call => call.span));
   }
 
-  auxiliaryCacheReadTokens(): number {
-    return this.auxiliaryModelCalls().reduce((sum, call) => sum + call.span.cacheReadTokens, 0);
+  auxiliaryCacheReadTokens(): number | undefined {
+    return this.sumCacheRead(this.auxiliaryModelCalls().map(call => call.span));
   }
 
   auxiliaryOutputTokens(): number {
@@ -221,7 +229,27 @@ export class InteractionTimelineComponent {
     return this.sumCredits(this.auxiliaryModelCalls().map(call => call.span));
   }
 
-  freshInputTokens(span: SpanRecord): number { return Math.max(0, span.inputTokens - span.cacheReadTokens); }
+  freshInputTokens(span: SpanRecord): number | undefined {
+    const input = this.numericAttribute(span, 'gen_ai.usage.input_tokens');
+    const cache = this.numericAttribute(span, 'gen_ai.usage.cache_read.input_tokens');
+    return input != null && cache != null && cache <= input ? input - cache : undefined;
+  }
+
+  aggregateTokenLabel(value?: number): string { return value === undefined ? '—' : this.compact(value); }
+
+  private sumFreshInput(spans: SpanRecord[]): number | undefined {
+    return this.inputCacheForSpans(spans).freshInputTokens;
+  }
+
+  private sumCacheRead(spans: SpanRecord[]): number | undefined {
+    return this.inputCacheForSpans(spans).cacheReadTokens;
+  }
+
+  private inputCacheForSpans(spans: SpanRecord[]): InputCacheTotals {
+    const ids = new Set(spans.map(span => span.id));
+    const sources = [this.detail(), ...this.relatedDetails()].filter(source => source.spans.some(span => ids.has(span.id)));
+    return inputCacheTotals(this.telemetry, spans, sources.flatMap(source => source.spans));
+  }
 
   roundTokenLabel(span: SpanRecord, kind: 'input' | 'cache' | 'fresh' | 'output'): string {
     const key = kind === 'cache' ? 'gen_ai.usage.cache_read.input_tokens'
@@ -239,14 +267,12 @@ export class InteractionTimelineComponent {
   }
 
   cacheWriteLabel(span: SpanRecord): string {
-    return this.hasCacheWriteTelemetry(span) ? this.compact(span.cacheCreationTokens) : '—';
+    const value = cacheWriteValue(this.telemetry, span);
+    return value === undefined ? '—' : this.compact(value);
   }
 
   spanCredits(span: SpanRecord): number | null {
-    const raw = this.attributes(span)['copilot_chat.copilot_usage_nano_aiu'];
-    if (raw == null || raw === '') return null;
-    const nanoAiu = Number(raw);
-    return Number.isFinite(nanoAiu) ? nanoAiu / 1_000_000_000 : null;
+    return creditsValue(this.telemetry, span) ?? null;
   }
 
   spanCreditsLabel(span: SpanRecord): string { return this.creditsLabel(this.spanCredits(span)); }
@@ -302,18 +328,29 @@ export class InteractionTimelineComponent {
   roundContextPercentLabel(turn: ModelTurn): string {
     const limit = this.contextWindowTokens(turn);
     const input = this.numericAttribute(turn.model, 'gen_ai.usage.input_tokens');
-    return limit && input != null ? `${this.percentFormat.format(input / limit * 100)}%` : '—';
+    if (limit && input != null) return `${this.percentFormat.format(input / limit * 100)}%`;
+    const sdk = sdkContextState(this.telemetry, turn.model);
+    return sdk ? `${this.percentFormat.format(sdk.currentTokens / sdk.tokenLimit * 100)}%` : '—';
+  }
+
+  hasSdkContextState(): boolean {
+    return this.turns().some(turn => sdkContextState(this.telemetry, turn.model) !== undefined);
   }
 
   roundContextLabel(turn: ModelTurn): string {
     const limit = this.contextWindowTokens(turn);
     const input = this.roundTokenLabel(turn.model, 'input');
-    return limit == null
-      ? `${input} · limit niewyemitowany`
-      : `${input} / ${this.compact(limit)}`;
+    if (limit != null && this.numericAttribute(turn.model, 'gen_ai.usage.input_tokens') != null)
+      return `${input} / ${this.compact(limit)}`;
+    const sdk = sdkContextState(this.telemetry, turn.model);
+    return sdk ? `${this.compact(sdk.currentTokens)} / ${this.compact(sdk.tokenLimit)} · stan okna SDK`
+      : limit == null ? `${input} · limit niewyemitowany` : `${input} / ${this.compact(limit)}`;
   }
 
   roundContextTooltip(turn: ModelTurn): string {
+    const sdk = sdkContextState(this.telemetry, turn.model);
+    if ((this.contextWindowTokens(turn) == null || this.numericAttribute(turn.model, 'gen_ai.usage.input_tokens') == null) && sdk)
+      return `Stan okna SDK wyemitowany w zdarzeniu github.copilot.session.usage_info: ${this.compact(sdk.currentTokens)} z ${this.compact(sdk.tokenLimit)} tokenów. Nie jest to udział tokenów bieżącego requestu.`;
     return `${this.contextMetricTooltip} Dane dla tego requestu: ${this.roundContextLabel(turn)} tokenów.`;
   }
 
@@ -339,16 +376,16 @@ export class InteractionTimelineComponent {
     return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.inputTokens, 0);
   }
 
-  subagentFreshInputTokens(tool: SpanRecord): number {
-    return Math.max(0, this.subagentInputTokens(tool) - this.subagentCacheReadTokens(tool));
+  subagentFreshInputTokens(tool: SpanRecord): number | undefined {
+    return this.sumFreshInput(this.subagentModelCalls(tool));
   }
 
   subagentOutputTokens(tool: SpanRecord): number {
     return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.outputTokens, 0);
   }
 
-  subagentCacheReadTokens(tool: SpanRecord): number {
-    return this.subagentModelCalls(tool).reduce((sum, span) => sum + span.cacheReadTokens, 0);
+  subagentCacheReadTokens(tool: SpanRecord): number | undefined {
+    return this.sumCacheRead(this.subagentModelCalls(tool));
   }
 
   subagentCredits(tool: SpanRecord): number | null { return this.sumCredits(this.subagentModelCalls(tool)); }
@@ -437,8 +474,7 @@ export class InteractionTimelineComponent {
   }
 
   private hasCacheWriteTelemetry(span: SpanRecord): boolean {
-    return Object.prototype.hasOwnProperty.call(
-      this.attributes(span), 'gen_ai.usage.cache_creation.input_tokens');
+    return cacheWriteValue(this.telemetry, span) !== undefined;
   }
 
   private numericAttribute(span: SpanRecord, key: string): number | null {

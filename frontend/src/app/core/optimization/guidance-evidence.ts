@@ -333,15 +333,20 @@ function compactMetric(metric: Metric): {
 }
 
 async function compactionMetricObservations(stream: WorkflowStream, span: SpanRecord, compaction: ContextCompactionMeasurement): Promise<GuidanceObservation[]> {
+  const attributes = record(parse(span.attributesJson));
+  const cacheWriteAttribute = Object.hasOwn(attributes, 'gen_ai.usage.cache_creation.input_tokens')
+    ? 'gen_ai.usage.cache_creation.input_tokens' : 'gen_ai.usage.cache_write.input_tokens';
+  const creditsAttribute = Object.hasOwn(attributes, 'copilot_chat.copilot_usage_nano_aiu')
+    ? 'copilot_chat.copilot_usage_nano_aiu' : 'github.copilot.nano_aiu';
   const metrics: [string, number | undefined, string, GuidanceObservation['provenance'], string | null, string][] = [
     ['COMPACTION_INPUT_TOKENS', compaction.inputTokens, 'token', 'EMITTED', null, 'gen_ai.usage.input_tokens'],
     ['COMPACTION_FRESH_INPUT_TOKENS', compaction.freshInputTokens, 'token', 'DERIVED', 'max(0, inputTokens - cacheReadTokens)', 'gen_ai.usage.input_tokens, gen_ai.usage.cache_read.input_tokens'],
     ['COMPACTION_CACHE_READ_TOKENS', compaction.cacheReadTokens, 'token', 'EMITTED', null, 'gen_ai.usage.cache_read.input_tokens'],
-    ['COMPACTION_CACHE_WRITE_TOKENS', compaction.cacheWriteTokens, 'token', 'EMITTED', null, 'gen_ai.usage.cache_creation.input_tokens'],
+    ['COMPACTION_CACHE_WRITE_TOKENS', compaction.cacheWriteTokens, 'token', 'EMITTED', null, cacheWriteAttribute],
     ['COMPACTION_OUTPUT_TOKENS', compaction.outputTokens, 'token', 'EMITTED', null, 'gen_ai.usage.output_tokens'],
     ['COMPACTION_REASONING_TOKENS', compaction.reasoningTokens, 'token', 'EMITTED', null, 'gen_ai.usage.reasoning.output_tokens | gen_ai.usage.reasoning_tokens'],
     ['COMPACTION_DURATION', compaction.durationMs, 'millisecond', 'DERIVED', 'endedAt - startedAt', 'span.start_time, span.end_time'],
-    ['COMPACTION_CREDITS', compaction.credits, 'credit', 'DERIVED', 'nano AIU / 1 000 000 000', 'copilot_chat.copilot_usage_nano_aiu']
+    ['COMPACTION_CREDITS', compaction.credits, 'credit', 'DERIVED', 'nano AIU / 1 000 000 000', creditsAttribute]
   ];
   return Promise.all(metrics.map(([kind, value, unit, provenance, formula, attribute], index) =>
     normalizedMetricObservation(`${compaction.id}:metric:${index + 1}`, kind, stream, span, compaction.id, null,

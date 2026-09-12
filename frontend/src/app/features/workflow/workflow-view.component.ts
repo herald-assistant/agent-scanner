@@ -523,6 +523,11 @@ export class WorkflowViewComponent {
   readonly chartWidth = computed(() => Math.max(1, this.mapColumnCount()) * 88);
   readonly chartRowHeight = 112;
   readonly layerChartHeight = computed(() => this.layer() === 'tokens' ? this.layerChart().series.length * this.chartRowHeight : this.chartRowHeight);
+  readonly sdkContextMode = computed(() => {
+    const rounds = this.lanes()[0]?.rounds ?? [];
+    return rounds.length > 0 && rounds.every(round => known(round.occupancy) === undefined)
+      && rounds.some(round => round.sdkContext && known(round.sdkContext) !== undefined);
+  });
   readonly delegationEdges = computed(() => this.lanes().slice(1).flatMap((lane, index) => {
     const parentRound = this.columns().find(round => round.ref === lane.stream.launchRoundRef);
     const first = lane.rounds[0], last = lane.rounds.at(-1);
@@ -539,11 +544,15 @@ export class WorkflowViewComponent {
   readonly layerChart = computed<LayerChart>(() => {
     if (this.layer() === 'context') {
       const rounds = this.lanes()[0].rounds;
+      const sdk = this.sdkContextMode();
       return {
-        title: 'Okno kontekstowe', scope: 'Główny agent', unit: 'Input / całe okno',
-        ariaLabel: 'Zajęcie okna kontekstowego w kolejnych rundach głównego agenta; przerwy oznaczają brak danych lub granicę sekwencji',
-        series: [this.directSeries('context', 'Zajęcie okna', 'context-series', rounds, round => known(round.occupancy), 1, value => this.percentLabel(value), true)],
-        missingX: rounds.filter(round => known(round.occupancy) === undefined).map(round => this.x(round)), showPointLabels: true
+        title: 'Okno kontekstowe', scope: 'Główny agent', unit: sdk ? 'Stan okna SDK' : 'Input / całe okno',
+        ariaLabel: sdk
+          ? 'Stan okna sesji wyemitowany przez SDK w kolejnych rundach; przerwy oznaczają brak danych lub granicę sekwencji'
+          : 'Zajęcie okna kontekstowego w kolejnych rundach głównego agenta; przerwy oznaczają brak danych lub granicę sekwencji',
+        series: [this.directSeries('context', sdk ? 'Stan okna SDK' : 'Zajęcie okna', 'context-series', rounds,
+          round => known(this.contextMetric(round)), 1, value => this.percentLabel(value), true)],
+        missingX: rounds.filter(round => known(this.contextMetric(round)) === undefined).map(round => this.x(round)), showPointLabels: true
       };
     }
     if (this.layer() === 'credits') {
@@ -576,6 +585,12 @@ export class WorkflowViewComponent {
   value(metric: Metric, unit = ''): string {
     if (metric.value === undefined) return '—';
     return this.numberFormat.format(metric.value * (unit === '%' ? 100 : 1)) + (unit === '%' ? '%' : '');
+  }
+  contextMetric(round: RoundObservation): Metric {
+    return this.sdkContextMode() ? round.sdkContext ?? {
+      availability: 'missing', sourceAttributes: ['github.copilot.current_tokens', 'github.copilot.token_limit'],
+      evidenceRefs: [round.ref]
+    } : round.occupancy;
   }
   compact(value?: number | null): string { return value == null ? '—' : this.compactFormat.format(value); }
   credits(value: number): string { return this.numberFormat.format(value); }
@@ -633,7 +648,7 @@ export class WorkflowViewComponent {
   phaseMetricLabel(phase: AggregatedPhase): string {
     if (this.layer() === 'credits') return phase.compaction ? 'Credits kompaktowania' : 'Credits wywołań w fazie';
     if (this.layer() === 'tokens') return phase.compaction ? 'Input / output' : 'Input / output fazy';
-    return phase.compaction ? 'Input przed → po' : 'Maks. okno w fazie';
+    return phase.compaction ? 'Input przed → po' : this.sdkContextMode() ? 'Maks. stan okna SDK' : 'Maks. okno w fazie';
   }
   phaseMetricValue(phase: AggregatedPhase): string {
     if (this.layer() === 'credits') return phase.credits === null ? '—' : this.credits(phase.credits);
@@ -647,7 +662,7 @@ export class WorkflowViewComponent {
         ? `${this.compact(phase.compaction.beforeInputTokens)} → ${this.compact(phase.compaction.afterInputTokens)}`
         : '—';
     }
-    const occupancy = phase.rounds.map(round => known(round.occupancy)).filter((value): value is number => value !== undefined);
+    const occupancy = phase.rounds.map(round => known(this.contextMetric(round))).filter((value): value is number => value !== undefined);
     return occupancy.length ? this.percentLabel(Math.max(...occupancy)) : '—';
   }
   phaseMetricCoverage(phase: AggregatedPhase): string | undefined {
@@ -658,7 +673,7 @@ export class WorkflowViewComponent {
       return covered < phase.totalCalls ? `${covered}/${phase.totalCalls} wywołań` : undefined;
     }
     if (phase.compaction) return undefined;
-    const covered = phase.rounds.filter(round => known(round.occupancy) !== undefined).length;
+    const covered = phase.rounds.filter(round => known(this.contextMetric(round)) !== undefined).length;
     return covered < phase.totalCalls ? `${covered}/${phase.totalCalls} wywołań` : undefined;
   }
   phaseMetricTooltip(phase: AggregatedPhase): string {
@@ -670,7 +685,9 @@ export class WorkflowViewComponent {
     }
     return phase.compaction
       ? 'Zmierzony input przed kompaktowaniem i input późniejszego requestu, w którym potwierdzono użycie wyniku. Brak potwierdzonego odbioru pozostaje oznaczony jako brak danych.'
-      : 'Największe zmierzone zajęcie pełnego okna kontekstowego w rundach tej fazy. Procent oznacza input podzielony przez limit promptu i maksymalny output.';
+      : this.sdkContextMode()
+        ? 'Największy stan okna sesji wyemitowany przez SDK w rundach tej fazy: current_tokens / token_limit. To osobna metryka, a nie udział inputu bieżącego requestu.'
+        : 'Największe zmierzone zajęcie pełnego okna kontekstowego w rundach tej fazy. Procent oznacza input podzielony przez limit promptu i maksymalny output.';
   }
   percent(metric: Metric): number { return Math.min(100, Math.max(0, (known(metric) ?? 0) * 100)); }
   known(metric: Metric): boolean { return known(metric) !== undefined; }
@@ -724,7 +741,9 @@ export class WorkflowViewComponent {
   y(value: number): number { return 92 - value * 70; }
   roundLayerTooltip(round: RoundObservation): string {
     const description = this.roundDescription(round);
-    if (this.layer() === 'context') return `${description} · ${known(round.occupancy) !== undefined ? this.value(round.occupancy, '%') + ' okna kontekstowego' : 'brak pomiaru okna kontekstowego'}`;
+    if (this.layer() === 'context') return `${description} · ${known(this.contextMetric(round)) !== undefined
+      ? this.value(this.contextMetric(round), '%') + (this.sdkContextMode() ? ' stanu okna SDK' : ' okna kontekstowego')
+      : 'brak pomiaru okna kontekstowego'}`;
     if (this.layer() === 'credits') return `${description} · ${known(round.credits) !== undefined ? this.value(round.credits) + ' credits tego wywołania' : 'brak pomiaru credits'}`;
     const measurements: [string, number | undefined][] = [
       ['nowy input', known(round.fresh)], ['cache read', known(round.cache)], ['output', known(round.output)], ['cache write', known(round.cacheWrite)]

@@ -1,6 +1,7 @@
 import {ContextCompactionMeasurement, MessageRecord, ModelTurn, SessionDetail, SpanRecord} from '../models/scanner.models';
 import {capturedMessages, modelResponse} from './model-response';
 import {isContextCompactionAgentName} from './auxiliary-model-calls';
+import {cacheWriteMetric, creditsMetric} from './copilot-telemetry';
 import {known, parse, record, TelemetryReader, time} from './workflow/telemetry';
 
 const receiptMatchThreshold = .8;
@@ -77,7 +78,7 @@ export function findContextCompactions(
         known(reader.metric(span, 'gen_ai.usage.reasoning.output_tokens')),
         known(reader.metric(span, 'gen_ai.usage.reasoning_tokens'))
       ].filter((value): value is number => value != null);
-      const nanoAiu = known(reader.metric(span, 'copilot_chat.copilot_usage_nano_aiu'));
+      const nanoAiu = known(creditsMetric(reader, span));
       return [{
         id: `${detail.session.id}/${span.id}`,
         sessionId: detail.session.id,
@@ -90,7 +91,7 @@ export function findContextCompactions(
         inputTokens,
         freshInputTokens: inputTokens != null && cacheReadTokens != null ? Math.max(0, inputTokens - cacheReadTokens) : undefined,
         cacheReadTokens,
-        cacheWriteTokens: known(reader.metric(span, 'gen_ai.usage.cache_creation.input_tokens')),
+        cacheWriteTokens: known(cacheWriteMetric(reader, span)),
         outputTokens: known(reader.metric(span, 'gen_ai.usage.output_tokens')),
         reasoningTokens: emittedReasoning.length ? Math.max(...emittedReasoning) : undefined,
         credits: nanoAiu == null ? undefined : nanoAiu / 1_000_000_000,

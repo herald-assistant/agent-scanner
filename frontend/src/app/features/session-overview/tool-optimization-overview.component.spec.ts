@@ -25,6 +25,17 @@ describe('ToolOptimizationOverviewComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('uses SDK-specific tool guidance for SDK telemetry', () => {
+    fixture.componentRef.setInput('overview', overview());
+    fixture.componentRef.setInput('sdkTelemetry', true);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.expand-toggle')!.click();
+    fixture.detectChanges();
+    const explanation = (fixture.nativeElement as HTMLElement).querySelector('.unused-explanation')?.textContent ?? '';
+    expect(explanation).toContain('agenta uruchamianego przez SDK');
+    expect(explanation).not.toContain('VS Code');
+  });
+
   it('separates unused and used tools into tabs with contextual guidance', () => {
     fixture.componentRef.setInput('overview', overview());
     fixture.detectChanges();

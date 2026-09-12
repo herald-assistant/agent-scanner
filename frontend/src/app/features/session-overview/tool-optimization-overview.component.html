@@ -29,7 +29,7 @@
           @if (activeTab() === 'unused') {
             <div class="tab-explanation unused-explanation">
               <mat-icon aria-hidden="true">tune</mat-icon>
-              <p><strong>Dlaczego warto to sprawdzić?</strong> Definicje narzędzi dostępnych w sesji są przekazywane do modelu jako część inputu. Tokeny tej treści są uwzględniane w naliczaniu zużycia GitHub Copilot AI credits. Jeśli narzędzie nie jest potrzebne dla danego typu pracy, możesz wyłączyć je w konsoli pracy z agentem w VS Code albo ograniczyć konfigurację definicji agenta przez listę tools i używanych toolsetów.</p>
+              <p><strong>Dlaczego warto to sprawdzić?</strong> Definicje narzędzi dostępnych w sesji są przekazywane do modelu jako część inputu. Tokeny tej treści są uwzględniane w naliczaniu zużycia GitHub Copilot AI credits. @if (sdkTelemetry()) {Jeśli narzędzie nie jest potrzebne dla danego typu pracy, sprawdź konfigurację narzędzi agenta uruchamianego przez SDK.} @else {Jeśli narzędzie nie jest potrzebne dla danego typu pracy, możesz wyłączyć je w konsoli pracy z agentem w VS Code albo ograniczyć konfigurację definicji agenta przez listę tools i używanych toolsetów.}</p>
             </div>
           } @else {
             <div class="tab-explanation used-explanation">

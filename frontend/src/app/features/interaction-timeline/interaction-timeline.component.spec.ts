@@ -311,6 +311,52 @@ describe('InteractionTimelineComponent', () => {
     expect(values).toEqual(['—', '640']);
   });
 
+  it('uses SDK credits, cache write and the separate context event for an SDK round', () => {
+    const model = span({id: 199, spanId: 'sdk-chat', attributesJson: JSON.stringify({
+      'gen_ai.usage.input_tokens': 100_425, 'github.copilot.nano_aiu': 5_427_230_000,
+      'gen_ai.usage.cache_write.input_tokens': 13_419
+    }), eventsJson: JSON.stringify([{name: 'github.copilot.session.usage_info', attributes: {
+      'github.copilot.current_tokens': 73_401, 'github.copilot.token_limit': 200_000}}])});
+    const turn = {index: 1, model, tools: []};
+    expect(component.spanCredits(model)).toBe(5.42723);
+    expect(component.cacheWriteLabel(model)).toBe(component.compact(13_419));
+    expect(component.roundContextPercentLabel(turn)).toBe('36,7%');
+    expect(component.roundContextTooltip(turn)).toContain('Stan okna SDK');
+    expect(component.roundContextTooltip(turn)).toContain('Nie jest to udział tokenów bieżącego requestu');
+    expect(component.aggregateTokenLabel(component.interactionFreshInputTokens({index: 1, traceId: 'trace', prompt: 'x', turns: [turn]}))).toBe('—');
+    expect(component.aggregateTokenLabel(component.interactionCacheReadTokens({index: 1, traceId: 'trace', prompt: 'x', turns: [turn]}))).toBe('—');
+  });
+
+  it('shows the verified SDK root aggregate in the interaction summary only', () => {
+    const root = span({id: 10, spanId: 'root', operationName: 'invoke_agent', attributesJson: JSON.stringify({
+      'gen_ai.conversation.id': 'sdk', 'gen_ai.usage.input_tokens': 300,
+      'gen_ai.usage.cache_read.input_tokens': 100, 'gen_ai.usage.output_tokens': 30,
+      'github.copilot.turn_count': 2})});
+    const first = span({id: 11, spanId: 'first', inputTokens: 100, outputTokens: 10,
+      startedAt: '2026-01-01T10:00:01Z', endedAt: '2026-01-01T10:00:02Z', attributesJson: JSON.stringify({
+        'gen_ai.conversation.id': 'sdk', 'gen_ai.usage.input_tokens': 100, 'gen_ai.usage.output_tokens': 10})});
+    const second = span({id: 12, spanId: 'second', inputTokens: 200, cacheReadTokens: 100, outputTokens: 20,
+      startedAt: '2026-01-01T10:00:03Z', endedAt: '2026-01-01T10:00:04Z', attributesJson: JSON.stringify({
+        'gen_ai.conversation.id': 'sdk', 'gen_ai.usage.input_tokens': 200,
+        'gen_ai.usage.cache_read.input_tokens': 100, 'gen_ai.usage.output_tokens': 20})});
+    const turns = [first, second].map((model, index) => ({index: index + 1, interactionIndex: 1,
+      interactionTurnIndex: index + 1, model, tools: []}));
+    const interaction = {index: 1, traceId: 'trace', prompt: 'test', turns};
+    fixture.componentRef.setInput('detail', {...detail(), spans: [root, first, second]});
+    fixture.componentRef.setInput('turns', turns);
+    fixture.componentRef.setInput('interactions', [interaction]);
+    fixture.detectChanges();
+
+    expect(component.interactionFreshInputTokens(interaction)).toBe(200);
+    expect(component.interactionCacheReadTokens(interaction)).toBe(100);
+    expect(component.interactionInputCache(interaction).aggregateFallbacks).toBe(1);
+    expect(component.roundTokenLabel(first, 'cache')).toBe('—');
+    const marker = fixture.nativeElement.querySelector('.interaction-marker') as HTMLElement;
+    expect(marker.querySelector('.fresh')?.textContent).toContain('200');
+    expect(marker.querySelector('.cache')?.textContent).toContain('100');
+    expect(marker.querySelector('[aria-label="Źródło sumy tokenów interakcji"]')).not.toBeNull();
+  });
+
   it('does not reserve a cache write column when no round emitted the metric', () => {
     fixture.componentRef.setInput('turns', [{index: 1, model: span(), tools: []}]);
     fixture.detectChanges();

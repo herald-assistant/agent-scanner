@@ -523,7 +523,8 @@ public final class OptimizationAdvicePreparationService {
             case "INPUT_TOKENS", "COMPACTION_INPUT_TOKENS", "CONTEXT_BEFORE_COMPACTION", "CONTEXT_AFTER_COMPACTION" ->
                     emitted(attributes, "gen_ai.usage.input_tokens");
             case "CACHE_READ_TOKENS", "COMPACTION_CACHE_READ_TOKENS" -> emitted(attributes, "gen_ai.usage.cache_read.input_tokens");
-            case "CACHE_WRITE_TOKENS", "COMPACTION_CACHE_WRITE_TOKENS" -> emitted(attributes, "gen_ai.usage.cache_creation.input_tokens");
+            case "CACHE_WRITE_TOKENS", "COMPACTION_CACHE_WRITE_TOKENS" -> emittedFallback(attributes,
+                    "gen_ai.usage.cache_creation.input_tokens", "gen_ai.usage.cache_write.input_tokens");
             case "OUTPUT_TOKENS", "COMPACTION_OUTPUT_TOKENS" -> emitted(attributes, "gen_ai.usage.output_tokens");
             case "COMPACTION_REASONING_TOKENS" -> maximum(
                     emitted(attributes, "gen_ai.usage.reasoning.output_tokens"),
@@ -531,7 +532,8 @@ public final class OptimizationAdvicePreparationService {
             case "FRESH_INPUT_TOKENS", "COMPACTION_FRESH_INPUT_TOKENS" -> difference(
                     emitted(attributes, "gen_ai.usage.input_tokens"),
                     emitted(attributes, "gen_ai.usage.cache_read.input_tokens"));
-            case "CREDITS", "COMPACTION_CREDITS" -> divide(emitted(attributes, "copilot_chat.copilot_usage_nano_aiu"), 1_000_000_000d);
+            case "CREDITS", "COMPACTION_CREDITS" -> divide(emittedFallback(attributes,
+                    "copilot_chat.copilot_usage_nano_aiu", "github.copilot.nano_aiu"), 1_000_000_000d);
             case "CONTEXT_OCCUPANCY" -> divide(emitted(attributes, "gen_ai.usage.input_tokens"),
                     add(emitted(attributes, "copilot_chat.request.max_prompt_tokens"), emitted(attributes, "gen_ai.request.max_tokens")));
             case "COMPACTION_DURATION" -> source.durationMs();
@@ -739,6 +741,9 @@ public final class OptimizationAdvicePreparationService {
             catch (NumberFormatException ignored) { return null; }
         }
         return null;
+    }
+    private Double emittedFallback(JsonNode attributes, String primary, String fallback) {
+        return attributes.has(primary) ? emitted(attributes, primary) : emitted(attributes, fallback);
     }
     private Double difference(Double left, Double right) { return left == null || right == null ? null : Math.max(0, left - right); }
     private Double add(Double left, Double right) { return left == null || right == null ? null : left + right; }

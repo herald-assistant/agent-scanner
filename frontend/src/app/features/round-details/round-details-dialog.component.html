@@ -90,7 +90,7 @@
           </span>
           <span class="response-metric reasoning">
             <small>REASONING <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Treść reasoning z telemetrii" [matTooltip]="responseReasoningTooltip()" matTooltipClass="scanner-reasoning-tooltip" matTooltipPosition="above">info</mat-icon></small>
-            <strong>{{ compact(responseReasoningTokens()) }}</strong>
+            <strong>{{ responseReasoningLabel() }}</strong>
             <em>praca wewnętrzna modelu</em>
           </span>
           <span class="response-metric latency">
