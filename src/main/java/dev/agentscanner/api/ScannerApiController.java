@@ -60,19 +60,27 @@ public class ScannerApiController {
 
     @GetMapping("/sessions")
     public List<Map<String, Object>> sessions() {
-        return ApiView.rows(store.sessions());
+        Map<Long, List<String>> resources = store.sessionResourceAttributes();
+        return store.sessions().stream().map(row -> sessionView(row,
+            resources.getOrDefault(((Number) row.get("ID")).longValue(), List.of()))).toList();
     }
 
     @GetMapping("/sessions/{id}")
     public ResponseEntity<Map<String, Object>> session(@PathVariable long id) {
         return store.session(id).map(session -> {
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("session", ApiView.row(session));
+            result.put("session", sessionView(session, store.sessionResourceAttributes(id)));
             result.put("spans", ApiView.rows(store.spans(id)));
             result.put("messages", ApiView.rows(store.messages(id)));
             result.put("signals", ApiView.rows(store.signals(id)));
             return ResponseEntity.ok(result);
         }).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private Map<String, Object> sessionView(Map<String, Object> row, List<String> resources) {
+        Map<String, Object> result = ApiView.row(row);
+        SessionSourceView.addTo(result, resources, mapper);
+        return result;
     }
 
     @GetMapping(value = "/sessions/{id}/export", produces = MediaType.APPLICATION_JSON_VALUE)

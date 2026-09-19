@@ -1,8 +1,7 @@
 # Agent Scanner
 
 Agent Scanner jest lokalnym odbiornikiem i przeglądarką telemetrii OpenTelemetry
-emitowanej przez agentów GitHub Copilot. Obsługuje OTLP/HTTP z VS Code oraz wtyczki
-GitHub Copilot dla IDE JetBrains, w tym IntelliJ IDEA.
+emitowanej przez agentów GitHub Copilot w VS Code.
 
 Aplikacja nie jest proxy dla modelu, nie skanuje repozytorium i nie rekonstruuje
 danych, których runtime nie wyemitował. Zachowuje natomiast surowy sygnał OTLP,
@@ -22,7 +21,7 @@ Po uruchomieniu otwórz `http://localhost:8081`.
 
 ## Podłączenie GitHub Copilot
 
-Scanner przyjmuje OTLP/HTTP pod adresem `http://localhost:8081`. W obu IDE należy
+Scanner przyjmuje OTLP/HTTP pod adresem `http://localhost:8081`. W VS Code należy
 włączyć przechwytywanie treści, jeżeli UI ma pokazywać prompty, odpowiedzi modelu,
 definicje narzędzi oraz argumenty tool calli.
 
@@ -47,30 +46,6 @@ definicje narzędzi oraz argumenty tool calli.
 To jest kompletny, poprawny obiekt JSON. Jeżeli `settings.json` ma już inne
 właściwości, przenieś do niego same pary klucz–wartość bez tworzenia drugiego
 obiektu głównego.
-
-### IntelliJ IDEA i pozostałe IDE JetBrains
-
-1. Zaktualizuj wtyczkę GitHub Copilot do wersji udostępniającej konfigurację
-   OpenTelemetry.
-2. Otwórz `File → Settings → Tools → GitHub Copilot → Chat → OpenTelemetry`.
-3. Włącz eksport OpenTelemetry.
-4. Ustaw collector endpoint na `http://localhost:8081`.
-5. Wybierz protokół `http/protobuf` (OTLP przez HTTP, protobuf).
-6. Włącz `Capture content`, aby Scanner otrzymywał treść promptów, odpowiedzi i
-   argumentów narzędzi.
-7. Pozostaw service name i dodatkowe resource attributes bez zmian, o ile nie są
-   potrzebne do własnej identyfikacji źródła.
-8. Zastosuj ustawienia i rozpocznij nową interakcję z agentem Copilot.
-
-Jeżeli sekcja `OpenTelemetry` nie jest widoczna, najpierw zaktualizuj wtyczkę
-GitHub Copilot. Scanner obsługuje transport OTLP/HTTP niezależnie od IDE, ale
-normalizacja pól domenowych jest najlepiej pokryta fixture'em kontraktu VS Code.
-Jeśli konkretna wersja wtyczki JetBrains emituje inny zestaw atrybutów, surowe
-dane nadal będą dostępne w zakładce „Dane techniczne” i mogą posłużyć do dodania
-nowego fixture'a.
-
-GitHub opisuje ustawienia JetBrains w sekcji
-[`Settings → Tools → GitHub Copilot → Chat → OpenTelemetry`](https://github.blog/changelog/2026-08-18-enterprise-managed-settings-in-github-copilot-for-jetbrains/).
 
 ### Sprawdzenie połączenia
 
@@ -371,7 +346,7 @@ Kompletny kontekst do dalszego rozwoju: [Kontynuacja projektu](docs/kontynuacja/
 ## Architektura
 
 ```text
-VS Code / IntelliJ GitHub Copilot
+GitHub Copilot w VS Code
             │ OTLP/HTTP
             ▼
        OtlpController
@@ -508,7 +483,6 @@ sprawdzić w raw OTLP, a następnie utrwalić w zanonimizowanym teście regresyj
 ## Dokumentacja źródłowa
 
 - [VS Code: Monitor agent usage with OpenTelemetry](https://code.visualstudio.com/docs/agents/guides/monitoring-agents)
-- [GitHub Copilot for JetBrains: OpenTelemetry configuration](https://github.blog/changelog/2026-08-18-enterprise-managed-settings-in-github-copilot-for-jetbrains/)
 - [GitHub Copilot OpenTelemetry concepts](https://docs.github.com/en/copilot/concepts/agents/opentelemetry)
 - [OTLP specification](https://opentelemetry.io/docs/specs/otlp/)
 - [VS Code: Diagnose prompt caching with Cache Explorer](https://code.visualstudio.com/docs/agents/agent-troubleshooting/cache-explorer)

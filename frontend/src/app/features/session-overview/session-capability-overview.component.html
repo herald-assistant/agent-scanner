@@ -1,0 +1,238 @@
+<section class="overview-intro">
+  <div>
+    <span class="eyebrow">ADOPCJA AGENTA AI</span>
+    <h2>Poziom adopcji agenta AI w tej sesji</h2>
+    <p>Zobacz, które mechanizmy pracy agentowej były skonfigurowane i faktycznie wykorzystane oraz gdzie pozostają luki adopcji.</p>
+  </div>
+  @if (!analysis().contentCaptured || !analysis().systemInstructionsObserved) {
+    <p class="capture-warning"><mat-icon>warning</mat-icon><span><strong>Niepełne dane.</strong>
+      @if (!analysis().contentCaptured) { Pełna treść nie została przechwycona. }
+      @else { Brak system instructions w odebranej telemetrii. }
+    </span></p>
+  }
+</section>
+
+<section class="summary-strip" aria-label="Najważniejsze dane adopcji sesji">
+  <article
+    [class.gap]="analysis().systemInstructionsObserved && analysis().instructions.length === 0"
+    [class.attention]="analysis().instructions.length > 0 && appliedInstructions().length === 0"
+    [class.positive]="appliedInstructions().length > 0">
+    <span>Instrukcje</span>
+    <strong>{{ analysis().instructions.length }}</strong>
+    <small>rozpoznane w kontekście</small>
+  </article>
+  <article
+    [class.gap]="analysis().systemInstructionsObserved && workspaceSkills().length === 0"
+    [class.attention]="workspaceSkills().length > 0 && usedWorkspaceSkills().length === 0"
+    [class.positive]="usedWorkspaceSkills().length > 0">
+    <span>Skille repozytorium</span>
+    <strong>{{ usedWorkspaceSkills().length }} / {{ workspaceSkills().length }}</strong>
+    <small>użyte / dostępne w repo</small>
+  </article>
+  <article
+    [class.gap]="analysis().systemInstructionsObserved && analysis().customAgents.length === 0"
+    [class.attention]="analysis().customAgents.length > 0 && usedAgents().length === 0"
+    [class.positive]="usedAgents().length > 0">
+    <span>Custom agents</span>
+    <strong>{{ usedAgents().length }} / {{ analysis().customAgents.length }}</strong>
+    <small>użyte / dostępne</small>
+  </article>
+  <article
+    [class.gap]="analysis().contentCaptured && analysis().mcp.availableTools.length === 0"
+    [class.attention]="analysis().mcp.availableTools.length > 0 && analysis().mcp.executionCount === 0"
+    [class.positive]="analysis().mcp.executionCount > 0">
+    <span>MCP</span>
+    <strong>{{ analysis().mcp.usedTools.length }} / {{ analysis().mcp.availableTools.length }}</strong>
+    <small>użyte / dostępne narzędzia</small>
+  </article>
+  <article [class.positive]="analysis().tools.executionCount > 0">
+    <span>Narzędzia</span>
+    <strong>{{ analysis().tools.usedNames.length }}</strong>
+    <small>użyte rodzaje · wykonania: {{ analysis().tools.executionCount }}</small>
+  </article>
+</section>
+
+@if (attentionAreas().length) {
+  <section class="attention-panel">
+    <header>
+      <div>
+        <span class="eyebrow">LUKI ADOPCJI</span>
+        <h3>Konfiguracja i użycie wymagające uwagi</h3>
+        <p>Brak mechanizmu to luka konfiguracji. Mechanizm dostępny, lecz całkowicie nieużyty, nie wnosi wartości do tej sesji i może zajmować kontekst.</p>
+      </div>
+      <div class="attention-summary">
+        @if (missingConfigurationCount()) { <span class="missing-count">Brak konfiguracji: {{ missingConfigurationCount() }}</span> }
+        @if (unusedCategoryCount()) { <span>Dostępne bez użycia: {{ unusedCategoryCount() }}</span> }
+      </div>
+    </header>
+    <div class="attention-grid">
+      @for (area of attentionAreas(); track area.id) {
+        <article [class.gap]="area.kind === 'missing'">
+          <mat-icon>{{ area.kind === 'missing' ? 'error_outline' : 'warning_amber' }}</mat-icon>
+          <div>
+            <span class="area-kind">{{ area.kind === 'missing' ? 'BRAK KONFIGURACJI' : 'DOSTĘPNE, ALE NIEUŻYTE' }}</span>
+            <strong>{{ area.title }}</strong>
+            <p>{{ area.detail }}</p>
+            <small>{{ area.suggestion }}</small>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+}
+
+<section class="capability-panel">
+  <header>
+    <div>
+      <span class="eyebrow">DOSTĘPNE A UŻYTE</span>
+      <h3>Mechanizmy sesji</h3>
+    </div>
+    <p>„Przekazane modelowi” oznacza definicję obecną w konkretnym requestcie modelu, nie tylko w katalogu agenta.</p>
+  </header>
+  <div class="capability-table" role="list" aria-label="Mechanizmy dostępne i użyte w sesji">
+    <div class="table-head" aria-hidden="true">
+      <span>Mechanizm</span>
+      <span>Rozpoznane / przekazane</span>
+      <span>Wykorzystanie</span>
+      <span></span>
+    </div>
+    @for (row of rows(); track row.key) {
+      <section class="capability-disclosure" role="listitem" [class.expanded]="isExpanded(row.key)">
+        <button
+          type="button"
+          class="capability-row"
+          [attr.aria-expanded]="isExpanded(row.key)"
+          [attr.aria-controls]="'mechanism-' + row.key"
+          (click)="toggleMechanism(row.key)">
+          <span class="row-label"><mat-icon>{{ row.icon }}</mat-icon><strong>{{ row.label }}</strong></span>
+          <span>{{ row.available }}</span>
+          <span class="usage" [class.positive]="row.tone === 'positive'" [class.attention]="row.tone === 'attention'" [class.gap]="row.tone === 'gap'" [class.unknown]="row.tone === 'unknown'">
+            @if (row.tone === 'attention') { <mat-icon>warning_amber</mat-icon> }
+            @else if (row.tone === 'gap') { <mat-icon>error_outline</mat-icon> }
+            @else if (row.tone === 'positive') { <mat-icon>check_circle</mat-icon> }
+            {{ row.used }}
+          </span>
+          <mat-icon class="chevron">{{ isExpanded(row.key) ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+        @if (isExpanded(row.key)) {
+          <div class="mechanism-details" [attr.id]="'mechanism-' + row.key">
+            @switch (row.key) {
+              @case ('instructions') {
+                @if (analysis().instructions.length) {
+                  <div class="item-list">
+                    @for (item of analysis().instructions; track item.path) {
+                      <article>
+                        <div class="item-heading">
+                          <mat-icon>description</mat-icon>
+                          <div><strong>{{ instructionLabel(item) }}</strong><small>{{ displayPath(item.path) }}</small></div>
+                          <span class="state" [class.used]="item.applied" [class.attention]="instructionNeedsAttention(item)">{{ item.applied ? 'Zastosowana' : instructionNeedsAttention(item) ? 'Niewykorzystana' : 'Dostępna' }}</span>
+                        </div>
+                        @if (item.applyTo) { <p>Zakres: <code>{{ item.applyTo }}</code></p> }
+                        @if (item.description) { <p>{{ item.description }}</p> }
+                      </article>
+                    }
+                  </div>
+                } @else { <p class="empty-state">Nie rozpoznano plików instrukcji w przechwyconym kontekście.</p> }
+              }
+              @case ('skills') {
+                @if (workspaceSkills().length || otherSkills().length) {
+                  <div class="item-list">
+                    @for (item of workspaceSkills(); track item.name) {
+                      <article>
+                        <div class="item-heading">
+                          <mat-icon>school</mat-icon>
+                          <div><strong>{{ item.name }}</strong><small>{{ scopeLabel(item) }} · {{ displayPath(item.path) }}</small></div>
+                          <span class="state" [class.used]="item.useCount > 0" [class.attention]="skillNeedsAttention(item)">{{ unusedLabel(item.useCount, skillNeedsAttention(item)) }}</span>
+                        </div>
+                        @if (item.description) { <p>{{ item.description }}</p> }
+                      </article>
+                    }
+                    @if (otherSkills().length) {
+                      <details class="other-skills">
+                        <summary>Pozostałe skille z profilu użytkownika <span>{{ otherSkills().length }}</span></summary>
+                        @for (item of otherSkills(); track item.name) {
+                          <article>
+                            <div class="item-heading">
+                              <mat-icon>school</mat-icon>
+                              <div><strong>{{ item.name }}</strong><small>{{ scopeLabel(item) }} · {{ displayPath(item.path) }}</small></div>
+                              <span class="state" [class.used]="item.useCount > 0">{{ useLabel(item.useCount) }}</span>
+                            </div>
+                            @if (item.description) { <p>{{ item.description }}</p> }
+                          </article>
+                        }
+                      </details>
+                    }
+                  </div>
+                } @else { <p class="empty-state">Nie rozpoznano katalogu skilli w przechwyconym kontekście.</p> }
+              }
+              @case ('agents') {
+                @if (analysis().customAgents.length) {
+                  <div class="item-list">
+                    @for (item of analysis().customAgents; track item.name) {
+                      <article>
+                        <div class="item-heading">
+                          <mat-icon>smart_toy</mat-icon>
+                          <div><strong>{{ item.name }}</strong><small>{{ scopeLabel(item) }}</small></div>
+                          <span class="state" [class.used]="item.useCount > 0" [class.attention]="agentNeedsAttention(item)">{{ unusedLabel(item.useCount, agentNeedsAttention(item)) }}</span>
+                        </div>
+                        @if (item.description) { <p>{{ item.description }}</p> }
+                      </article>
+                    }
+                  </div>
+                } @else { <p class="empty-state">Nie rozpoznano custom agentów w przechwyconym kontekście.</p> }
+              }
+              @case ('mcp') {
+                <div class="mechanism-groups">
+                  <article class="detail-group">
+                    <h4>Katalog sesji <span>{{ analysis().mcp.availableTools.length }}</span></h4>
+                    @if (analysis().mcp.availableTools.length) {
+                      <div class="chip-list mcp">@for (name of analysis().mcp.availableTools; track name) { <code>{{ name }}</code> }</div>
+                    } @else { <p>Brak wykrytych narzędzi MCP.</p> }
+                  </article>
+                  <article class="detail-group">
+                    <h4>Przekazane modelowi <span>{{ analysis().mcp.exposedTools.length }}</span></h4>
+                    @if (analysis().mcp.exposedTools.length) {
+                      <div class="chip-list mcp">@for (name of analysis().mcp.exposedTools; track name) { <code>{{ name }}</code> }</div>
+                    } @else { <p>Żadna definicja MCP nie wystąpiła w requestach modelu.</p> }
+                  </article>
+                  <article class="detail-group">
+                    <h4>Użyte <span>{{ analysis().mcp.usedTools.length }}</span></h4>
+                    @if (analysis().mcp.usedTools.length) {
+                      <div class="chip-list mcp">@for (name of analysis().mcp.usedTools; track name) { <code>{{ name }}</code> }</div>
+                    } @else { <p>Nie zarejestrowano wykonania MCP.</p> }
+                  </article>
+                </div>
+              }
+              @case ('tools') {
+                <div class="mechanism-groups">
+                  <article class="detail-group used-tools">
+                    <h4>Użyte <span>{{ analysis().tools.usedNames.length }}</span></h4>
+                    @if (analysis().tools.usedNames.length) {
+                      <div class="chip-list">@for (name of analysis().tools.usedNames; track name) { <code>{{ name }}</code> }</div>
+                    } @else { <p>Nie zarejestrowano wykonań narzędzi.</p> }
+                  </article>
+                  <article class="detail-group">
+                    <h4>Przekazane modelowi <span>{{ analysis().tools.exposedNames.length }}</span></h4>
+                    <div class="chip-list catalog-list">@for (name of analysis().tools.exposedNames; track name) { <code>{{ name }}</code> }</div>
+                  </article>
+                  <article class="detail-group">
+                    <h4>Katalog sesji <span>{{ analysis().tools.availableNames.length }}</span></h4>
+                    <div class="chip-list catalog-list">@for (name of analysis().tools.availableNames; track name) { <code>{{ name }}</code> }</div>
+                  </article>
+                </div>
+              }
+              @case ('subagents') {
+                <div class="fact-detail"><mat-icon>account_tree</mat-icon><div><strong>{{ analysis().subagentInvocations }} uruchomień</strong><p>Telemetria nie emituje osobnego katalogu dostępnych subagentów. Pokazujemy wyłącznie potwierdzone wykonania narzędzi delegujących.</p></div></div>
+              }
+              @case ('compaction') {
+                <div class="fact-detail"><mat-icon>compress</mat-icon><div><strong>{{ analysis().compactions }} wywołań kompaktowania</strong><p>Brak kompaktowania nie jest luką adopcji. Mechanizm powinien pojawiać się tylko wtedy, gdy wymaga tego długość lub presja kontekstu.</p></div></div>
+              }
+            }
+          </div>
+        }
+      </section>
+    }
+  </div>
+</section>
+
+<p class="method-note"><mat-icon>info</mat-icon>Skille, agenci i narzędzia są dobierane do zadania. Użycie części dostępnych elementów jest oczekiwanym sygnałem adopcji; problemem jest brak konfiguracji całej kategorii albo brak jakiegokolwiek użycia w sesji.</p>

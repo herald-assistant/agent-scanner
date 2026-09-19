@@ -9,6 +9,8 @@ import {ScannerApiService} from '../../core/scanner-api.service';
 import {NotificationService} from '../../core/notification.service';
 import {CostBreakdownRow, CostDashboardComponent, CostDashboardView, DashboardRecord} from '../session-overview/cost-dashboard.component';
 import {ToolOptimizationOverviewComponent} from '../session-overview/tool-optimization-overview.component';
+import {SessionCapabilityOverviewComponent} from '../session-overview/session-capability-overview.component';
+import {analyzeSessionCapabilities} from '../../core/session-capability-analysis';
 import {SessionAnalysisService} from '../../core/session-analysis.service';
 import {cacheWriteValue, creditsValue, inputCacheTotals, InputCacheTotals} from '../../core/copilot-telemetry';
 import {TelemetryReader} from '../../core/workflow/telemetry';
@@ -20,6 +22,7 @@ import {WorkflowAnalysis} from '../../models/workflow.models';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 import {OptimizationGuidanceComponent} from '../optimization/optimization-guidance.component';
+import {sessionEmitterLabel, sessionHeading, sessionRepositoryName, sessionSourceLabel} from '../../core/session-presentation';
 import {
   OptimizationAdvicePreview,
   OptimizationAdvicePreviewRequest,
@@ -30,7 +33,7 @@ import {
 
 @Component({
   selector: 'as-session-page',
-  imports: [MatButtonModule, MatIconModule, MatTooltipModule, CostDashboardComponent, ToolOptimizationOverviewComponent, TechnicalViewComponent,
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule, CostDashboardComponent, ToolOptimizationOverviewComponent, SessionCapabilityOverviewComponent, TechnicalViewComponent,
     InteractionTimelineComponent, WorkflowViewComponent, OptimizationGuidanceComponent],
   templateUrl: './session-page.component.html',
   styleUrl: './session-page.component.css',
@@ -48,7 +51,7 @@ export class SessionPageComponent {
   private readonly router = inject(Router);
   private readonly detailState = signal<SessionDetail | undefined>(undefined);
   private readonly relatedDetailsState = signal<SessionDetail[]>([]);
-  private readonly activeTabState = signal<Tab>('loop');
+  private readonly activeTabState = signal<Tab>('overview');
   readonly workflowState = signal<WorkflowAnalysis | undefined>(undefined);
   readonly workflowLoading = signal(false);
   readonly workflowFailed = signal(false);
@@ -76,6 +79,10 @@ export class SessionPageComponent {
     return view ? analyzeToolUsage(view) : {
       rows: [], modelCalls: 0, callsWithDefinitions: 0, callsWithOutput: 0, unusedTools: 0, unlinkedResultOccurrences: 0
     };
+  });
+  readonly capabilityOverview = computed(() => {
+    const view = this.sessionView();
+    return view ? analyzeSessionCapabilities(view) : undefined;
   });
   readonly sdkTelemetry = computed(() => this.modelTurns().some(turn =>
     Object.hasOwn(this.parsedAttributes(turn.model), 'github.copilot.nano_aiu')));
@@ -412,6 +419,18 @@ export class SessionPageComponent {
     return this.analysis.sessionTitle(session);
   }
 
+  mainSessionHeading(session: Session): string {
+    return sessionHeading(session);
+  }
+
+  sourceLabel(session: Session): string {
+    return sessionSourceLabel(session);
+  }
+
+  sourceDetails(session: Session): string | undefined {
+    return sessionEmitterLabel(session);
+  }
+
   primaryModelSpans(): SpanRecord[] {
     return this.sessionView()?.primaryModelSpans ?? [];
   }
@@ -554,8 +573,7 @@ export class SessionPageComponent {
   }
 
   repositoryName(): string {
-    const repository = this.detail?.session.repository;
-    return repository ? repository.replace(/\/$/, '').split('/').pop() || repository : 'brak danych o repozytorium';
+    return this.detail ? sessionRepositoryName(this.detail.session) || 'brak danych o repozytorium' : 'brak danych o repozytorium';
   }
 
   duration(value?: number): string {

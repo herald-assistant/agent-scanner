@@ -23,6 +23,11 @@ najpierw ustalić, czy zmiana jest niedokończona, a następnie zaktualizować o
 
 Dokumenty specjalistyczne:
 
+- [Osobiste wykorzystanie i wartość GitHub Copilot w VS Code](../osobista-adopcja-i-wartosc-copilota-w-vscode.md)
+  — plan wielosesyjnego widoku wykorzystania możliwości, trendów, konfiguracji
+  widocznej per repozytorium, wartości modeli/MCP/tooli/skilli/custom agents,
+  lokalnego feedbacku i deterministycznych wskazówek rozwojowych; zakres jest
+  podzielony na potrzeby `PAV-00`–`PAV-14` do osobnego doprecyzowania i wdrażania;
 - [Strategia optymalizacji kosztów pracy agentowej](../optymalizacja-kosztow-pracy-agentowej.md)
   — model kosztu, portfel interwencji, kontrakt rekomendacji, metodyka „przed/po”
   i plan dedykowanych stron;

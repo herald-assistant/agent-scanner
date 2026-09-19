@@ -88,6 +88,10 @@ class OtlpFlowIntegrationTest {
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].conversationId").value(CopilotTraceFixture.CONVERSATION))
             .andExpect(jsonPath("$[0].agentName").value("GitHub Copilot Chat"))
+            .andExpect(jsonPath("$[0].sourceKind").value("vscode"))
+            .andExpect(jsonPath("$[0].sourceName").value("Visual Studio Code"))
+            .andExpect(jsonPath("$[0].sourceService").value("copilot-chat"))
+            .andExpect(jsonPath("$[0].sourceVersion").value("fixture-version"))
             .andExpect(jsonPath("$[0].inputTokens").value(1200))
             .andExpect(jsonPath("$[0].outputTokens").value(180))
             .andExpect(jsonPath("$[0].cacheReadTokens").value(800))
@@ -97,6 +101,7 @@ class OtlpFlowIntegrationTest {
         mvc.perform(get("/api/sessions/{id}", sessionId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.spans", hasSize(3)))
+            .andExpect(jsonPath("$.session.sourceKind").value("vscode"))
             .andExpect(jsonPath("$.messages", hasSize(4)))
             .andExpect(jsonPath("$.signals", hasSize(1)))
             .andExpect(jsonPath("$.signals[0].rawJson", containsString("gen_ai.operation.name")));
@@ -112,6 +117,9 @@ class OtlpFlowIntegrationTest {
         mvc.perform(get("/api/sessions"))
             .andExpect(jsonPath("$[0].turnCount").value(2))
             .andExpect(jsonPath("$[0].toolCount").value(1))
+            .andExpect(jsonPath("$[0].sourceKind").value("copilot-sdk"))
+            .andExpect(jsonPath("$[0].sourceName").value("GitHub Copilot SDK"))
+            .andExpect(jsonPath("$[0].sourceService").value("github-copilot"))
             .andExpect(jsonPath("$[0].cacheCreationTokens").value(300));
         mvc.perform(get("/api/sessions/{id}", sessionId))
             .andExpect(jsonPath("$.spans", hasSize(4)))

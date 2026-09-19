@@ -11,11 +11,16 @@
       @for (session of sessions(); track session.id) {
         <button class="session-card" [class.active]="selectedSessionId() === session.id" (click)="sessionSelected.emit(session)">
           <div class="session-head">
-            <span class="agent-avatar">{{ (session.agentName || 'A').charAt(0).toUpperCase() }}</span>
-            <div><strong>{{ title(session) }}</strong><small>{{ time(session.lastSeenAt) }}</small></div>
-            <span class="state" [class.bad]="session.errorCount" [matTooltip]="session.errorCount ? 'W odebranej telemetrii wystąpiły błędy.' : 'Brak potwierdzonych błędów w podsumowaniu.'">{{ session.errorCount ? 'Błędy' : '—' }}</span>
+            <span class="source-avatar" [class.vscode]="session.sourceKind === 'vscode'"><mat-icon aria-hidden="true">{{ sourceIcon(session) }}</mat-icon></span>
+            <div>
+              <strong>{{ title(session) }}</strong>
+              <small class="source-line"><span>{{ sourceLabel(session) }}</span>@if (sourceDetails(session); as details) {<b>·</b><span>{{ details }}</span>}</small>
+            </div>
+            @if (session.errorCount) {
+              <span class="state bad" matTooltip="W odebranej telemetrii wystąpiły błędy.">Błędy</span>
+            }
           </div>
-          <div class="session-meta"><span>{{ model(session) }}</span><span>{{ turnCount(session) }} rund</span><span>{{ tokens(session) }} tok.</span></div>
+          <div class="session-meta"><span>{{ time(session.lastSeenAt) }}</span><span>{{ model(session) }}</span><span>{{ turnCount(session) }} rund</span><span>{{ tokens(session) }} tok.</span></div>
         </button>
       }
     </div>

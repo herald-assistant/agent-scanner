@@ -10,7 +10,7 @@ Stan dokumentu: 2026-09-11.
 - protobuf, JSON, gzip i limit rozpakowanego payloadu;
 - raw JSON i oryginalny payload obok znormalizowanych rekordów;
 - plikowa baza H2, retencja, pauza odbiornika, eksport/import v1 i usuwanie;
-- konfiguracja onboardingowa dla VS Code i IntelliJ IDEA.
+- konfiguracja onboardingowa dla VS Code.
 
 ### Model sesji
 
@@ -136,8 +136,8 @@ Suma credits fazy i udział kategorii celowo odpowiadają na inne pytania:
 
 ### Pokrycie providerów
 
-Transport OTLP jest wspólny, lecz semantyka atrybutów może różnić się między
-wersjami VS Code i JetBrains. Nowy kształt musi otrzymać anonimowy fixture.
+Semantyka atrybutów może różnić się między wersjami VS Code. Nowy kształt musi
+otrzymać anonimowy fixture.
 Nie należy dodawać warunku po nazwie providera, jeśli wystarcza relacja
 strukturalna lub atrybut semantyczny.
 
@@ -189,7 +189,6 @@ walidator można testować na zapisanych syntetycznych odpowiedziach.
 Dodać zanonimizowane fixture'y rzeczywistych kształtów:
 
 - VS Code z wieloma tool callami i retencją wyników;
-- JetBrains z capture content;
 - delegacja, w której nested invoke powtarza ID rodzica;
 - reasoning jako plaintext, `[encrypted]` i brak;
 - jawny cache write;

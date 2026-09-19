@@ -201,12 +201,6 @@ Plik natywnego modułu może być otwarty przez działający dev server, test ru
 IDE lub antywirusa. Ustal proces blokujący i zamknij go przed ponownym `npm ci`.
 Nie usuwaj rekursywnie katalogów na podstawie niesprawdzonej ścieżki.
 
-### IntelliJ nie widzi `com.github.copilot`
-
-Jeżeli Maven CLI kompiluje projekt, a edytor nie, przeładuj model Maven i sprawdź,
-czy IntelliJ używa tego samego `settings.xml` oraz lokalnego repozytorium `.m2`.
-Nie zastępuj zależności ręcznie skopiowanym JAR-em w module.
-
 ### Copilot CLI zwraca `Unhandled method connect/runtime.shutdown`
 
 Sprawdź zgodność Copilot CLI z SDK 1.0.11 i konfigurację ścieżki. Aktualna

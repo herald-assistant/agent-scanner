@@ -14,7 +14,6 @@ export class HomePageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  readonly configPlatform = signal<'vscode' | 'intellij'>('vscode');
   readonly copied = signal(false);
   readonly showConfig = signal(false);
 
@@ -31,10 +30,6 @@ export class HomePageComponent {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(params => this.showConfig.set(params.get('configuration') === 'open'));
-  }
-
-  setConfigPlatform(platform: 'vscode' | 'intellij'): void {
-    this.configPlatform.set(platform);
   }
 
   async setConfigVisible(visible: boolean): Promise<void> {

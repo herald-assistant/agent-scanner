@@ -1,4 +1,4 @@
-export type Tab = 'loop' | 'workflow' | 'technical';
+export type Tab = 'overview' | 'loop' | 'workflow' | 'technical';
 export type TechnicalMode = 'spans' | 'signals';
 
 export interface ScannerStatus {
@@ -21,6 +21,10 @@ export interface Session {
   responseModel?: string;
   repository?: string;
   branchName?: string;
+  sourceKind?: 'vscode' | 'copilot-sdk' | 'unknown';
+  sourceName?: string;
+  sourceService?: string;
+  sourceVersion?: string;
   startedAt?: string;
   endedAt?: string;
   lastSeenAt: string;

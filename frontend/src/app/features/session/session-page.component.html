@@ -3,8 +3,13 @@
         <div class="session-title">
           <div>
             <span class="eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
-            <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : 'Rozmowa z GitHub Copilot' }}</h1>
-            <p><span>{{ repositoryName() }}</span><b>·</b><span>{{ detail.session.responseModel || detail.session.requestedModel || 'model nieznany' }}</span><b>·</b><span>{{ time(detail.session.startedAt) }}</span></p>
+            <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : mainSessionHeading(detail.session) }}</h1>
+            <p>
+              <span>{{ sourceLabel(detail.session) }}</span><b>·</b><span>{{ repositoryName() }}</span><b>·</b>
+              <span>{{ detail.session.responseModel || detail.session.requestedModel || 'model nieznany' }}</span>
+              @if (sourceDetails(detail.session); as source) {<b>·</b><span>{{ source }}</span>}
+              <b>·</b><span>{{ time(detail.session.startedAt) }}</span>
+            </p>
           </div>
           <div class="session-actions">
             <button class="icon-button" matTooltip="Eksportuj sesję do JSON" matTooltipClass="scanner-info-tooltip" aria-label="Eksportuj sesję do JSON" (click)="exportSession()"><mat-icon>download</mat-icon></button>
@@ -13,10 +18,16 @@
           </div>
         </div>
         <nav class="tabs">
+          <button [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="selectTab('overview')">Podsumowanie</button>
           <button [class.active]="activeTab === 'loop'" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
           <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
           <button [class.active]="activeTab === 'technical'" (click)="selectTab('technical')">Dane techniczne</button>
         </nav>
+        @if (activeTab === 'overview') {
+          @if (capabilityOverview(); as overview) {
+            <as-session-capability-overview [analysis]="overview" />
+          }
+        }
         @if (activeTab === 'loop') {
           <section class="loop-view">
             <as-cost-dashboard [view]="costDashboard()" [creditTooltip]="creditTooltip" />

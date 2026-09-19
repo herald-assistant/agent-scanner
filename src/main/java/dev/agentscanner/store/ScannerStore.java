@@ -141,6 +141,27 @@ public class ScannerStore {
         return jdbc.queryForList(SESSION_VIEW_SQL + " ORDER BY a.last_seen_at DESC");
     }
 
+    public Map<Long, List<String>> sessionResourceAttributes() {
+        Map<Long, List<String>> result = new LinkedHashMap<>();
+        List<SessionResourceAttributes> rows = jdbc.query("""
+            SELECT DISTINCT s.session_id, t.id, t.resource_attributes
+            FROM span_record s JOIN telemetry_signal t ON t.id=s.signal_id
+            ORDER BY s.session_id, t.id
+            """, (rs, row) -> new SessionResourceAttributes(
+                rs.getLong("session_id"), rs.getString("resource_attributes")));
+        rows.forEach(source -> result.computeIfAbsent(source.sessionId(), ignored -> new ArrayList<>())
+            .add(source.resourceAttributes()));
+        return result;
+    }
+
+    public List<String> sessionResourceAttributes(long sessionId) {
+        return jdbc.query("""
+            SELECT DISTINCT t.id, t.resource_attributes
+            FROM telemetry_signal t JOIN span_record s ON s.signal_id=t.id
+            WHERE s.session_id=? ORDER BY t.id
+            """, (rs, row) -> rs.getString("resource_attributes"), sessionId);
+    }
+
     public Optional<Map<String, Object>> session(long id) {
         List<Map<String, Object>> result = jdbc.queryForList(SESSION_VIEW_SQL + " WHERE a.id=?", id);
         return result.stream().findFirst();
@@ -442,6 +463,8 @@ public class ScannerStore {
             String answerJson, String errorMessage, Instant createdAt, Instant completedAt
     ) {
     }
+
+    private record SessionResourceAttributes(long sessionId, String resourceAttributes) {}
 
     public record SessionValues(String conversationId, String agentName, String agentType,
         String requestedModel, String responseModel, String repository, String branch, String commitSha,

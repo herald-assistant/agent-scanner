@@ -5,7 +5,7 @@ Stan dokumentu: 2026-09-11.
 ## Widok całości
 
 ```text
-GitHub Copilot w VS Code / JetBrains
+GitHub Copilot w VS Code
               │
               │ OTLP/HTTP: traces, metrics, logs
               ▼

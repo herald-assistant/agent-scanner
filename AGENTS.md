@@ -24,7 +24,7 @@ prioritized roadmap. This file remains the binding development contract.
 ## Product goal
 
 Agent Scanner is a local observability tool for GitHub Copilot agent sessions. It
-receives OTLP/HTTP from VS Code and JetBrains IDEs, stores raw telemetry, creates a
+receives OTLP/HTTP from VS Code, stores raw telemetry, creates a
 small normalized read model, and explains session cost and execution in Polish.
 
 The core promise is **evidence before inference**:
@@ -756,16 +756,11 @@ The final value returned by a subagent must not be truncated. Keep the complete
 
 ## Configuration UI
 
-The configuration panel and onboarding offer a VS Code/IntelliJ IDEA switch.
+The configuration panel and onboarding support VS Code and show a complete valid
+JSON object with OpenTelemetry export enabled, collector endpoint
+`http://localhost:8081`, protocol `http/protobuf`, and content capture enabled.
 
-VS Code shows a complete valid JSON object. IntelliJ shows form values, not JSON:
-
-- OpenTelemetry export: enabled;
-- collector endpoint: `http://localhost:8081`;
-- protocol: `http/protobuf`;
-- capture content: enabled when detailed content is desired.
-
-If adding another IDE/provider, do not imply compatibility based only on the shared
+If adding another provider, do not imply compatibility based only on the shared
 OTLP transport. Add instructions, capture an anonymized fixture, verify grouping
 and document semantic differences.
 

@@ -69,6 +69,9 @@ describe('SessionPageComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('as-session-capability-overview')).not.toBeNull();
+    const costTab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.includes('Koszt i przebieg'));
+    expect(costTab).toBeDefined(); costTab!.click(); fixture.detectChanges();
     expect([...element.querySelector('.loop-view')!.children].map(child => child.tagName)).toEqual([
       'AS-COST-DASHBOARD', 'AS-TOOL-OPTIMIZATION-OVERVIEW', 'AS-INTERACTION-TIMELINE'
     ]);
