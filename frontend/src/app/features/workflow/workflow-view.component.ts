@@ -18,7 +18,7 @@ import {ContextCompactionDetailsComponent} from '../context-compaction/context-c
 import {OptimizationAdvicePreview, OptimizationAdvicePreviewRequest, OptimizationGuidanceContext, OptimizationGuidanceEvidence, OptimizationGuidanceOpenRequest, OptimizationTopic} from '../../models/optimization-guidance.models';
 import {GroupedWorkflowPhase, groupWorkflowPhases, WorkflowPhaseCompactionInput} from '../../core/workflow-phases';
 import {buildGuidanceEvidencePreview} from '../../core/optimization/guidance-evidence';
-import {buildRoundDiscussionEvidence} from '../../core/optimization/round-discussion-evidence';
+import {SessionChatView} from '../../models/session-chat.models';
 
 const OPTIMIZATION_HINTS: Record<ActionCategory, string> = {
   ACQUIRE_DATA: 'Sprawdź rozmiar wyników narzędzi, możliwość zwracania krótszych wycinków oraz użycie indeksu, repo mapy lub narzędzia wyspecjalizowanego w tym zadaniu.',
@@ -796,16 +796,54 @@ export class WorkflowViewComponent {
     const last = rounds.at(-1)?.turn.interactionTurnIndex;
     return first === last ? `M${first}` : `M${first}–M${last}`;
   }
-  async openRoundDiscussion(): Promise<void> {
+  async openFocusedSessionDiscussion(): Promise<void> {
     const stream = this.discussionStream(), rounds = this.discussionRounds();
     if (!stream || !this.discussionRangeReady()) return;
+    await this.openSessionChat(rounds, this.discussionRangeLabel(), this.streamDisplayLabel(stream));
+  }
+  async openWholeSessionDiscussion(): Promise<void> {
+    await this.openSessionChat([], 'bez wskazanych rund', 'Cała sesja');
+  }
+  async openSessionChatHistory(): Promise<void> {
     this.buildingDiscussion.set(true);
     try {
-      const snapshot = await buildRoundDiscussionEvidence({analysis: this.analysis(), stream, rounds,
-        actorLabel: this.streamDisplayLabel(stream)});
-      const {RoundDiscussionDialogComponent} = await import('../round-discussion/round-discussion-dialog.component');
-      this.dialog.open(RoundDiscussionDialogComponent, {data: {snapshot}, width: '95vw', maxWidth: '1180px',
-        height: '92vh', maxHeight: '920px', panelClass: 'scanner-detail-dialog', autoFocus: 'dialog', restoreFocus: true});
+      const {SessionChatHistoryDialogComponent} = await import('../session-chat/session-chat-history-dialog.component');
+      const history = this.dialog.open(SessionChatHistoryDialogComponent, {
+          data: {sessionId: this.analysis().source.session.id},
+          width: 'min(780px, calc(100vw - 40px))', maxWidth: '780px',
+          height: 'min(70vh, 680px)', maxHeight: '680px', panelClass: 'session-chat-history-dialog-panel',
+          autoFocus: 'dialog', restoreFocus: true
+        });
+      history.afterClosed().subscribe((item: SessionChatView | undefined) => {
+        if (!item) return;
+        const count = item.focus.roundRefs.length;
+        void this.openSessionChat([], count ? `${count} wskazanych rund` : 'bez wskazanych rund',
+          'Poprzednia rozmowa', item);
+      });
+    } catch (failure) {
+      this.notifications.error(failure instanceof Error ? failure.message : 'Nie udało się otworzyć poprzednich rozmów.');
+    } finally {
+      this.buildingDiscussion.set(false);
+    }
+  }
+  private async openSessionChat(rounds: RoundObservation[], focusLabel: string, actorLabel: string,
+                                initialChat?: SessionChatView): Promise<void> {
+    this.buildingDiscussion.set(true);
+    try {
+      const {SessionChatDialogComponent} = await import('../session-chat/session-chat-dialog.component');
+      this.dialog.open(SessionChatDialogComponent, {data: {
+        sessionId: this.analysis().source.session.id,
+        focusRoundRefs: initialChat?.focus.roundRefs ?? rounds.map(round => round.ref),
+        focusLabel,
+        actorLabel,
+        initialChat,
+        openEvidence: (ref: string) => {
+          const round = this.columns().find(candidate => candidate.ref === ref);
+          if (round) this.openRoundContent(round);
+          else this.notifications.error('Ten dowód nie jest rundą widoczną na bieżącej mapie.');
+        }
+      }, width: 'calc(100vw - 48px)', maxWidth: 'none',
+        height: 'calc(100vh - 48px)', maxHeight: 'none', panelClass: 'session-chat-dialog-panel', autoFocus: 'dialog', restoreFocus: true});
     } catch (failure) {
       this.notifications.error(failure instanceof Error ? failure.message : 'Nie udało się przygotować materiału rozmowy.');
     } finally {

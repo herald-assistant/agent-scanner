@@ -23,6 +23,11 @@ najpierw ustalić, czy zmiana jest niedokończona, a następnie zaktualizować o
 
 Dokumenty specjalistyczne:
 
+- [Plan rozmowy analitycznej o całej sesji](../plan-rozmowy-analitycznej-o-sesji.md)
+  — bieżący kontrakt rozmowy o sesji, w którym zaznaczone rundy są
+  opcjonalnym punktem startowym, a trwały analityk Copilot SDK może odpytywać
+  zamrożony stan całej sesji przez audytowalne narzędzia Scannera; plan jest
+  podzielony na potrzeby `SAC-00`–`SAC-21`, etapy wdrożenia i macierz testów;
 - [Osobiste wykorzystanie i wartość GitHub Copilot w VS Code](../osobista-adopcja-i-wartosc-copilota-w-vscode.md)
   — plan wielosesyjnego widoku wykorzystania możliwości, trendów, konfiguracji
   widocznej per repozytorium, wartości modeli/MCP/tooli/skilli/custom agents,
@@ -34,7 +39,8 @@ Dokumenty specjalistyczne:
 - [Plan wdrożenia technik bez AI i z AI](../plan-technik-optymalizacji-bez-ai-i-z-ai.md)
   — szczegółowy plan G0–G12: 16 technik, objaśnienia dla początkujących, wejścia
   z kategorii/fazy/kompaktowania, doradztwo na żądanie oraz stan rozmowy o jednym
-  ciągłym zakresie rund (G9/G10). G12 planuje osobny, opcjonalny tryb analizy
+  ciągłym zakresie rund (historyczny przyrost G9/G10 zastępowany przez
+  bieżący chat o sesji). G12 planuje osobny, opcjonalny tryb analizy
   z zatwierdzonym lokalnym projektem i narzędziami wyłącznie do odczytu; dokument
   obejmuje kontrakty, migawki dowodów, pozostały hardening i testy;
 - [Klasyfikacja odpowiedzi modelu](../klasyfikacja-narzedzi-ai.md) — dokładny

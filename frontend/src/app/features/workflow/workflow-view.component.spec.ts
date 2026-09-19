@@ -53,6 +53,8 @@ describe('WorkflowViewComponent', () => {
     expect(element.querySelector('.analysis-scope')?.textContent).toContain('CAŁA SESJA AGENTÓW');
     expect(element.querySelector('.analysis-menu-copy')?.textContent).toContain('9 rund pracy · 2 agentów');
     expect(element.querySelector('.map-status')?.textContent).toContain('ZAKRES: INTERAKCJA 1');
+    expect([...element.querySelectorAll('button')].some(button => button.textContent?.includes('Zapytaj o sesję'))).toBe(true);
+    expect([...element.querySelectorAll('button')].some(button => button.textContent?.includes('Poprzednie rozmowy'))).toBe(true);
     expect([...element.querySelectorAll('.child-lane .round-number')].map(node => node.textContent?.trim())).toEqual(['M1', 'M2']);
     expect(element.querySelector('.child-lane .lane-label')?.textContent).toContain('Potwierdzona delegacja');
     expect(element.querySelector('.child-lane .lane-label strong')?.textContent).toContain('Subagent 1');

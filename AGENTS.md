@@ -623,22 +623,20 @@ Preserve these product decisions unless the user explicitly changes them:
   sampling and remain visible in the preview, but only the configured model/provider's
   actual context-window enforcement may reject the complete advisory prompt as too
   large. Do not reintroduce character-count proxies for a tokenized context window;
-- the detailed workflow map can select one continuous range between a start and
-  end round in the same interaction and agent stream, even without classification.
-  Opening the dedicated discussion modal freezes `round-discussion-evidence-v1`
-  locally and does not invoke AI. It shows the initial user request, selected
-  rounds, emitted credits with coverage, captured request/response/tool boundaries,
-  an informational size estimate and a model selected from the Copilot SDK catalog.
-  Only an explicit first question or follow-up invokes the model. The first turn
-  creates a persistent, text-only SDK session and later turns resume it; Agent
-  Scanner stores the frozen snapshot, SDK session id and audit history, while the
-  Copilot client process is stopped after every turn. Tools, skills, MCP, memory,
-  repository access and discovery remain disabled. The backend revalidates raw and
-  normalized source membership and continuity before and after inference. Answer
-  blocks distinguish evidence-backed explanation, hypothesis and general guidance;
-  the last does not require or imply telemetry evidence. Local character counts or
-  fragment counts never gate sending; only the selected model/provider's actual
-  context-window enforcement may reject the complete prompt;
+- the workflow map can open `Rozmowa o sesji` directly or with one continuous
+  range as an optional focus. Opening the modal and creating the local chat do not
+  invoke inference. The backend freezes the whole reconstructed session at one
+  `cutoffSignalId`, builds a small bootstrap and keeps selected rounds only as a
+  point of attention. The first explicit question creates a persistent Copilot SDK
+  session and later questions resume it. The assistant may call only the bounded,
+  read-only `scanner_*` custom tools backed by `SessionAnalysisQueryService`; tools,
+  MCP, skills, custom agents, repository access, host Git, filesystem, memory and
+  discovery from the observed session remain disabled. REST and SDK adapters share
+  the same query service. Store every tool call and the exact bounded result, and
+  accept answer evidence only when its reference was present in the bootstrap or a
+  result actually returned to the model. Newer telemetry never silently expands an
+  existing chat. The removed round-only discussion contract has no compatibility
+  or migration path;
 - the workflow map leads with the emitted user request and a visual round/agent
   path; numeric tables and raw payloads start collapsed;
 - workflow summary counters explicitly distinguish the whole linked agent session

@@ -182,9 +182,15 @@
               <button type="button" aria-label="Przewiń mapę w prawo" matTooltip="Dalsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(1)"><mat-icon>chevron_right</mat-icon></button>
             </span>
           }
+          <button type="button" class="session-chat-toggle" [disabled]="buildingDiscussion()" (click)="openWholeSessionDiscussion()">
+            <mat-icon>chat</mat-icon>Zapytaj o sesję
+          </button>
           <button type="button" class="round-range-toggle" [class.selected]="roundRangeMode()"
             [attr.aria-pressed]="roundRangeMode()" (click)="toggleRoundRange()">
             <mat-icon>{{ roundRangeMode() ? 'close' : 'forum' }}</mat-icon>{{ roundRangeMode() ? 'Anuluj wybór' : 'Zapytaj o rundy' }}
+          </button>
+          <button type="button" class="session-chat-history-toggle" [disabled]="buildingDiscussion()" (click)="openSessionChatHistory()">
+            <mat-icon>history</mat-icon>Poprzednie rozmowy
           </button>
         </div>
       </div>
@@ -200,7 +206,7 @@
               {{ plural(discussionRounds().length, 'runda', 'rundy', 'rund') }} bez przerw ·
               credits {{ discussionCreditSummary().credits === null ? '—' : credits(discussionCreditSummary().credits!) }} ·
               pokrycie {{ discussionCreditSummary().covered }}/{{ discussionCreditSummary().total }}.</p>
-            <button type="button" [disabled]="buildingDiscussion()" (click)="openRoundDiscussion()">
+            <button type="button" [disabled]="buildingDiscussion()" (click)="openFocusedSessionDiscussion()">
               <mat-icon>{{ buildingDiscussion() ? 'hourglass_top' : 'chat' }}</mat-icon>Przejdź do rozmowy
             </button>
           }

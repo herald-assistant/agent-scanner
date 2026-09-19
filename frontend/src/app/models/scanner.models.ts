@@ -78,7 +78,7 @@ export interface SignalRecord {
   id: number;
   signalType: string;
   receivedAt: string;
-  rawJson: string;
+  rawJson?: string;
   resourceAttributes: string;
   itemCount: number;
 }
@@ -171,4 +171,20 @@ export interface SessionView {
   toolDefinitionNames: string[];
   contextualMessageCount: number;
   madeFileChanges: boolean;
+}
+
+export interface SessionAnalysisResponse {
+  schemaVersion: 'session-reconstruction-v1';
+  reconstructionVersion: 'copilot-episode-v1';
+  cutoffSignalId: number;
+  detail: SessionDetail;
+  relatedDetails: SessionDetail[];
+  view: Omit<SessionView, 'source' | 'relatedSource' | 'contextCompactions'>;
+}
+
+export interface SessionWorkflowSourcesResponse {
+  schemaVersion: 'session-reconstruction-v1';
+  reconstructionVersion: 'copilot-episode-v1';
+  cutoffSignalId: number;
+  sources: SessionDetail[];
 }

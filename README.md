@@ -358,10 +358,13 @@ GitHub Copilot w VS Code
        ScannerStore ───── H2
             │
             ▼
+ SessionReconstructionService
+            │ wersjonowane fakty sesji i rund
+            ▼
    ScannerApiController
             │ REST /api
             ▼
- Angular: API service → analiza sesji → komponenty widoków
+ Angular: API service → formatowanie prezentacyjne → komponenty widoków
 ```
 
 Szczegółowe reguły architektury, semantyka domenowa i zasady wprowadzania zmian
@@ -381,13 +384,19 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 | `GET /api/ai/optimization-advice/status` | konfiguracja modelu i wspólny stan wykonania; bez wywołania AI |
 | `POST /api/ai/optimization-advice/cached?sessionId={id}` | lokalny odczyt rekomendacji dla dokładnej zweryfikowanej migawki |
 | `POST /api/ai/optimization-advice?sessionId={id}` | jawne uruchomienie doradztwa dla `previewId` |
-| `GET /api/ai/round-discussions/models` | modele i limity kontekstu dostępne dla konta Copilot; bez rozpoczęcia rozmowy |
-| `POST /api/ai/round-discussions?sessionId={id}` | lokalny zapis zweryfikowanej migawki i wybranego modelu; bez inferencji |
-| `GET /api/ai/round-discussions?sessionId={id}` | lokalna lista rozmów dla sesji |
-| `GET /api/ai/round-discussions/{id}?sessionId={id}` | lokalny odczyt migawki i historii rozmowy |
-| `POST /api/ai/round-discussions/{id}/turns?sessionId={id}` | jawne pierwsze pytanie lub dopytanie w trwałej sesji SDK |
+| `GET /api/ai/session-chats/models` | modele i limity kontekstu dostępne dla konta Copilot; bez inferencji |
+| `POST /api/ai/session-chats?sessionId={id}` | zamrożenie całej sesji i opcjonalnego punktu startowego; bez inferencji |
+| `GET /api/ai/session-chats?sessionId={id}` | lokalna lista rozmów o sesji |
+| `GET /api/ai/session-chats/{id}?sessionId={id}` | bootstrap, historia, użyte narzędzia i dowody jednej rozmowy |
+| `POST /api/ai/session-chats/{id}/turns?sessionId={id}` | jawne pytanie lub dopytanie w trwałej sesji SDK |
+| `DELETE /api/ai/session-chats/{id}?sessionId={id}` | usunięcie rozmowy, audytu i lokalnego stanu SDK |
 | `GET /api/sessions` | lista znormalizowanych sesji |
 | `GET /api/sessions/{id}` | sesja, spany, wiadomości i surowe sygnały |
+| `GET /api/sessions/{id}/analysis` | wersjonowana rekonstrukcja sesji, interakcji, rund, narzędzi i powiązanych epizodów (`session-reconstruction-v1`) |
+| `GET /api/sessions/{id}/workflow-sources` | źródła dokładnie powiązane z Mapą pracy, ładowane dopiero po otwarciu zakładki |
+| `GET /api/sessions/{id}/analysis-data/overview` | lekkie podsumowanie sesji i pokrycie danych |
+| `GET /api/sessions/{id}/analysis-data/configuration` | instrukcje, skille, custom agents, MCP i narzędzia widoczne w telemetrii |
+| `GET /api/sessions/{id}/analysis-data/{interactions\|rounds\|round-evidence\|subagents\|cost\|search}` | celowane odczyty tego samego modelu faktów, którego używają narzędzia AI |
 | `GET /api/sessions/{id}/export` | eksport sesji w formacie wersjonowanym |
 | `POST /api/sessions/import` | import eksportu Agent Scanner v1 |
 | `POST /api/pause` | wstrzymanie lub wznowienie zapisu nowych sygnałów |

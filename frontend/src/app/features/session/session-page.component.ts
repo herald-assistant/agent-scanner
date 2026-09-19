@@ -4,7 +4,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
-import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, Session, SessionDetail, SpanRecord, Tab, UserInteraction} from '../../models/scanner.models';
+import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, Session, SessionAnalysisResponse, SessionDetail, SessionView, SpanRecord, Tab, UserInteraction} from '../../models/scanner.models';
 import {ScannerApiService} from '../../core/scanner-api.service';
 import {NotificationService} from '../../core/notification.service';
 import {CostBreakdownRow, CostDashboardComponent, CostDashboardView, DashboardRecord} from '../session-overview/cost-dashboard.component';
@@ -51,6 +51,9 @@ export class SessionPageComponent {
   private readonly router = inject(Router);
   private readonly detailState = signal<SessionDetail | undefined>(undefined);
   private readonly relatedDetailsState = signal<SessionDetail[]>([]);
+  private readonly serverViewState = signal<SessionView | undefined>(undefined);
+  private readonly workflowSourcesState = signal<SessionDetail[]>([]);
+  private readonly workflowSourcesLoadedState = signal(false);
   private readonly activeTabState = signal<Tab>('overview');
   readonly workflowState = signal<WorkflowAnalysis | undefined>(undefined);
   readonly workflowLoading = signal(false);
@@ -62,6 +65,9 @@ export class SessionPageComponent {
   readonly optimizationAdviceLoading = signal(false);
   private readonly workflowView = viewChild(WorkflowViewComponent);
   private sessionRequest = 0;
+  private sessionAbort?: AbortController;
+  private loadingSessionSignature?: string;
+  private loadedSessionSignature?: string;
   private readonly routeSessionId = signal<number | undefined>(undefined);
   private workflowRequest = 0;
   private optimizationAdvicePreviewRequest = 0;
@@ -233,7 +239,12 @@ export class SessionPageComponent {
       this.shell.refreshRevision();
       const sessionId = this.routeSessionId();
       if (this.shell.loading() || sessionId == null) return;
-      if (this.sessions.some(session => session.id === sessionId)) untracked(() => void this.loadSession(sessionId));
+      const selected = this.sessions.find(session => session.id === sessionId);
+      if (selected) {
+        const signature = `${selected.id}|${selected.lastSeenAt}|${selected.turnCount}|${selected.toolCount}|${selected.errorCount}`;
+        if (signature === this.loadedSessionSignature || signature === this.loadingSessionSignature) return;
+        untracked(() => void this.loadSession(sessionId, signature));
+      }
       else {
         this.clearSessionData();
         void this.router.navigate(['/'], {replaceUrl: true});
@@ -247,16 +258,41 @@ export class SessionPageComponent {
     await this.shell.refresh();
   }
 
-  private async loadSession(sessionId: number): Promise<void> {
+  private async loadSession(sessionId: number, signature: string): Promise<void> {
     const request = ++this.sessionRequest;
+    this.sessionAbort?.abort();
+    const abort = new AbortController();
+    this.sessionAbort = abort;
+    this.loadingSessionSignature = signature;
     if (this.detail?.session.id !== sessionId) this.detailsPanel.close();
-    const loadedDetail = await this.api.session(sessionId);
+    let serverAnalysis: SessionAnalysisResponse | undefined;
+    let loadedDetail: SessionDetail;
+    try {
+      serverAnalysis = await this.api.sessionAnalysis(sessionId, abort.signal);
+      loadedDetail = serverAnalysis?.detail ?? await this.api.session(sessionId);
+    } catch (error) {
+      if (abort.signal.aborted) return;
+      this.loadingSessionSignature = undefined;
+      throw error;
+    }
     if (request !== this.sessionRequest || this.routeSessionId() !== sessionId) return;
     const detail = {...loadedDetail, spans: this.analysis.withDepth(loadedDetail.spans)};
     this.detailState.set(detail);
-    const relatedDetails = this.isAuxiliarySession(detail.session) ? [] : await this.loadRelatedDetails(detail);
+    const relatedDetails = serverAnalysis
+      ? serverAnalysis.relatedDetails.map(item => ({...item, spans: this.analysis.withDepth(item.spans)}))
+      : this.isAuxiliarySession(detail.session) ? [] : await this.loadRelatedDetails(detail);
     if (request !== this.sessionRequest || this.routeSessionId() !== sessionId) return;
     this.relatedDetailsState.set(relatedDetails);
+    this.workflowSourcesState.set([]);
+    this.workflowSourcesLoadedState.set(false);
+    this.serverViewState.set(serverAnalysis ? this.analysis.completeServerView({
+      ...serverAnalysis.view,
+      source: detail,
+      relatedSource: relatedDetails,
+      contextCompactions: []
+    }) : undefined);
+    this.loadedSessionSignature = signature;
+    this.loadingSessionSignature = undefined;
     this.shell.setSelectedTurnCount(this.modelTurns().length);
     if (this.activeTab === 'workflow') void this.loadWorkflow();
   }
@@ -269,9 +305,16 @@ export class SessionPageComponent {
 
   private clearSessionData(): void {
     this.sessionRequest++;
+    this.sessionAbort?.abort();
+    this.sessionAbort = undefined;
+    this.loadingSessionSignature = undefined;
+    this.loadedSessionSignature = undefined;
     this.workflowRequest++;
     this.detailState.set(undefined);
     this.relatedDetailsState.set([]);
+    this.serverViewState.set(undefined);
+    this.workflowSourcesState.set([]);
+    this.workflowSourcesLoadedState.set(false);
     this.workflowState.set(undefined);
     this.workflowLoading.set(false);
     this.workflowFailed.set(false);
@@ -304,9 +347,21 @@ export class SessionPageComponent {
     this.workflowLoading.set(true);
     this.workflowFailed.set(false);
     try {
-      // The session key is only an index hint; exact linking needs raw per-span IDs.
-      const pending = this.sessions.filter(session => session.id !== source.session.id);
-      const details: SessionDetail[] = [];
+      // New backends return the factual candidates with the session analysis. The fallback
+      // preserves compatibility with an older backend during a rolling local upgrade.
+      let prepared = this.workflowSourcesState();
+      let modernEndpoint = this.workflowSourcesLoadedState();
+      if (!modernEndpoint) {
+        const response = await this.api.sessionWorkflowSources(source.session.id);
+        if (response) {
+          prepared = response.sources.map(item => ({...item, spans: this.analysis.withDepth(item.spans)}));
+          this.workflowSourcesState.set(prepared);
+          this.workflowSourcesLoadedState.set(true);
+          modernEndpoint = true;
+        }
+      }
+      const pending = modernEndpoint ? [] : this.sessions.filter(session => session.id !== source.session.id);
+      const details: SessionDetail[] = [...prepared];
       let cursor = 0;
       await Promise.all(Array.from({length: Math.min(4, pending.length)}, async () => {
         while (cursor < pending.length) {
@@ -637,6 +692,6 @@ export class SessionPageComponent {
   }
 
   private sessionView() {
-    return this.analysis.build(this.detail, this.relatedDetails);
+    return this.serverViewState() ?? this.analysis.build(this.detail, this.relatedDetails);
   }
 }

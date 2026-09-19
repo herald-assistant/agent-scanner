@@ -3,6 +3,8 @@ package dev.agentscanner.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.agentscanner.config.ScannerProperties;
+import dev.agentscanner.analysis.SessionReconstructionService;
+import dev.agentscanner.ai.sessionchat.SessionChatCleanupService;
 import dev.agentscanner.otel.OtlpIngestionService;
 import dev.agentscanner.store.ScannerStore;
 import org.springframework.http.HttpHeaders;
@@ -23,15 +25,21 @@ public class ScannerApiController {
     private final ScannerProperties properties;
     private final ObjectMapper mapper;
     private final SessionImportService sessionImport;
+    private final SessionReconstructionService reconstruction;
+    private final SessionChatCleanupService sessionChatCleanup;
 
     public ScannerApiController(ScannerStore store, OtlpIngestionService ingestion,
                                 ScannerProperties properties, ObjectMapper mapper,
-                                SessionImportService sessionImport) {
+                                SessionImportService sessionImport,
+                                SessionReconstructionService reconstruction,
+                                SessionChatCleanupService sessionChatCleanup) {
         this.store = store;
         this.ingestion = ingestion;
         this.properties = properties;
         this.mapper = mapper;
         this.sessionImport = sessionImport;
+        this.reconstruction = reconstruction;
+        this.sessionChatCleanup = sessionChatCleanup;
     }
 
     @GetMapping("/status")
@@ -75,6 +83,18 @@ public class ScannerApiController {
             result.put("signals", ApiView.rows(store.signals(id)));
             return ResponseEntity.ok(result);
         }).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/sessions/{id}/analysis")
+    public ResponseEntity<Map<String, Object>> sessionAnalysis(@PathVariable long id) {
+        return reconstruction.reconstruct(id).map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/sessions/{id}/workflow-sources")
+    public ResponseEntity<Map<String, Object>> sessionWorkflowSources(@PathVariable long id) {
+        return reconstruction.workflowSources(id).map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     private Map<String, Object> sessionView(Map<String, Object> row, List<String> resources) {
@@ -124,6 +144,7 @@ public class ScannerApiController {
     @DeleteMapping("/sessions/{id}")
     public ResponseEntity<Void> deleteSession(@PathVariable long id) {
         if (store.session(id).isEmpty()) return ResponseEntity.notFound().build();
+        sessionChatCleanup.cleanupSession(id);
         store.deleteSession(id);
         store.checkpoint();
         return ResponseEntity.noContent().build();
@@ -131,6 +152,7 @@ public class ScannerApiController {
 
     @DeleteMapping("/data")
     public ResponseEntity<Void> deleteAll() {
+        sessionChatCleanup.cleanupAll();
         store.deleteAll();
         store.checkpoint();
         return ResponseEntity.noContent().build();

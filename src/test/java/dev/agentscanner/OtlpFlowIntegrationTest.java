@@ -66,6 +66,20 @@ class OtlpFlowIntegrationTest {
             mvc.perform(get("/api/sessions/{id}", childId)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.signals[0].rawJson", containsString(MixedEpisodeTraceFixture.ROOT)))
                 .andExpect(jsonPath("$.spans", hasSize(4)));
+            mvc.perform(get("/api/sessions/{id}/analysis", parentId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.schemaVersion").value("session-reconstruction-v1"))
+                .andExpect(jsonPath("$.reconstructionVersion").value("copilot-episode-v1"))
+                .andExpect(jsonPath("$.view.primaryModelSpans", hasSize(1)))
+                .andExpect(jsonPath("$.view.billingModelSpans", hasSize(3)))
+                .andExpect(jsonPath("$.view.costGroups", hasSize(2)))
+                .andExpect(jsonPath("$.view.costGroups[0].kind").value("main"))
+                .andExpect(jsonPath("$.view.costGroups[1].kind").value("subagent"))
+                .andExpect(jsonPath("$.workflowSources").doesNotExist())
+                .andExpect(jsonPath("$.view.source").doesNotExist())
+                .andExpect(jsonPath("$.relatedDetails[0].signals[0].rawJson").doesNotExist());
+            mvc.perform(get("/api/sessions/{id}/workflow-sources", parentId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.sources", hasSize(1)))
+                .andExpect(jsonPath("$.sources[0].session.conversationId").value(MixedEpisodeTraceFixture.CHILD));
         }
     }
 
@@ -105,6 +119,14 @@ class OtlpFlowIntegrationTest {
             .andExpect(jsonPath("$.messages", hasSize(4)))
             .andExpect(jsonPath("$.signals", hasSize(1)))
             .andExpect(jsonPath("$.signals[0].rawJson", containsString("gen_ai.operation.name")));
+
+        mvc.perform(get("/api/sessions/{id}/analysis", sessionId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.detail.session.id").value(sessionId))
+            .andExpect(jsonPath("$.view.interactions", hasSize(1)))
+            .andExpect(jsonPath("$.view.modelTurns", hasSize(1)))
+            .andExpect(jsonPath("$.view.modelTurns[0].tools", hasSize(1)))
+            .andExpect(jsonPath("$.cutoffSignalId").isNumber());
     }
 
     @Test

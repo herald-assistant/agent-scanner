@@ -124,13 +124,23 @@ CREATE TABLE IF NOT EXISTS optimization_advice_result (
     FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS round_discussion (
+-- The abandoned round-only analysis was never a supported persisted contract.
+-- Its data is intentionally removed instead of migrated or exposed read-only.
+DROP TABLE IF EXISTS round_discussion_turn;
+DROP TABLE IF EXISTS round_discussion;
+
+CREATE TABLE IF NOT EXISTS session_chat (
     id VARCHAR(36) PRIMARY KEY,
     session_id BIGINT NOT NULL,
-    version VARCHAR(64) NOT NULL,
     model VARCHAR(512) NOT NULL,
-    evidence_hash VARCHAR(64) NOT NULL,
-    snapshot_json CLOB NOT NULL,
+    cutoff_signal_id BIGINT NOT NULL,
+    reconstruction_version VARCHAR(64) NOT NULL,
+    prompt_version VARCHAR(64) NOT NULL,
+    toolset_version VARCHAR(64) NOT NULL,
+    redaction_version VARCHAR(64) NOT NULL,
+    focus_json CLOB NOT NULL,
+    bootstrap_json CLOB NOT NULL,
+    context_hash VARCHAR(64) NOT NULL,
     copilot_session_id VARCHAR(512),
     revision INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -138,18 +148,52 @@ CREATE TABLE IF NOT EXISTS round_discussion (
     FOREIGN KEY (session_id) REFERENCES agent_session(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS round_discussion_turn (
+ALTER TABLE session_chat DROP COLUMN IF EXISTS version;
+
+CREATE TABLE IF NOT EXISTS session_chat_turn (
     id VARCHAR(36) PRIMARY KEY,
-    discussion_id VARCHAR(36) NOT NULL,
+    chat_id VARCHAR(36) NOT NULL,
     client_request_id VARCHAR(36) NOT NULL,
     question CLOB NOT NULL,
+    question_hash VARCHAR(64) NOT NULL,
     status VARCHAR(32) NOT NULL,
     answer_json CLOB,
     error_message CLOB,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (discussion_id) REFERENCES round_discussion(id) ON DELETE CASCADE,
-    UNIQUE(discussion_id, client_request_id)
+    FOREIGN KEY (chat_id) REFERENCES session_chat(id) ON DELETE CASCADE,
+    UNIQUE(chat_id, client_request_id)
+);
+
+CREATE TABLE IF NOT EXISTS session_chat_tool_call (
+    id VARCHAR(36) PRIMARY KEY,
+    chat_id VARCHAR(36) NOT NULL,
+    turn_id VARCHAR(36) NOT NULL,
+    sdk_tool_call_id VARCHAR(512),
+    sequence_no INT NOT NULL,
+    tool_name VARCHAR(160) NOT NULL,
+    arguments_json CLOB NOT NULL,
+    arguments_hash VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    result_json CLOB,
+    result_hash VARCHAR(64),
+    result_characters INT,
+    truncated BOOLEAN NOT NULL DEFAULT FALSE,
+    error_message CLOB,
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    FOREIGN KEY (chat_id) REFERENCES session_chat(id) ON DELETE CASCADE,
+    FOREIGN KEY (turn_id) REFERENCES session_chat_turn(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS session_chat_evidence (
+    chat_id VARCHAR(36) NOT NULL,
+    evidence_ref VARCHAR(512) NOT NULL,
+    source_kind VARCHAR(80) NOT NULL,
+    first_turn_id VARCHAR(36) NOT NULL,
+    PRIMARY KEY (chat_id, evidence_ref),
+    FOREIGN KEY (chat_id) REFERENCES session_chat(id) ON DELETE CASCADE,
+    FOREIGN KEY (first_turn_id) REFERENCES session_chat_turn(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_signal_received ON telemetry_signal(received_at DESC);
@@ -161,5 +205,6 @@ CREATE INDEX IF NOT EXISTS idx_classification_session ON tool_classification_res
 CREATE INDEX IF NOT EXISTS idx_advice_preview_session ON optimization_advice_preview(session_id, prepared_at DESC);
 CREATE INDEX IF NOT EXISTS idx_advice_preview_expiry ON optimization_advice_preview(expires_at);
 CREATE INDEX IF NOT EXISTS idx_advice_result_session ON optimization_advice_result(session_id, analyzed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_round_discussion_session ON round_discussion(session_id, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_round_discussion_turns ON round_discussion_turn(discussion_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_chat_session ON session_chat(session_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_session_chat_turns ON session_chat_turn(chat_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_chat_tools ON session_chat_tool_call(turn_id, sequence_no);

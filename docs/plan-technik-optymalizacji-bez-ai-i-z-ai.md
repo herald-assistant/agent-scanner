@@ -382,7 +382,7 @@ nie dowodzą identycznego wyniku, intencji ani zbędności drugiego wykonania.
 ## 8. Jednorazowe dopasowanie technik z AI na życzenie — G4–G6
 
 Ta sekcja definiuje `optimization-advice-v1`: wybór technik i eksperymentów.
-Pytania o przebieg mają osobny kontrakt `round-discussion-v1` w sekcji 17;
+Pytania o przebieg obsługuje bieżąca rozmowa o całej sesji opisana w sekcji 17;
 odpowiedź na pytanie nie musi zawierać rekomendacji. Oba tryby współdzielą
 obserwacje, kontrolę źródeł, redakcję, limity i izolowany transport AI.
 
@@ -1211,7 +1211,7 @@ Nie zależy od G6 ani G7. Bramkę wydania stanowi G8.
   konkretnego dowodu pozostaje do wykonania.
 - [x] Dodać builder zachowujący migawki wejść oraz granice requestu, odpowiedzi,
   wykonań narzędzi i następnego przechwyconego requestu.
-- [x] Dodać `round-discussion-v1`, publiczne DTO i ścisły walidator odpowiedzi.
+- [x] Zastąpić eksperymentalną rozmowę o rundach bieżącym chatem o całej sesji.
 - [~] Zapisywać zamrożony pakiet, pytania i odpowiedzi lokalnie; osobna tabela
   zależności każdego źródła pozostaje elementem późniejszego hardeningu.
 - [x] Zapewnić idempotencję tury, wspólny globalny wykonawca oraz wybór modelu z
@@ -1346,6 +1346,14 @@ powtarzane wykonania, odrębne kryteria jakości i pomiary zasobów. To materia�
 metodyczny, a nie dowód skuteczności którejkolwiek techniki w sesji użytkownika.
 
 ## 17. Zaawansowana analiza zaznaczonych rund i rozmowa — G9–G12
+
+> **Zmiana kierunku z 2026-09-19:** G9/G10 poniżej dokumentują porzucony prototyp,
+> który został usunięty bez migracji. Bieżąca rozmowa nie jest ograniczona do
+> zamrożonego odcinka. Zaznaczenie jest opcjonalnym focusem, a analityk może
+> odpytywać zamrożony stan całej sesji przez narzędzia Scannera. Wiążący plan tej
+> migracji znajduje się w
+> [planie rozmowy analitycznej o całej sesji](plan-rozmowy-analitycznej-o-sesji.md).
+> Poniższa sekcja ma wyłącznie znaczenie historyczne i nie opisuje dostępnego API.
 
 ### 17.1. Cel i relacja do wcześniejszych etapów
 
@@ -1541,7 +1549,8 @@ interface DiscussionTurnSubmission {
 }
 
 interface DiscussionAnswer {
-  version: 'round-discussion-v1';
+  model: string;
+  focus: {roundRefs: string[]};
   status: 'ANSWER' | 'CLARIFICATION_NEEDED' | 'INSUFFICIENT_EVIDENCE' | 'OUT_OF_SCOPE';
   blocks: Array<{
     kind: 'EXPLANATION' | 'HYPOTHESIS' | 'GENERAL_GUIDANCE';
@@ -1592,11 +1601,11 @@ i wznowieniu po zamknięciu modalu; nie jest ręcznie odtwarzany jako drugi prom
 
 | Endpoint aktualnego przyrostu | Zachowanie |
 |---|---|
-| `GET /api/ai/round-discussions/models` | katalog modeli i emitowane przez SDK limity kontekstu; bez rozpoczęcia rozmowy |
-| `POST /api/ai/round-discussions` | walidacja i zapis zatwierdzonej migawki oraz utworzenie rozmowy; bez inferencji |
-| `GET /api/ai/round-discussions?sessionId={id}` | lokalna lista rozmów; bez SDK |
-| `GET /api/ai/round-discussions/{id}?sessionId={id}` | historia, migawka i rewizja; bez SDK |
-| `POST /api/ai/round-discussions/{id}/turns?sessionId={id}` | pytanie + klucz idempotencji; utworzenie lub wznowienie jednej sesji SDK |
+| `GET /api/ai/session-chats/models` | katalog modeli i emitowane przez SDK limity kontekstu; bez inferencji |
+| `POST /api/ai/session-chats?sessionId={id}` | zamrożenie całej sesji i opcjonalnego focusu; bez inferencji |
+| `GET /api/ai/session-chats?sessionId={id}` | lokalna lista rozmów; bez SDK |
+| `GET /api/ai/session-chats/{id}?sessionId={id}` | historia, bootstrap i audit; bez SDK |
+| `POST /api/ai/session-chats/{id}/turns?sessionId={id}` | pytanie + klucz idempotencji; utworzenie lub wznowienie jednej sesji SDK |
 
 Osobne `prepare` dla każdej następnej tury, ręczna edycja/redakcja pakietu oraz
 usuwanie rozmowy są odłożone do hardeningu. Aktualny modal pokazuje lokalnie

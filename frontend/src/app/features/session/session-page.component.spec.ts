@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 import {workflowFixture} from '../../core/workflow/workflow.fixtures';
 import {SessionPageComponent} from './session-page.component';
+import {SessionAnalysisService} from '../../core/session-analysis.service';
 
 const status = {
   paused: false,
@@ -53,7 +54,7 @@ describe('SessionPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('opens the dedicated workflow tab and loads raw candidates for custom-tool linking', async () => {
+  it('keeps the legacy candidate-loading fallback for an older backend', async () => {
     await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
     const sources = workflowFixture();
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -82,6 +83,36 @@ describe('SessionPageComponent', () => {
     expect(element.querySelector('as-workflow-view')).not.toBeNull();
     expect(element.querySelector('as-cost-dashboard')).toBeNull();
     expect(element.querySelector('as-technical-view')).toBeNull();
+  });
+
+  it('uses the backend reconstruction without fetching session candidates from the browser', async () => {
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    const sources = workflowFixture();
+    const analysis = TestBed.inject(SessionAnalysisService);
+    const view = analysis.build(sources[0], sources.slice(1))!;
+    const requested: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input); requested.push(url);
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? sources.map(source => source.session) :
+        url.endsWith(`/api/sessions/${sources[0].session.id}/analysis`) ? {
+          schemaVersion: 'session-reconstruction-v1', reconstructionVersion: 'copilot-episode-v1', cutoffSignalId: 1,
+          detail: sources[0], relatedDetails: sources.slice(1), view
+        } : url.endsWith(`/api/sessions/${sources[0].session.id}/workflow-sources`) ? {
+          schemaVersion: 'session-reconstruction-v1', reconstructionVersion: 'copilot-episode-v1', cutoffSignalId: 1,
+          sources: sources.slice(1)
+        } : undefined;
+      return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
+    }));
+
+    routeParams.next(convertToParamMap({sessionId: String(sources[0].session.id)}));
+    await fixture.componentInstance.refresh();
+    await vi.waitFor(() => expect(fixture.componentInstance.modelTurns().length).toBeGreaterThan(0));
+    await fixture.componentInstance.refresh();
+    await fixture.componentInstance.loadWorkflow();
+
+    expect(fixture.componentInstance.workflowState()?.streams).toHaveLength(2);
+    expect(requested.filter(url => url.endsWith(`/api/sessions/${sources[0].session.id}/analysis`))).toHaveLength(1);
+    expect(requested.filter(url => /\/api\/sessions\/\d+$/.test(url))).toEqual([]);
   });
 
   it('groups model rounds by the user interaction trace and does not mix tools between interactions', () => {

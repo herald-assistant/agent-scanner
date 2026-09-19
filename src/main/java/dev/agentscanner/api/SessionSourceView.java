@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 
-final class SessionSourceView {
+public final class SessionSourceView {
     private SessionSourceView() {}
 
-    static void addTo(Map<String, Object> session, List<String> resourceDocuments, ObjectMapper mapper) {
+    public static void addTo(Map<String, Object> session, List<String> resourceDocuments, ObjectMapper mapper) {
         Source source = detect(resourceDocuments, mapper);
         session.put("sourceKind", source.kind());
         session.put("sourceName", source.name());

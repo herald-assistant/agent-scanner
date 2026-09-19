@@ -18,6 +18,14 @@ export class SessionAnalysisService {
     return this.workflow.analyze(prepared[0], prepared.slice(1));
   }
 
+  /** Compatibility seam while compaction evidence matching receives its backend parity suite. */
+  completeServerView(view: SessionView): SessionView {
+    return {
+      ...view,
+      contextCompactions: findContextCompactions(view.source, [view.source, ...view.relatedSource], view.modelTurns)
+    };
+  }
+
   build(source: SessionDetail | undefined, relatedSource: SessionDetail[]): SessionView | undefined {
     if (!source) return undefined;
     if (this.cachedView?.source === source && this.cachedView.relatedSource === relatedSource) return this.cachedView;

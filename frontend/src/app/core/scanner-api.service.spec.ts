@@ -63,6 +63,34 @@ describe('ScannerApiService optimization advice preparation', () => {
   });
 });
 
+describe('ScannerApiService session chat', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shares one in-flight model catalogue request between dialog instances', async () => {
+    const response = {configured: true, defaultModel: 'gpt-test', running: false,
+      models: [{id: 'gpt-test', name: 'GPT Test', maxPromptTokens: 1000, maxContextWindowTokens: 2000, reasoningEfforts: []}]};
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(response), {
+      status: 200, headers: {'Content-Type': 'application/json'}
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const service = new ScannerApiService();
+
+    const [first, second] = await Promise.all([service.sessionChatModels(), service.sessionChatModels()]);
+
+    expect(first.defaultModel).toBe('gpt-test');
+    expect(second.defaultModel).toBe('gpt-test');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the actionable error returned by a read endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({error: 'Trwa inne działanie AI.'}), {
+      status: 409, headers: {'Content-Type': 'application/json'}
+    })));
+
+    await expect(new ScannerApiService().sessionChatModels()).rejects.toThrow('Trwa inne działanie AI.');
+  });
+});
+
 function adviceResult() {
   return {
     version: 'optimization-advice-v1', catalogVersion: 'techniques-v1', promptVersion: 'optimization-advice-prompt-v1',

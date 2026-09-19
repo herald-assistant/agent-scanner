@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -112,22 +113,40 @@ public class CopilotCompletion {
         }
     }
 
-    /** Creates a persistent, text-only SDK conversation and performs its first turn. */
-    public ConversationReply startConversation(String model, String systemMessage, String prompt) throws Exception {
-        return conversation(null, model, systemMessage, prompt);
+    /** Starts a persisted conversation that can call only the supplied read-only Scanner tools. */
+    public ConversationReply startToolConversation(String sessionId, String model, String systemMessage, String prompt,
+                                                   List<ToolDefinition> tools) throws Exception {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new AiExecutionException(AiExecutionException.Code.RUNTIME, "Brakuje identyfikatora rozmowy Scannera.");
+        }
+        return toolConversation(null, sessionId, model, systemMessage, prompt, tools);
     }
 
-    /** Resumes one persistent SDK conversation. It never falls back to a new session silently. */
-    public ConversationReply continueConversation(String sessionId, String model, String systemMessage, String prompt) throws Exception {
+    /** Resumes the same SDK conversation with the same explicitly supplied Scanner tools. */
+    public ConversationReply continueToolConversation(String sessionId, String model, String systemMessage, String prompt,
+                                                      List<ToolDefinition> tools) throws Exception {
         if (sessionId == null || sessionId.isBlank()) {
             throw new AiExecutionException(AiExecutionException.Code.RUNTIME,
                     "Brakuje identyfikatora zapisanej rozmowy Copilota.");
         }
-        return conversation(sessionId, model, systemMessage, prompt);
+        return toolConversation(sessionId, null, model, systemMessage, prompt, tools);
     }
 
-    private ConversationReply conversation(String resumeSessionId, String model, String systemMessage, String prompt) throws Exception {
-        Path work = workDirectory("discussion-work");
+    /** Permanently removes one SDK session store entry created for Scanner chat. */
+    public void deleteStoredConversation(String sessionId) throws Exception {
+        if (sessionId == null || sessionId.isBlank()) return;
+        var client = new CopilotClient(clientOptions());
+        try {
+            client.start().get(30, TimeUnit.SECONDS);
+            client.deleteSession(sessionId).get(20, TimeUnit.SECONDS);
+        } finally {
+            stop(client);
+        }
+    }
+
+    private ConversationReply toolConversation(String resumeSessionId, String requestedSessionId, String model,
+                                               String systemMessage, String prompt, List<ToolDefinition> tools) throws Exception {
+        Path work = workDirectory("session-chat-work");
         var client = new CopilotClient(clientOptions());
         String stage = "start";
         try {
@@ -140,8 +159,10 @@ public class CopilotCompletion {
             requireModel(client, model);
             stage = resumeSessionId == null ? "session" : "resume";
             var session = resumeSessionId == null
-                    ? client.createSession(conversationSessionConfig(model, work, systemMessage)).get(30, TimeUnit.SECONDS)
-                    : client.resumeSession(resumeSessionId, conversationResumeConfig(model, work, systemMessage)).get(30, TimeUnit.SECONDS);
+                    ? client.createSession(toolSessionConfig(requestedSessionId, model, work, systemMessage, tools))
+                        .get(30, TimeUnit.SECONDS)
+                    : client.resumeSession(resumeSessionId, toolResumeConfig(model, work, systemMessage, tools))
+                        .get(30, TimeUnit.SECONDS);
             try (session) {
                 try {
                     stage = "inference";
@@ -153,11 +174,7 @@ public class CopilotCompletion {
                     }
                     return new ConversationReply(session.getSessionId(), answer.getData().content());
                 } catch (Exception failure) {
-                    try {
-                        session.abort().get(5, TimeUnit.SECONDS);
-                    } catch (Exception ignored) {
-                        // Stop the client below.
-                    }
+                    try { session.abort().get(5, TimeUnit.SECONDS); } catch (Exception ignored) { }
                     throw failure;
                 }
             }
@@ -266,8 +283,34 @@ public class CopilotCompletion {
                         new PermissionRequestResult().setKind(PermissionRequestResultKind.REJECTED)));
     }
 
+    static SessionConfig toolSessionConfig(String sessionId, String model, Path work, String systemMessage,
+                                           List<ToolDefinition> tools) {
+        List<String> allowed = tools.stream().map(ToolDefinition::name).toList();
+        return conversationSessionConfig(model, work, systemMessage)
+                .setSessionId(sessionId)
+                .setTools(List.copyOf(tools))
+                .setAvailableTools(allowed)
+                .setHooks(allowedToolHooks(Set.copyOf(allowed)));
+    }
+
+    static ResumeSessionConfig toolResumeConfig(String model, Path work, String systemMessage,
+                                                List<ToolDefinition> tools) {
+        List<String> allowed = tools.stream().map(ToolDefinition::name).toList();
+        return conversationResumeConfig(model, work, systemMessage)
+                .setTools(List.copyOf(tools))
+                .setAvailableTools(allowed)
+                .setHooks(allowedToolHooks(Set.copyOf(allowed)));
+    }
+
     private static SessionHooks deniedToolHooks() {
         return new SessionHooks().setOnPreToolUse((input, invocation) ->
                 CompletableFuture.completedFuture(PreToolUseHookOutput.deny("Narzędzia są wyłączone.")));
+    }
+
+    private static SessionHooks allowedToolHooks(Set<String> allowed) {
+        return new SessionHooks().setOnPreToolUse((input, invocation) -> CompletableFuture.completedFuture(
+                allowed.contains(input.getToolName())
+                        ? PreToolUseHookOutput.allow()
+                        : PreToolUseHookOutput.deny("To narzędzie nie należy do dozwolonego zestawu Scannera.")));
     }
 }

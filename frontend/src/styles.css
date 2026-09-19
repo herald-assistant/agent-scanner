@@ -42,6 +42,30 @@ code, pre, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", m
 .scanner-detail-dialog .mat-mdc-dialog-content {
   max-height: none;
 }
+.session-chat-dialog-panel {
+  width: calc(100vw - 48px) !important;
+  max-width: none !important;
+  height: calc(100vh - 48px) !important;
+  max-height: none !important;
+}
+.session-chat-dialog-panel .mat-mdc-dialog-surface {
+  overflow: hidden;
+  color: var(--text, #eef0f3);
+  background: #0d141a;
+  border: 1px solid #313a45;
+  border-radius: 12px;
+  box-shadow: 0 28px 90px #000c;
+}
+.session-chat-dialog-panel .mat-mdc-dialog-content { max-height: none; }
+.session-chat-history-dialog-panel .mat-mdc-dialog-surface {
+  overflow: hidden;
+  color: var(--text, #eef0f3);
+  background: #0d141a;
+  border: 1px solid #313a45;
+  border-radius: 12px;
+  box-shadow: 0 28px 90px #000c;
+}
+.session-chat-history-dialog-panel .mat-mdc-dialog-content { max-height: none; }
 .tool-definition-dialog-panel .mat-mdc-dialog-surface {
   overflow: hidden;
   color: var(--text, #eef0f3);

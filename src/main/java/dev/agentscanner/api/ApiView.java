@@ -7,14 +7,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-final class ApiView {
+public final class ApiView {
     private ApiView() {}
 
-    static List<Map<String, Object>> rows(List<Map<String, Object>> rows) {
+    public static List<Map<String, Object>> rows(List<Map<String, Object>> rows) {
         return rows.stream().map(ApiView::row).toList();
     }
 
-    static Map<String, Object> row(Map<String, Object> source) {
+    public static Map<String, Object> row(Map<String, Object> source) {
         Map<String, Object> result = new LinkedHashMap<>();
         source.forEach((key, value) -> result.put(camel(key), value(value)));
         return result;

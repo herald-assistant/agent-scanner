@@ -1,0 +1,120 @@
+<section class="session-chat-dialog">
+  <header class="dialog-header">
+    <div class="header-copy">
+      <h2 mat-dialog-title>Rozmowa o sesji</h2>
+      <p>Zapytaj o przebieg, credits, promptowanie lub konfigurację agenta.</p>
+    </div>
+    <button type="button" class="icon-button close-button" aria-label="Zamknij rozmowę" (click)="close()"><mat-icon>close</mat-icon></button>
+  </header>
+
+  @if (chat(); as current) {
+    <div class="conversation-bar">
+      <div class="conversation-scope">
+        <mat-icon>database</mat-icon>
+        <span><strong>Cała zapisana sesja</strong><small>Punkt startowy: {{ focusLabel(current) }} · {{ current.model }}</small></span>
+      </div>
+      <div class="conversation-actions">
+        <button mat-stroked-button type="button" (click)="startNew()"><mat-icon>add</mat-icon>Nowa rozmowa</button>
+        <button type="button" class="icon-button conversation-delete" aria-label="Usuń rozmowę" (click)="deleteChat(current)"><mat-icon>delete</mat-icon></button>
+      </div>
+    </div>
+  }
+
+  <mat-dialog-content>
+    @if (chat(); as current) {
+      @if (current.newerTelemetryAvailable) {
+        <div class="telemetry-notice"><mat-icon>update</mat-icon>Ta rozmowa korzysta z wcześniejszego, zamrożonego stanu sesji.</div>
+      }
+      <div class="chat-history" aria-live="polite">
+        @for (turn of current.turns; track turn.id) {
+          <article class="chat-turn">
+            <div class="user-message"><span>Ty</span><p>{{ turn.question }}</p></div>
+            <div class="assistant-message" [class.failed]="turn.status === 'FAILED'">
+              <span>Scanner AI · {{ turn.status === 'FAILED' ? 'Nie udało się odpowiedzieć' : answerLabel(turn) }}</span>
+              @if (turn.answer; as answer) {
+                <div class="answer-markdown" [innerHTML]="markdown(answer.answerMarkdown)"></div>
+                @if (answer.evidence.length) {
+                  <details class="evidence-list">
+                    <summary><mat-icon>fact_check</mat-icon>Dowody użyte w odpowiedzi ({{ answer.evidence.length }})</summary>
+                    <div>
+                      @for (item of answer.evidence; track item.ref) {
+                        <button type="button" [disabled]="!data.openEvidence" (click)="openEvidence(item.ref)">{{ item.label || item.ref }}<small>{{ item.ref }}</small></button>
+                      }
+                    </div>
+                  </details>
+                }
+                @if (answer.hypotheses.length) { <div class="answer-note warm"><strong>Hipotezy do sprawdzenia</strong><p>{{ answer.hypotheses.join(' · ') }}</p></div> }
+                @if (answer.limitations.length) { <div class="answer-note"><strong>Ograniczenia danych</strong><p>{{ answer.limitations.join(' · ') }}</p></div> }
+                @if (answer.suggestedFollowUps.length) {
+                  <div class="follow-up-questions"><strong>Możesz dopytać</strong>
+                    @for (item of answer.suggestedFollowUps; track item) { <button type="button" (click)="chooseStarter(item)">{{ item }}</button> }
+                  </div>
+                }
+              } @else if (turn.status === 'FAILED') {
+                <p>{{ failureLabel(turn) }}</p>
+                <button mat-stroked-button type="button" class="retry-button" (click)="retry(turn.question)"><mat-icon>refresh</mat-icon>Wstaw pytanie ponownie</button>
+              } @else {
+                <div class="thinking"><mat-spinner diameter="18" />Analizuję sesję…</div>
+              }
+              @if (turn.toolCalls.length) {
+                <details class="tool-activity">
+                  <summary><mat-icon>manage_search</mat-icon>Sprawdzone dane ({{ turn.toolCalls.length }})</summary>
+                  @for (call of turn.toolCalls; track call.id) {
+                    <div><mat-icon>{{ call.status === 'FAILED' ? 'error' : 'check_circle' }}</mat-icon>
+                      <span>{{ call.activityLabel }}</span>@if (call.truncated) { <small>wynik ograniczony</small> }</div>
+                  }
+                </details>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="empty-conversation"><mat-icon>forum</mat-icon><p>Napisz pierwsze pytanie, aby rozpocząć rozmowę.</p></div>
+        }
+      </div>
+    } @else {
+      <section class="welcome">
+        <div class="welcome-icon"><mat-icon>auto_awesome</mat-icon></div>
+        <h3>Co chcesz sprawdzić w tej sesji?</h3>
+        <p>Scanner AI może odczytywać całą zapisaną sesję. Wskazane rundy są punktem startowym, a nie granicą analizy.</p>
+        <div class="scope-pills"><span><mat-icon>database</mat-icon>Cała sesja</span><span><mat-icon>my_location</mat-icon>{{ data.focusLabel }}</span><span><mat-icon>lock</mat-icon>Tylko odczyt</span></div>
+
+        <div class="starter-grid">
+          @for (starter of starters; track starter) {
+            <button type="button" (click)="chooseStarter(starter)"><mat-icon>arrow_outward</mat-icon>{{ starter }}</button>
+          }
+        </div>
+
+      </section>
+
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="composer">
+    @if (error()) { <div class="dialog-error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</div> }
+    @if (sending()) { <div class="sending-status"><mat-spinner diameter="18" />Scanner sprawdza dane sesji i przygotowuje odpowiedź…</div> }
+    <div class="composer-row">
+      @if (chat(); as current) {
+        <div class="active-model" title="Model tej rozmowy"><mat-icon>smart_toy</mat-icon><span>{{ current.model }}</span></div>
+      } @else if (loadingModels()) {
+        <div class="model-loading"><mat-spinner diameter="18" /><span>Modele…</span></div>
+      } @else {
+        <mat-form-field class="composer-model" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Model</mat-label>
+          <mat-select [value]="selectedModel()" (selectionChange)="selectedModel.set($event.value)">
+            @for (model of models(); track model.id) { <mat-option [value]="model.id">{{ model.name }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+      }
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>{{ chat() ? 'Dopytaj o sesję' : 'Zapytaj o sesję' }}</mat-label>
+        <textarea #questionBox matInput cdkTextareaAutosize [cdkAutosizeMinRows]="1" [cdkAutosizeMaxRows]="4"
+                  rows="1" maxlength="4000" [value]="question()" (input)="question.set(questionBox.value)" (keydown.control.enter)="send()"></textarea>
+        <mat-hint>Ctrl+Enter wysyła · {{ question().length }}/4000</mat-hint>
+      </mat-form-field>
+      <button type="button" class="icon-button send-button" [disabled]="!canSend()" (click)="send()"
+              [attr.aria-label]="chat() ? 'Wyślij wiadomość' : 'Rozpocznij rozmowę'">
+        @if (sending()) { <mat-spinner diameter="18" /> } @else { <mat-icon>arrow_upward</mat-icon> }
+      </button>
+    </div>
+  </mat-dialog-actions>
+</section>
