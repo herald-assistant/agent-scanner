@@ -100,7 +100,7 @@ Aktualne tabele:
 | `tool_classification_result` | Zwalidowany wynik AI dla sesji i dokładnego request hash. |
 | `optimization_advice_preview` | Zamrożony, lokalnie zweryfikowany pakiet doradczy z fingerprintem i czasem wygaśnięcia. |
 | `optimization_advice_result` | Ściśle zwalidowany wynik doradztwa dla request hash, fingerprintu, modelu i wersji promptu. |
-| `session_chat` | Zamrożony cutoff całej sesji, opcjonalny focus, bootstrap, model i identyfikator trwałej sesji SDK. |
+| `session_chat` | Zamrożony cutoff całej sesji, bootstrap, model i identyfikator trwałej sesji SDK. |
 | `session_chat_turn` | Pytanie, status i ściśle zwalidowana odpowiedź każdej tury rozmowy. |
 | `session_chat_tool_call` | Audyt parametrów i ograniczonego wyniku każdego odczytu wykonanego przez AI. |
 | `session_chat_evidence` | Ledger referencji faktycznie przekazanych modelowi. |
@@ -146,7 +146,7 @@ Najważniejsze endpointy:
 | `POST` | `/api/ai/optimization-advice/cached?sessionId=…` | Lokalny lookup wyniku dla zweryfikowanego `previewId`; 204 przy braku. |
 | `POST` | `/api/ai/optimization-advice?sessionId=…` | Jedna inferencja uruchamiana wyłącznie jawnym kliknięciem; body zawiera tylko `previewId`. |
 | `GET` | `/api/ai/session-chats/models` | Modele dostępne dla konta Copilot i emitowane limity kontekstu; bez inferencji. |
-| `POST` | `/api/ai/session-chats?sessionId=…` | Zamrożenie całej sesji i opcjonalnego focusu; bez inferencji. |
+| `POST` | `/api/ai/session-chats?sessionId=…` | Zamrożenie całej sesji dla wybranego modelu; bez inferencji. |
 | `GET` | `/api/ai/session-chats?sessionId=…` | Lista zapisanych rozmów dla sesji; bez SDK. |
 | `GET` | `/api/ai/session-chats/{id}?sessionId=…` | Bootstrap, historia i audyt narzędzi jednej rozmowy; bez SDK. |
 | `POST` | `/api/ai/session-chats/{id}/turns?sessionId=…` | Jawna tura: utworzenie albo wznowienie sesji SDK i zapis wyniku. |
@@ -196,7 +196,8 @@ wyspecjalizowane role:
 | `model-action-evidence.ts` | Mapowanie wyniku AI na rundy oraz dowody konsumpcji wyników. |
 | `action-credit-attribution.ts` | Lokalna estymacja podziału credits na kategorie. |
 | `optimization/guidance-evidence.ts` | Lokalny, zamrożony pakiet dowodowy dla fazy lub pojedynczego kompaktowania: limity, redakcja, pochodzenie, braki, pominięcia i fingerprint. Nie uruchamia AI. |
-| `SessionChatDialogComponent` | Rozmowa o całej zamrożonej sesji z opcjonalnym focusem rund, historią, aktywnością narzędzi i evidence refs. |
+| `SessionChatDialogComponent` | Rozmowa o całej zamrożonej sesji, z historią, aktywnością narzędzi i evidence refs. Rundę lub interakcję użytkownik wskazuje w wiadomości. |
+| `AiHubComponent` | Jawne uruchamianie Quick Analysis, prezentacja podziału credits oraz wejścia do nowej, ostatniej i historycznej rozmowy. |
 
 Interpretacja należy do tych modułów, a nie do wyrażeń w template.
 
@@ -208,30 +209,15 @@ Właściciel:
 Komponent odpowiada za:
 
 - wybór interakcji;
-- przełącznik `Fakty / Kategorie`;
-- uruchomienie lub przywrócenie analizy;
-- podział credits według kategorii;
-- agregację sąsiednich rund w fazy;
-- prezentację typu narzędzi w fazie;
 - szczegółowy diagram głównego agenta i subagentów;
 - warstwy `Kontekst`, `Tokeny`, `Credits`;
 - poziome przeciąganie szczegółowej mapy;
-- otwarcie wspólnego panelu rundy;
-- wybór początku i końca jednego ciągłego zakresu tego samego aktora i interakcji;
-- lokalne przygotowanie materiału oraz otwarcie dedykowanej rozmowy.
+- otwarcie wspólnego panelu rundy.
 
 Aktualny porządek po analizie:
 
 ```text
-zlecenie
-  ↓
-menu analizy
-  ↓
-podział credits według kategorii
-  ↓
-zagregowany przebieg faz
-  ↓
-szczegółowy przebieg rund i subagentów
+zlecenie → wybór interakcji i warstwy → szczegółowy przebieg rund i subagentów
 ```
 
 ### Szczegóły rundy
@@ -258,7 +244,7 @@ Panel przedstawia `M → A → M`:
 - `<` i `>` przechodzą po sekwencji przekazanej przez widok otwierający.
 
 Nie należy ponownie tworzyć osobnego panelu „klasyfikacji rundy”. Kategorie są
-warstwą orientacyjną mapy, a audyt rundy ma pozostać uniwersalny i faktograficzny.
+prezentowane w `AI Hub`, a audyt rundy ma pozostać uniwersalny i faktograficzny.
 
 ## Rekonstrukcja subagentów
 
@@ -362,7 +348,7 @@ odpowiedziami, nie awariami.
 
 ```text
 „Zapytaj o sesję” lub „Zapytaj o rundy”
-  → cała sesja zamrożona do cutoffSignalId + opcjonalny focus rund
+  → cała sesja zamrożona do cutoffSignalId
   → mały bootstrap z backendu
   → wybór modelu z katalogu SDK
   → zapis rozmowy bez inferencji
@@ -375,7 +361,8 @@ odpowiedziami, nie awariami.
   → ponowna kontrola zamrożonego źródła i zapis odpowiedzi w H2
 ```
 
-Bootstrap zawiera wyłącznie orientację w sesji, konfiguracji i opcjonalnym focusie.
+Bootstrap zawiera wyłącznie orientację w sesji i konfiguracji. Interakcję lub rundę
+użytkownik wskazuje naturalnym językiem w wiadomości.
 Dokładne requesty, odpowiedzi, tool calls, konfiguracja, koszty i subagenci są
 pobierani na żądanie przez ograniczone custom tools. Handlery mają scope zamknięty
 na serwerze i nie przyjmują `sessionId`. Repozytorium, terminal, built-in tools,

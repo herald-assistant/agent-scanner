@@ -1,15 +1,13 @@
 # Klasyfikacja odpowiedzi modelu — model-actions-v5
 
-Mapa pracy początkowo przedstawia fakty: rundy, wykonania, potwierdzone delegacje,
+Mapa pracy przedstawia wyłącznie fakty: rundy, wykonania, potwierdzone delegacje,
 błędy i wyemitowane pomiary. AI uruchamia wyłącznie przycisk
-„Przeanalizuj działania modelu”. Ponowne wejście odczytuje zapisaną analizę;
-przełącznik „Kategorie / Fakty” nie uruchamia modelu.
+„Uruchom Quick Analysis” w zakładce `AI Hub`. Ponowne wejście do AI Hub odczytuje
+zapisaną analizę i nie uruchamia modelu.
 
-Po włączeniu kategorii ekran najpierw pokazuje dominującą kategorię według
-lokalnego podziału credits i ostrożny kierunek do sprawdzenia. Niżej znajduje się
-statyczny ranking procentowy, zagregowany przebieg głównego agenta, subagentów i
-kompaktowań oraz osobny, domyślnie rozwinięty szczegółowy graf wywołań, który
-użytkownik może ukryć.
+Po analizie AI Hub pokazuje statyczny ranking kategorii według lokalnego podziału
+credits dla wybranej interakcji oraz ostrożne kierunki do sprawdzenia. Kategorie
+nie zmieniają podpisów ani struktury faktograficznej Mapy pracy.
 
 ## Przedmiot klasyfikacji
 
@@ -203,8 +201,7 @@ Wykonanie ma ograniczony czas i jeden worker bez kolejki płatnych zadań.
 Po timeout/błędzie wywoływane jest abort i sprzątanie klienta. Zwalidowany wynik jest
 zapisywany w H2 dla sesji oraz skrótu obejmującego wersję reguł, model i kanoniczny
 zakres analizy. Ponowne wejście lub odświeżenie widoku wykonuje lokalny odczyt wyniku.
-Zmiana treści, modelu albo wersji reguł wymusza nową analizę. Radio
-**Kategorie / Fakty** zmienia wyłącznie prezentację. Oceny nie są dopisywane do
+Zmiana treści, modelu albo wersji reguł wymusza nową analizę. Oceny nie są dopisywane do
 surowej telemetrii ani formatu eksportu i usuwają się kaskadowo razem z sesją.
 
 Wersja `model-actions-v5` nie odczytuje analiz `model-actions-v4` ani

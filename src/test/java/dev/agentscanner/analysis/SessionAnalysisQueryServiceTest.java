@@ -2,14 +2,13 @@ package dev.agentscanner.analysis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,13 +32,19 @@ class SessionAnalysisQueryServiceTest {
     }
 
     @Test
-    void rejectsAFocusReferenceThatDoesNotBelongToTheFrozenSession() {
+    void bootstrapCoversTheWholeSessionWithoutAFocusContract() {
         Map<String, Object> material = material();
         when(reconstruction.reconstructAt(7, 19)).thenReturn(Optional.of(material));
         var scope = new SessionAnalysisQueryService.Scope(7, 19, SessionReconstructionService.EPISODE_VERSION,
                 SessionAnalysisQueryService.REDACTION_CONTRACT, "local-user");
 
-        assertThrows(ResponseStatusException.class, () -> service.bootstrap(scope, List.of("foreign/span")));
+        Map<String, Object> bootstrap = service.bootstrap(scope);
+
+        assertEquals(SessionAnalysisQueryService.BOOTSTRAP_CONTRACT, bootstrap.get("contract"));
+        assertFalse(bootstrap.containsKey("focus"));
+        assertFalse(bootstrap.containsKey("focusDigest"));
+        assertTrue(bootstrap.containsKey("interactions"));
+        assertTrue(bootstrap.containsKey("navigation"));
     }
 
     private Map<String, Object> material() {

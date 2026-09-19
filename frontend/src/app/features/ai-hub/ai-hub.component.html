@@ -1,0 +1,71 @@
+<section class="ai-hub" aria-label="AI Hub">
+  <header class="hub-intro">
+    <div><span class="eyebrow"><mat-icon>auto_awesome</mat-icon> AI HUB</span><h2>Analiza i rozmowy o zapisanej sesji</h2>
+      <p>Quick Analysis klasyfikuje działania modelu na żądanie. Chat może odczytywać całą zamrożoną sesję przez narzędzia Scannera.</p></div>
+    <span class="read-only"><mat-icon>lock</mat-icon>Tylko odczyt</span>
+  </header>
+
+  <section class="hub-card quick-card">
+    <header class="card-heading">
+      <div><span class="eyebrow">AI QUICK ANALYSIS</span><h3>Podział credits według kategorii</h3>
+        <p>AI klasyfikuje żądane działania. Scanner przypisuje do nich zmierzone credits lokalną estymacją.</p></div>
+      @if (interactions().length > 1) {
+        <fieldset><legend>INTERAKCJA</legend><div class="interaction-switch">
+          @for (item of interactions(); track item.traceId) {
+            <button type="button" [class.selected]="interaction().traceId === item.traceId" (click)="selectInteraction(item.traceId)">I{{ item.interactionIndex }}</button>
+          }
+        </div></fieldset>
+      }
+    </header>
+
+    @if (restoring()) {
+      <div class="hub-state"><mat-spinner diameter="24" />Odczytywanie zapisanej analizy…</div>
+    } @else if (!hasResult()) {
+      <div class="analysis-start">
+        <div class="analysis-scope"><mat-icon>data_object</mat-icon><div><strong>Co zostanie wysłane</strong>
+          <p>Definicje narzędzi, struktura agentów i rund, zlecenia, skrócone argumenty oraz krótkie fragmenty odpowiedzi modelu. Bez wyników narzędzi i pełnych requestów.</p></div></div>
+        <dl><div><dt>Model</dt><dd>{{ modelLabel() }}</dd></div><div><dt>Szacowany input</dt><dd>≈ {{ compact(classificationEstimate().input) }} tokenów</dd></div>
+          <div><dt>Szacowana odpowiedź</dt><dd>≈ {{ compact(classificationEstimate().output) }}–{{ compact(classificationEstimate().outputMax) }} tokenów</dd></div></dl>
+        <p class="usage-warning"><mat-icon>info</mat-icon>Uruchomienie użyje limitu konta GitHub Copilot. Samo otwarcie AI Hub nie uruchamia modelu.</p>
+        <button type="button" class="primary-action" [disabled]="classifying() || !catalog().request.contexts.length || runtime()?.configured === false" (click)="classify()">
+          @if (classifying()) { <mat-spinner diameter="18" />Analizowanie… } @else { <mat-icon>auto_awesome</mat-icon>Uruchom Quick Analysis }
+        </button>
+      </div>
+    } @else if (quickAnalysis(); as view) {
+      <div class="analysis-meta"><span><mat-icon>check_circle</mat-icon>Analiza zapisana · model analizy: {{ result()?.model }}</span>
+        <span>{{ view.classifiedRoundCount }}/{{ view.rounds.length }} odpowiedzi przypisanych do kategorii</span>
+        <span>credits: {{ view.coveredCalls }}/{{ view.totalCalls }} wywołań</span></div>
+      <div class="coverage"><span>Ujęte w kategoriach <strong>{{ assignedShare() }}</strong></span>
+        <span class="unattributed" matTooltip="Credits części wywołań, których Scanner nie może jednoznacznie powiązać z kategorią działania. Obejmują m.in. nieprzypisany input i elementy requestu bez dokładnego dowodu kategorii." matTooltipClass="scanner-info-tooltip">
+          Poza kategoriami <mat-icon>info</mat-icon><strong>{{ unattributedShare() }}</strong>
+        </span></div>
+      <div class="category-list" role="list" aria-label="Podział credits według kategorii">
+        @for (item of view.categories; track item.id) {
+          <article role="listitem" [class.telemetry]="!item.estimated">
+            <span class="rank">{{ $index + 1 }}</span><span class="category-icon"><mat-icon>{{ categoryIcon(item) }}</mat-icon></span>
+            <div class="category-copy"><strong>{{ categoryLabel(item) }}</strong><p>{{ categoryHint(item) }}</p>
+              <span class="meter"><i [style.width.%]="item.shareOfKnown ?? 0"></i></span></div>
+            <div class="category-value"><strong>{{ item.shareOfKnown == null ? '—' : (item.estimated ? '≈ ' : '') + percent(item.shareOfKnown) }}</strong>
+              <small>{{ item.totalCredits == null ? 'brak pomiaru' : (item.estimated ? '≈ ' : '') + credits(item.totalCredits) + ' credits' }}</small></div>
+            <button type="button" class="guide-button" [attr.aria-label]="'Poznaj techniki dla: ' + categoryLabel(item)" (click)="openCategoryGuidance(item, $event.currentTarget)"><mat-icon>lightbulb</mat-icon>Poznaj techniki</button>
+          </article>
+        } @empty { <div class="hub-state">Analiza nie przypisała żadnej kategorii w tej interakcji.</div> }
+      </div>
+      <p class="analysis-note"><mat-icon>info</mat-icon>≈ oznacza estymowane przypisanie pełnych credits wywołań do działań. „Poza kategoriami” to zmierzone credits bez wystarczającego dowodu przypisania, a nie niesklasyfikowane odpowiedzi. Kompaktowanie pozostaje osobnym faktem z telemetrii.</p>
+    }
+  </section>
+
+  <section class="hub-card chat-card">
+    <header class="card-heading"><div><span class="eyebrow">AI CHAT</span><h3>Rozmowa o całej sesji</h3>
+      <p>Zapytaj o promptowanie, liczbę rund, credits, konfigurację albo konkretne oznaczenia, np. M3–M6.</p></div>
+      <span class="conversation-count">{{ conversations().length }} {{ conversations().length === 1 ? 'rozmowa' : 'rozmów' }}</span></header>
+    <div class="chat-actions">
+      <button type="button" class="primary-action" [disabled]="chatOpening()" (click)="newChat()"><mat-icon>add_comment</mat-icon>Nowa rozmowa</button>
+      @if (lastConversation(); as last) {
+        <button type="button" class="secondary-action" [disabled]="chatOpening()" (click)="continueLast()"><mat-icon>forum</mat-icon><span>Kontynuuj ostatnią<small>{{ last.model }} · {{ turnLabel(last.turnCount) }} · {{ date(last.updatedAt) }}</small></span></button>
+      }
+      <button type="button" class="secondary-action" [disabled]="chatOpening() || historyLoading()" (click)="openHistory()"><mat-icon>history</mat-icon><span>Poprzednie rozmowy<small>Otwórz historię bez uruchamiania AI</small></span></button>
+    </div>
+    <p class="chat-boundary"><mat-icon>shield</mat-icon>Chat nie ma dostępu do repozytorium ani narzędzi analizowanej sesji. Korzysta wyłącznie z odczytowych narzędzi Scannera.</p>
+  </section>
+</section>

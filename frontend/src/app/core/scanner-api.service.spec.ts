@@ -89,6 +89,22 @@ describe('ScannerApiService session chat', () => {
 
     await expect(new ScannerApiService().sessionChatModels()).rejects.toThrow('Trwa inne działanie AI.');
   });
+
+  it('creates a whole-session chat with only the selected model', async () => {
+    const response = {id: 'chat-1', sessionId: 42, model: 'gpt-test', cutoffSignalId: 7, contextHash: 'hash',
+      bootstrap: {}, revision: 0, createdAt: '2026-09-20T00:00:00Z', updatedAt: '2026-09-20T00:00:00Z',
+      newerTelemetryAvailable: false, turns: []};
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(response), {
+      status: 200, headers: {'Content-Type': 'application/json'}
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new ScannerApiService().createSessionChat(42, 'gpt-test');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/ai/session-chats?sessionId=42', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({model: 'gpt-test'})
+    }));
+  });
 });
 
 function adviceResult() {

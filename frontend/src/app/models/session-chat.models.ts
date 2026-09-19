@@ -1,5 +1,3 @@
-export interface SessionChatFocus { roundRefs: string[]; }
-
 export interface SessionChatModel {
   id: string;
   name: string;
@@ -60,11 +58,23 @@ export interface SessionChatView {
   model: string;
   cutoffSignalId: number;
   contextHash: string;
-  focus: SessionChatFocus;
   bootstrap: Record<string, unknown>;
   revision: number;
   createdAt: string;
   updatedAt: string;
   newerTelemetryAvailable: boolean;
   turns: SessionChatTurn[];
+}
+
+export interface SessionChatSummary {
+  id: string;
+  sessionId: number;
+  model: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  newerTelemetryAvailable: boolean;
+  turnCount: number;
+  lastQuestion: string | null;
+  lastTurnStatus: SessionChatTurn['status'] | null;
 }

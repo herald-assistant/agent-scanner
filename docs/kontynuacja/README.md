@@ -64,19 +64,18 @@ sesji i pokazuje użytkownikowi:
 - jak rosły tokeny, zajętość okna kontekstowego i credits;
 - które części przepływu warto sprawdzić pod kątem optymalizacji.
 
-Zakładka `Mapa pracy` ma dwa tryby:
+Zakładka `Mapa pracy` jest wyłącznie faktograficzna. Pozwala wybrać interakcję i
+warstwę `Kontekst`, `Tokeny` albo `Credits`, a następnie obejrzeć diagram wywołań
+modelu głównego agenta i subagentów. Nie uruchamia AI, nie pokazuje kategorii ani
+zagregowanych faz.
 
-- `Fakty` pokazują wyłącznie dane z telemetrii i deterministyczne relacje;
-- `Kategorie` nakładają wynik jawnie uruchomionej analizy AI na te same rundy.
+Zakładka `AI Hub`, umieszczona między `Mapa pracy` i `Dane techniczne`, skupia
+jawnie uruchamiane funkcje AI:
 
-Po analizie kolejność głównych sekcji jest następująca:
-
-1. `Podział credits według kategorii` — procentowa estymacja dla całego badanego
-   przepływu;
-2. `Zagregowany przebieg` — lista sąsiednich faz z nazwami rund, udziałem typów
-   narzędzi i pełnymi credits wywołań należących do fazy;
-3. `Szczegółowy przebieg` — rozwinięty diagram wywołań modelu głównego agenta i
-   subagentów, z warstwami kontekstu, tokenów i credits.
+1. `AI Quick Analysis` — zapisany wynik kategorii i estymowany podział credits dla
+   wybranej interakcji;
+2. `AI Chat` — nowa rozmowa, kontynuacja ostatniej i historia rozmów o całej
+   zamrożonej sesji.
 
 Kliknięcie rundy na szczegółowym diagramie otwiera wspólny prawy panel
 `M → A → M`. Panel jest faktograficzny i nie dubluje klasyfikacji AI. Pokazuje

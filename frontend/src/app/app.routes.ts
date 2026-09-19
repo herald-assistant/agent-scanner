@@ -10,7 +10,8 @@ export const appRoutes: Routes = [
     loadComponent: scannerShell,
     children: [
       {path: '', pathMatch: 'full', loadComponent: homePage, title: 'Agent Scanner'},
-      {path: 'sessions/:sessionId', loadComponent: sessionPage, title: 'Sesja · Agent Scanner'}
+      {path: 'sessions/:sessionId', pathMatch: 'full', redirectTo: 'sessions/:sessionId/overview'},
+      {path: 'sessions/:sessionId/:tab', loadComponent: sessionPage, title: 'Sesja · Agent Scanner'}
     ]
   },
   {path: '**', redirectTo: ''}

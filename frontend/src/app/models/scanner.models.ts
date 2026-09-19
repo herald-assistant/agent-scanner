@@ -1,4 +1,4 @@
-export type Tab = 'overview' | 'loop' | 'workflow' | 'technical';
+export type Tab = 'overview' | 'loop' | 'workflow' | 'ai-hub' | 'technical';
 export type TechnicalMode = 'spans' | 'signals';
 
 export interface ScannerStatus {

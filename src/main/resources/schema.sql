@@ -138,7 +138,6 @@ CREATE TABLE IF NOT EXISTS session_chat (
     prompt_version VARCHAR(64) NOT NULL,
     toolset_version VARCHAR(64) NOT NULL,
     redaction_version VARCHAR(64) NOT NULL,
-    focus_json CLOB NOT NULL,
     bootstrap_json CLOB NOT NULL,
     context_hash VARCHAR(64) NOT NULL,
     copilot_session_id VARCHAR(512),
@@ -149,6 +148,7 @@ CREATE TABLE IF NOT EXISTS session_chat (
 );
 
 ALTER TABLE session_chat DROP COLUMN IF EXISTS version;
+ALTER TABLE session_chat DROP COLUMN IF EXISTS focus_json;
 
 CREATE TABLE IF NOT EXISTS session_chat_turn (
     id VARCHAR(36) PRIMARY KEY,

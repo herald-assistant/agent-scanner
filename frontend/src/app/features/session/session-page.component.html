@@ -1,4 +1,9 @@
 @if (detail) {
+      <ng-template #compactionEvidenceBody let-compaction>
+        @if (compactionSource(compaction); as source) {
+          <as-context-compaction-details [compaction]="compaction" [source]="source" [creditTooltip]="creditTooltip" />
+        }
+      </ng-template>
       <section class="content">
         <div class="session-title">
           <div>
@@ -19,9 +24,10 @@
         </div>
         <nav class="tabs">
           <button [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="selectTab('overview')">Podsumowanie</button>
-          <button [class.active]="activeTab === 'loop'" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
+          <button [class.active]="activeTab === 'loop'" [attr.aria-current]="activeTab === 'loop' ? 'page' : null" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
           <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
-          <button [class.active]="activeTab === 'technical'" (click)="selectTab('technical')">Dane techniczne</button>
+          <button [class.active]="activeTab === 'ai-hub'" [attr.aria-current]="activeTab === 'ai-hub' ? 'page' : null" (click)="selectTab('ai-hub')">AI Hub</button>
+          <button [class.active]="activeTab === 'technical'" [attr.aria-current]="activeTab === 'technical' ? 'page' : null" (click)="selectTab('technical')">Dane techniczne</button>
         </nav>
         @if (activeTab === 'overview') {
           @if (capabilityOverview(); as overview) {
@@ -55,8 +61,7 @@
                 [refreshing]="workflowLoading()"
                 [contextCompactions]="contextCompactions()"
                 [relatedDetails]="relatedDetails"
-                [creditTooltip]="creditTooltip"
-                (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.origin, $event.context)" />
+                [creditTooltip]="creditTooltip" />
             }
           }
           @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
@@ -64,6 +69,21 @@
           }
           @if (workflowFailed()) {
             <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
+          }
+        }
+        @if (activeTab === 'ai-hub') {
+          @if (workflowState(); as workflow) {
+            @if (workflow.source.session.id === detail.session.id) {
+              <as-ai-hub [analysis]="workflow" [contextCompactions]="contextCompactions()"
+                (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.origin, $event.context)"
+                (evidenceSelected)="openEvidence($event)" />
+            }
+          }
+          @if (workflowLoading() && workflowState()?.source?.session?.id !== detail.session.id) {
+            <p role="status">Przygotowywanie danych AI Hub…</p>
+          }
+          @if (workflowFailed()) {
+            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie AI Hub</button>
           }
         }
 </section>

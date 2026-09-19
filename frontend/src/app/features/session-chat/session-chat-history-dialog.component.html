@@ -10,15 +10,15 @@
     } @else if (error()) {
       <div class="history-state error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</div>
     } @else if (!conversations().length) {
-      <div class="history-state"><mat-icon>forum</mat-icon><strong>Brak poprzednich rozmów</strong><span>Rozpocznij nową rozmowę z poziomu mapy pracy.</span></div>
+      <div class="history-state"><mat-icon>forum</mat-icon><strong>Brak poprzednich rozmów</strong><span>Rozpocznij nową rozmowę w AI Hub.</span></div>
     } @else {
       <div class="conversation-list" role="list" aria-label="Poprzednie rozmowy o sesji">
         @for (item of conversations(); track item.id) {
           <article role="listitem">
             <button type="button" class="conversation-select" (click)="select(item)">
               <mat-icon>forum</mat-icon>
-              <span class="conversation-copy"><strong>{{ title(item) }}</strong><small>{{ date(item.updatedAt) }} · {{ turnLabel(item.turns.length) }}</small></span>
-              <span class="conversation-meta"><small>{{ item.model }}</small><small>{{ focusLabel(item) }}</small></span>
+              <span class="conversation-copy"><strong>{{ title(item) }}</strong><small>{{ date(item.updatedAt) }} · {{ turnLabel(item.turnCount) }}</small></span>
+              <span class="conversation-meta"><small>{{ item.model }}</small><small>cała sesja</small></span>
               <mat-icon>arrow_forward</mat-icon>
             </button>
             <button type="button" class="icon-button delete-conversation" aria-label="Usuń rozmowę" (click)="delete(item, $event)"><mat-icon>delete</mat-icon></button>

@@ -45,23 +45,25 @@ final class SessionChatService {
             throw new SessionChatException(HttpStatus.BAD_REQUEST, "Wybierz model dla rozmowy.");
         }
         SessionAnalysisQueryService.Scope scope = queries.createScope(sessionId);
-        List<String> focus = request.focus() == null || request.focus().roundRefs() == null
-                ? List.of() : request.focus().roundRefs();
-        var bootstrap = queries.bootstrap(scope, focus);
+        var bootstrap = queries.bootstrap(scope);
         Instant now = now();
         String id = UUID.randomUUID().toString();
         store.saveSessionChat(id, sessionId, request.model().trim(), scope.cutoffSignalId(),
                 scope.reconstructionVersion(), SessionChat.PROMPT_VERSION,
                 SessionAnalysisQueryService.TOOLSET_CONTRACT, scope.redactionVersion(),
-                json(new SessionChat.Focus(focus)), json(bootstrap), String.valueOf(bootstrap.get("contextHash")), now);
+                json(bootstrap), String.valueOf(bootstrap.get("contextHash")), now);
         return get(sessionId, id);
     }
 
-    List<SessionChat.ChatView> list(long sessionId) {
+    List<SessionChat.ChatSummary> list(long sessionId) {
         if (store.session(sessionId).isEmpty()) {
             throw new SessionChatException(HttpStatus.NOT_FOUND, "Nie znaleziono sesji.");
         }
-        return store.sessionChats(sessionId).stream().map(this::view).toList();
+        long currentCutoff;
+        try { currentCutoff = queries.createScope(sessionId).cutoffSignalId(); }
+        catch (RuntimeException ignored) { currentCutoff = -1; }
+        long cutoff = currentCutoff;
+        return store.sessionChatIndex(sessionId).stream().map(source -> summary(source, cutoff)).toList();
     }
 
     SessionChat.ChatView get(long sessionId, String id) {
@@ -138,11 +140,16 @@ final class SessionChatService {
         try { currentCutoff = queries.createScope(source.sessionId()).cutoffSignalId(); }
         catch (RuntimeException ignored) { currentCutoff = source.cutoffSignalId(); }
         return new SessionChat.ChatView(source.id(), source.sessionId(), source.model(), source.cutoffSignalId(),
-                source.contextHash(), read(source.focusJson(), SessionChat.Focus.class,
-                    "Zapisany punkt startowy rozmowy jest uszkodzony."),
+                source.contextHash(),
                 readTree(source.bootstrapJson(), "Zapisany bootstrap rozmowy jest uszkodzony."), source.revision(),
                 source.createdAt().toString(), source.updatedAt().toString(), currentCutoff > source.cutoffSignalId(),
                 store.sessionChatTurns(source.id()).stream().map(this::turnView).toList());
+    }
+
+    private SessionChat.ChatSummary summary(ScannerStore.SessionChatIndexSource source, long currentCutoff) {
+        return new SessionChat.ChatSummary(source.id(), source.sessionId(), source.model(), source.revision(),
+                source.createdAt().toString(), source.updatedAt().toString(), currentCutoff > source.cutoffSignalId(),
+                source.turnCount(), source.lastQuestion(), source.lastTurnStatus());
     }
 
     private SessionChat.TurnView turnView(ScannerStore.SessionChatTurnSource source) {

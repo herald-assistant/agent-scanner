@@ -112,16 +112,17 @@ jeżeli ma już naturalnego właściciela w `core` lub komponencie funkcji.
 - Nowy input jest limonkowy, cache read turkusowy, output ma osobny kolor,
   cache write fioletowy, potwierdzony błąd czerwony.
 
-### Mapa pracy
+### Mapa pracy i AI Hub
 
-- Tryb `Fakty` musi działać bez konfiguracji AI.
-- Przełącznik `Kategorie / Fakty` nie uruchamia requestu.
-- Kategorie zmieniają podpisy i agregaty, ale nie modyfikują raw przebiegu.
-- Podział kategorii jest statycznym procentowym zestawieniem.
-- Zagregowane fazy są nieinteraktywne i wskazują rundy do odnalezienia na mapie.
-- Szczegółowy diagram jest osobną sekcją, początkowo rozwiniętą.
-- Zawijane karty zachowują strzałki skierowane w prawo; nie dodawaj numeracji faz.
+- `Mapa pracy` jest zawsze faktograficzna i działa bez konfiguracji AI.
+- Mapa ma wyłącznie wybór interakcji i warstwy `Kontekst`, `Tokeny`, `Credits`.
+- Nie dodawaj z powrotem kategorii, zagregowanych faz ani rozmowy do mapy.
 - Kliknięcie rundy otwiera uniwersalny, faktograficzny panel `M → A → M`.
+- `AI Hub` jest jedynym miejscem jawnego uruchamiania Quick Analysis i rozmowy.
+- Samo wejście do `AI Hub` może odczytać cache i historię, ale nie uruchamia modelu.
+- Podział kategorii jest statycznym procentowym zestawieniem dla wybranej interakcji.
+- Rozmowa obejmuje całą zamrożoną sesję; wskazanie rundy należy do wiadomości,
+  a nie osobnego kontraktu punktu uwagi.
 
 ## Reguły semantyczne
 

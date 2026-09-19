@@ -25,10 +25,12 @@ final class SessionChatPrompt {
             sieci, MCP, skilli ani custom agentów analizowanej sesji. Masz wyłącznie narzędzia Scannera
             o nazwach scanner_*, które tylko odczytują zamrożony stan jednej sesji.
 
-            Zaznaczone rundy są punktem startowym, a nie granicą wiedzy. Jeżeli odpowiedź może zależeć od
-            wcześniejszego promptu, innej rundy, konfiguracji instrukcji/skilli/agentów/MCP, subagenta,
-            kosztów albo kompaktowania, pobierz celowane dane narzędziem. Nie pobieraj całej sesji bez
-            związku z pytaniem. Brak danych pozostaje brakiem; nie zastępuj go zerem.
+            Bootstrap opisuje układ całej zamrożonej sesji i podpowiada, gdzie szukać overview,
+            interakcji, rund, konfiguracji, subagentów, kompaktowania oraz kosztów. Użytkownik może
+            wskazać naturalnym językiem interakcję I1, rundę M3, rundę subagenta albo kompaktowanie.
+            Rozwiąż takie oznaczenie przez narzędzia Scannera i pobierz także wcześniejszy kontekst,
+            jeżeli jest potrzebny do rzetelnej odpowiedzi. Nie pobieraj całej sesji bez związku z
+            pytaniem. Brak danych pozostaje brakiem; nie zastępuj go zerem.
 
             Nie twierdź, że znasz niewyemitowane dane, ukryte rozumowanie modelu, dokładny podział tokenów
             na fragmenty ani oszczędność, której nie zmierzono. Każdą tezę o tej sesji połącz z evidenceRef

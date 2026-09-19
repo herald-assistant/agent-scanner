@@ -453,8 +453,8 @@ together.
   `optimization-technique-matcher.ts` owns the deterministic category-to-technique
   mapping and deduplication. Keep editorial content in the versioned catalog, not
   duplicated in templates.
-- `WorkflowViewComponent`: factual flow map, context pressure, exact delegation
-  lanes, tool definitions and optional AI capability mapping. Its pure analysis lives
+- `WorkflowViewComponent`: factual flow map, context pressure and exact delegation
+  lanes. It never renders AI categories, aggregated phases or chat controls. Its pure analysis lives
   in `WorkflowAnalysisService` and `core/workflow`, called through
   `SessionAnalysisService.buildWorkflow`. It reads raw attribute presence instead
   of normalized token defaults. `flow-tool-catalog.ts` collects captured M→A tool requests and
@@ -470,11 +470,18 @@ together.
   overlapping evidence, not additive components of an action's cost.
   Clicking a round node opens the same factual `M → A → M` round content used by
   the execution timeline in the shared right-side aside. AI classification remains
-  on the map and is not included in this round-content panel.
+  outside the map and is not included in this round-content panel.
   Do not duplicate selected-round measurements or generic interpretation/coverage
   cards below the map; round metrics belong in the shared round-content aside.
   The round-content aside provides previous/next round navigation in its header,
   scoped to the sequence represented by the opener.
+- `AiHubComponent`: the only session surface for explicitly started AI work. It
+  restores cached `model-actions-v5` results without inference, owns the interaction
+  selector for `AI Quick Analysis`, renders the estimated credits split and opens
+  category/compaction guidance. It also owns new, resumed and historical
+  `Rozmowa o sesji` chats. A chat always covers the frozen whole session; the user
+  names a round or interaction in the first message instead of sending a separate
+  attention object.
 
 Do not create pass-through components that add no semantic boundary. Do extract a
 component when it owns behavior, state, a repeated visual contract or a testable
@@ -545,7 +552,8 @@ metric in one isolated component.
 
 Preserve these product decisions unless the user explicitly changes them:
 
-- the main view contains `Koszt i przebieg`, `Mapa pracy` and `Dane techniczne` tabs;
+- the main view contains `Podsumowanie`, `Koszt i przebieg`, `Mapa pracy`, `AI Hub`
+  and `Dane techniczne` tabs, in that order;
 - below the `Koszt i przebieg` session card, a global no-AI tool overview should
   make otherwise hidden customization opportunities visible. It covers the main
   agent and uniquely linked subagents, separates `Niewykorzystane` and
@@ -594,11 +602,11 @@ Preserve these product decisions unless the user explicitly changes them:
   cost problem, expected observable result and a before/after verification method.
   Examples must be practical, sufficiently detailed variants to try rather than
   short slogans;
-- category and phase `Poznaj techniki` actions reuse that guide with an explicit
-  scope, provenance, credits and coverage. They use only a saved classification
-  and the static matcher; opening them never invokes AI. Category credit shares
-  remain marked `≈`, phase credits are full emitted model-call credits, and
-  compaction offers a separate telemetry-based entry even without classification;
+- category and compaction `Poznaj techniki` actions in `AI Hub` reuse that guide
+  with an explicit scope, provenance, credits and coverage. They use only a saved
+  classification and the static matcher; opening them never invokes AI. Category
+  credit shares remain marked `≈`, while compaction offers a separate
+  telemetry-based entry even without classification;
 - contextual optimization guidance links only to exact round or compaction
   evidence already present in the session. Evidence opens in the existing factual
   aside above the guide; `Wróć do techniki` must preserve the selected technique,
@@ -623,11 +631,11 @@ Preserve these product decisions unless the user explicitly changes them:
   sampling and remain visible in the preview, but only the configured model/provider's
   actual context-window enforcement may reject the complete advisory prompt as too
   large. Do not reintroduce character-count proxies for a tokenized context window;
-- the workflow map can open `Rozmowa o sesji` directly or with one continuous
-  range as an optional focus. Opening the modal and creating the local chat do not
-  invoke inference. The backend freezes the whole reconstructed session at one
-  `cutoffSignalId`, builds a small bootstrap and keeps selected rounds only as a
-  point of attention. The first explicit question creates a persistent Copilot SDK
+- `AI Hub` opens `Rozmowa o sesji`; the workflow map has no chat controls. Opening
+  the modal and creating the local chat do not invoke inference. The backend
+  freezes the whole reconstructed session at one `cutoffSignalId` and builds a
+  small bootstrap. The first explicit question may name an interaction or round
+  in natural language and creates a persistent Copilot SDK
   session and later questions resume it. The assistant may call only the bounded,
   read-only `scanner_*` custom tools backed by `SessionAnalysisQueryService`; tools,
   MCP, skills, custom agents, repository access, host Git, filesystem, memory and

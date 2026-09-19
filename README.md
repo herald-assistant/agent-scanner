@@ -233,100 +233,53 @@ dokładnych rund. Scanner nie obiecuje oszczędności, a koszt własnego wywoła
 doradcy pozostaje „brak pomiaru”. Klasyfikacja oraz doradztwo współdzielą jeden
 globalny slot inferencji.
 
-## Mapa pracy
+## Mapa pracy i AI Hub
 
-Zakładka **Mapa pracy** zaczyna od wyemitowanego zlecenia i przepływu rund:
-narzędzi, delegacji, potwierdzonych błędów i pomiarów kontekstu/tokenów/credits.
-Początkowo nie prezentuje klasyfikacji wynikającej z proporcji input/output.
+Zakładka **Mapa pracy** pokazuje wyłącznie fakty z telemetrii i deterministyczne
+powiązania. Użytkownik wybiera interakcję oraz warstwę **Kontekst**, **Tokeny** albo
+**Credits**. Diagram układa pracę jako interakcję, pierwsze wywołanie modelu, cykle
+`M → A → M`, przebiegi dokładnie powiązanych subagentów i końcową odpowiedź.
+Kliknięcie rundy otwiera wspólny, faktograficzny panel szczegółów. Mapa nie
+uruchamia AI, nie pokazuje kategorii, zagregowanych faz ani kontrolek rozmowy.
 
-Menu **Analiza przepływu** udostępnia przycisk **Przeanalizuj działania modelu** oraz
-podgląd **Zakres analizy**. Analiza zbiera żądania narzędzi z odpowiedzi modelu całego
-powiązanego drzewa sesji, deduplikuje pełne definicje i wysyła pojedynczy prompt
-przez GitHub Copilot Java SDK. Różne wersje definicji pod tą samą nazwą pozostają
-rozdzielone. Żądania bez definicji nadal podlegają ocenie akcji, ale ich specjalizacja pozostaje nieustalona.
+Zakładka **AI Hub** znajduje się pomiędzy **Mapa pracy** i **Dane techniczne**.
+Skupia dwie jawnie uruchamiane funkcje:
 
-AI ocenia możliwości definicji oraz konkretne akcje żądane w odpowiedzi modelu:
-wyszukiwanie, odczyt, zmianę/zapis, zapis pośredni/końcowy, weryfikację, delegację,
-zarządzanie kontekstem lub odpowiedź. Cel „analiza architektury” nie zamienia
-żądania odczytu w kategorię „analiza”. Każda runda zachowuje wszystkie akcje
-swoich żądań; sąsiednie identyczne zbiory akcji tworzą segmenty. Profil subagenta
-zestawia akcje jego własnych rund. Argumenty są skrócone do 100 znaków na wartość,
-tekst odpowiedzi do 1000, a cel do 4000 znaków. Cel służy tylko ocenie dopasowania.
-Wykonania i późniejsze wyniki nie określają klasyfikacji odpowiedzi. Brak treści
-odpowiedzi pozostaje nieustalony. Ocena AI nie dowodzi efektywności ani sukcesu.
-Liczby, błędy i relacje nadal pochodzą z telemetrii. Radio **Kategorie / Fakty**
-przełącza wyłącznie sposób prezentacji i nigdy nie wywołuje AI.
-Najechanie na przycisk klasyfikacji pokazuje przybliżoną liczbę tokenów wysyłanych
-do modelu, oczekiwany rozmiar odpowiedzi i jej dłuższy wariant. Estymacja
-korzysta z liczby znaków podzielonej przez cztery i nie zastępuje licznika dostawcy.
+- **AI Quick Analysis** klasyfikuje działania widoczne w odpowiedziach modelu i
+  pokazuje estymowany podział credits według kategorii dla wybranej interakcji;
+- **AI Chat** tworzy nową rozmowę, wznawia ostatnią albo otwiera historię rozmów o
+  całej zamrożonej sesji.
 
-Odczyt i wyszukiwanie są jedną kategorią `Pozyskanie danych`. Mapa układa pracę jako
-interakcję, pierwsze wywołanie modelu, cykle `M → A → M` i końcową odpowiedź.
-Delegacja pozostaje narzędziem rodzica: przebieg subagenta i jego zwrot są częścią
-tego samego cyklu.
-Panel łączy żądanie z wykonaniem oraz pierwszym odbiorem wyniku
-po dokładnym call ID; dalsze wystąpienia oznacza jako zachowaną historię.
-Nad mapą znajduje się procentowy podział odpowiedzi modelu według kategorii.
-Najpierw pokazuje dominujący obszar zużycia credits i kierunek do sprawdzenia,
-a dalej statyczny ranking kategorii. Kategorie są wieloetykietowe, dlatego liczba
-odpowiedzi w kategoriach może się nakładać.
-Credits pozostają przy rzeczywistych wywołaniach modeli i nie są grupowane ani
-przesuwane do kategorii akcji jako fakty. UI pokazuje osobno estymację `≈`: dzieli
-credits wywołania między input i output według wyemitowanych tokenów. Pełną część
-outputu przypisuje kategoriom żądań bieżącej odpowiedzi, a pełną część inputu
-kategoriom dokładnie powiązanych wyników. Przy wielu elementach lokalny szacunek
-tokenów wyznacza względne wagi. Część bez dowodu kategorii pozostaje jako „Poza
-kategoriami”, dzięki czemu podział uzgadnia się z sumą credits objętych analizą.
-Podział credits, zagregowana sekwencja faz i szczegółowy graf wywołań modeli oraz
-subagentów są osobnymi sekcjami w tej kolejności. Szczegółowy graf zaczyna
-rozwinięty i można go ukryć. Wersja `model-actions-v5` wymaga jednego ponownego
-wyznaczenia analizy po aktualizacji; poprzednie etykiety pozostają pod dawnym hashem.
+Samo otwarcie AI Hub tylko odczytuje zapisany wynik i lekki indeks rozmów. Nie
+uruchamia modelu. Quick Analysis zbiera żądania narzędzi z odpowiedzi modelu
+powiązanego drzewa sesji, deduplikuje definicje i wysyła pojedynczy, ograniczony
+prompt przez GitHub Copilot Java SDK. Ocena AI nie jest dowodem efektywności ani
+sukcesu. Podział credits oznaczony `≈` jest lokalną estymacją; zmierzone credits
+pozostają przy rzeczywistych wywołaniach modelu. Część bez dowodu kategorii
+pozostaje jako **Poza kategoriami**.
 
-Wymagania opcjonalnej analizy: Copilot CLI `1.0.55` lub nowszy, token użytkownika
-z dostępem do Copilota i ID modelu zwróconego przez to konto. SDK jest przypięte
-do `1.0.11`; korzysta z trybu
-bez narzędzi i skilli. Skopiuj
+Rozmowa zawsze obejmuje całą sesję zamrożoną na jednym `cutoffSignalId`. Nie ma
+osobnego kontraktu punktu uwagi. Użytkownik może w pierwszej wiadomości wskazać naturalnym
+językiem interakcję lub rundę, na przykład `I1` albo `M3`. Backend przekazuje
+mały bootstrap, a analityk pobiera potrzebne dowody przez ograniczone, tylko do
+odczytu narzędzia `scanner_*`. Narzędzia, skille, MCP, pamięć, repozytorium,
+filesystem i discovery obserwowanej sesji pozostają niedostępne. Pierwsze jawnie
+wysłane pytanie tworzy trwałą sesję GitHub Copilot SDK, a każde dopytanie ją
+wznawia. Historia i audyt wywołań narzędzi pozostają lokalnie.
+
+Wymagania opcjonalnych funkcji AI: Copilot CLI `1.0.55` lub nowszy, token
+użytkownika z dostępem do Copilota i ID modelu zwróconego przez to konto. SDK jest
+przypięte do `1.0.11`. Skopiuj
 [`config/application.properties.example`](config/application.properties.example)
 do ignorowanego przez Git `config/application.properties`, uzupełnij
 `agent-scanner.ai.github-token`, `agent-scanner.ai.model` i ewentualnie
-`agent-scanner.ai.cli-path`, po czym uruchom aplikację ponownie.
-Brak konfiguracji nie blokuje odbiornika ani widoku faktów.
+`agent-scanner.ai.cli-path`, po czym uruchom aplikację ponownie. Brak konfiguracji
+nie blokuje odbiornika ani faktograficznej Mapy pracy.
 
-Kliknięcie analizy przesyła definicje, zlecenia, skrócone argumenty wykonań oraz
-fragment odpowiedzi modelu z każdej rundy, ograniczony do 1000 znaków, do GitHub
-Copilot i może zużyć limit konta. Zachowujemy wszystkie właściwości obiektu argumentów;
-wartość tekstowa powyżej 100 znaków ma 50 początkowych znaków, `...` i 47 końcowych.
-Wyniki narzędzi nie są częścią tego promptu.
-Podgląd pozwala sprawdzić wysyłany zakres. Zwalidowany wynik jest zapisywany w H2
-dla sesji i skrótu wersji reguł, modelu oraz zakresu analizy. Ponowne wejście do mapy
-odczytuje go lokalnie bez uruchamiania Copilota. Zmiana zakresu albo modelu wymaga
-nowej analizy. Wynik usuwa się kaskadowo z sesją; nie zmieniamy surowej telemetrii
-ani formatu eksportu.
-
-Mapa i koszt/przebieg odtwarzają epizody z raw identyfikatorów oraz drzewa spanów,
-również gdy starsza normalizacja rozdzieliła epizod pomiędzy rekordy sesji.
-Reguła `copilot-episode-v1` wymaga zgodności jawnych chat/parent chat ID z delegacją
-i jej relacji w drzewie. Nie wymaga ponownego importu. Suma credits obejmuje
-główny epizod i dokładnie powiązane dzieci. Kolizje i cykle nie otrzymują atrybucji.
-Oś opisuje kolejność; szerokość nie oznacza czasu. Szczegółowe pomiary i payloady
-startują zwinięte, a poziomy obszar mapy można przewijać przeciągając jego tło.
-
-Przycisk **Zapytaj o rundy** pozwala wskazać początek i koniec jednego ciągłego
-odcinka tej samej interakcji i agenta. Pasek wyboru pokazuje zakres, liczbę rund,
-sumę znanych credits i pokrycie. **Przejdź do rozmowy** otwiera dedykowany modal z
-lokalnie zamrożonym materiałem, początkowym zleceniem, orientacyjnym rozmiarem i
-wyborem modelu dostępnego dla konta Copilot. Szacunek tokenów nie blokuje wysyłki;
-o dopuszczalnym rozmiarze decyduje rzeczywiste okno wybranego modelu.
-
-Pierwsze jawnie wysłane pytanie tworzy sesję rozmowy GitHub Copilot SDK, a każde
-dopytanie wznawia tę samą sesję. Historia i migawka pozostają zapisane lokalnie;
-zamknięcie modalu nie gubi rozmowy. Narzędzia, skills, MCP, pamięć, dostęp do repo
-i discovery są wyłączone. Odpowiedź oznacza osobno wyjaśnienia oparte na
-referencjach, hipotezy i wiedzę ogólną. Sam wybór zakresu, otwarcie modalu,
-starter pytania oraz odczyt historii nie uruchamiają modelu.
-
-Kontrakt, kategorie, ograniczenia i konfiguracja:
+Kontrakt kategorii i ograniczenia:
 [Klasyfikacja narzędzi AI](docs/klasyfikacja-narzedzi-ai.md).
+Plan docelowego układu:
+[AI Hub i czysta Mapa pracy](docs/plan-ai-hub-i-czysta-mapa-pracy.md).
 Playbook integracji: [Copilot SDK Java](docs/github-copilot-sdk-local-java-spring-ai.md).
 Kompletny kontekst do dalszego rozwoju: [Kontynuacja projektu](docs/kontynuacja/README.md).
 
@@ -385,7 +338,7 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 | `POST /api/ai/optimization-advice/cached?sessionId={id}` | lokalny odczyt rekomendacji dla dokładnej zweryfikowanej migawki |
 | `POST /api/ai/optimization-advice?sessionId={id}` | jawne uruchomienie doradztwa dla `previewId` |
 | `GET /api/ai/session-chats/models` | modele i limity kontekstu dostępne dla konta Copilot; bez inferencji |
-| `POST /api/ai/session-chats?sessionId={id}` | zamrożenie całej sesji i opcjonalnego punktu startowego; bez inferencji |
+| `POST /api/ai/session-chats?sessionId={id}` | zamrożenie całej sesji i utworzenie rozmowy dla wybranego modelu; bez inferencji |
 | `GET /api/ai/session-chats?sessionId={id}` | lokalna lista rozmów o sesji |
 | `GET /api/ai/session-chats/{id}?sessionId={id}` | bootstrap, historia, użyte narzędzia i dowody jednej rozmowy |
 | `POST /api/ai/session-chats/{id}/turns?sessionId={id}` | jawne pytanie lub dopytanie w trwałej sesji SDK |

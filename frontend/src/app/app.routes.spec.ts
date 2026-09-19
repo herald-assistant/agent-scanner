@@ -45,7 +45,7 @@ describe('application routes', () => {
     expect([...shellIcons].every(icon => icon.classList.contains('material-symbols-outlined'))).toBe(true);
     (harness.routeNativeElement?.querySelector('.session-card') as HTMLButtonElement).click();
 
-    await vi.waitFor(() => expect(router.url).toMatch(/^\/sessions\/\d+$/));
+    await vi.waitFor(() => expect(router.url).toMatch(/^\/sessions\/\d+\/overview$/));
     await vi.waitFor(() => expect(harness.routeNativeElement?.querySelector('.session-title')).not.toBeNull());
     harness.detectChanges();
     const sessionActions = [...harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('.session-actions button')];
@@ -54,6 +54,12 @@ describe('application routes', () => {
       'Usuń sesję',
       'Zamknij sesję'
     ]);
+    const costTab = [...harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('.tabs button')]
+      .find(button => button.textContent?.includes('Koszt i przebieg'));
+    expect(costTab).toBeDefined();
+    costTab!.click();
+    await vi.waitFor(() => expect(router.url).toMatch(/^\/sessions\/\d+\/cost$/));
+    await vi.waitFor(() => expect(harness.routeNativeElement?.querySelector('as-cost-dashboard')).not.toBeNull());
     const closeButton = sessionActions.find(button => button.getAttribute('aria-label') === 'Zamknij sesję');
     expect(closeButton).toBeDefined();
     closeButton!.click();
@@ -61,5 +67,17 @@ describe('application routes', () => {
     await vi.waitFor(() => expect(router.url).toBe('/'));
     await vi.waitFor(() => expect(harness.routeNativeElement?.querySelector('.onboarding h1')?.textContent)
       .toContain('Podłącz sesję agenta'));
+  });
+
+  it('keeps the selected session tab in the URL and after route recreation', async () => {
+    const source = workflowFixture()[0];
+    const harness = await RouterTestingHarness.create(`/sessions/${source.session.id}/technical`);
+    const router = TestBed.inject(Router);
+    await vi.waitFor(() => expect(harness.routeNativeElement?.querySelector('as-technical-view')).not.toBeNull());
+    harness.detectChanges();
+
+    expect(router.url).toBe(`/sessions/${source.session.id}/technical`);
+    expect(harness.routeNativeElement?.querySelector('.tabs button[aria-current="page"]')?.textContent?.trim())
+      .toBe('Dane techniczne');
   });
 });

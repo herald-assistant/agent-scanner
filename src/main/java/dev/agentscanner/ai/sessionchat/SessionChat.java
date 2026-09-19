@@ -2,7 +2,6 @@ package dev.agentscanner.ai.sessionchat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.agentscanner.ai.CopilotCompletion;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -15,12 +14,7 @@ public final class SessionChat {
     public static final String PROMPT_VERSION = "session-analysis-chat-prompt";
 
     public record CreateRequest(
-        @NotBlank @Size(max = 512) String model,
-        @Valid Focus focus
-    ) {}
-
-    public record Focus(
-        @Size(max = 50) List<@NotBlank @Size(max = 160) String> roundRefs
+        @NotBlank @Size(max = 512) String model
     ) {}
 
     public record TurnRequest(
@@ -77,13 +71,25 @@ public final class SessionChat {
         String model,
         long cutoffSignalId,
         String contextHash,
-        Focus focus,
         JsonNode bootstrap,
         int revision,
         String createdAt,
         String updatedAt,
         boolean newerTelemetryAvailable,
         List<TurnView> turns
+    ) {}
+
+    public record ChatSummary(
+        String id,
+        long sessionId,
+        String model,
+        int revision,
+        String createdAt,
+        String updatedAt,
+        boolean newerTelemetryAvailable,
+        int turnCount,
+        String lastQuestion,
+        String lastTurnStatus
     ) {}
 
     public record ModelsResponse(boolean configured, String defaultModel, boolean running,

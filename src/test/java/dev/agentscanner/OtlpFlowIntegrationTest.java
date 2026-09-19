@@ -44,6 +44,28 @@ class OtlpFlowIntegrationTest {
     }
 
     @Test
+    void listsLightweightSessionChatIndexWithLatestTurnMetadata() throws Exception {
+        mvc.perform(post("/v1/traces").contentType("application/x-protobuf")
+            .content(CopilotTraceFixture.request().toByteArray())).andExpect(status().isOk());
+        long sessionId = store.sessionIdByConversationId(CopilotTraceFixture.CONVERSATION).orElseThrow();
+        Instant created = Instant.parse("2026-01-01T00:00:00Z");
+        store.saveSessionChat("chat-1", sessionId, "test-model", 1L, "copilot-episode-v1",
+            "prompt", "tools", "redaction", "{\"large\":\"bootstrap\"}", "hash", created);
+        store.saveSessionChatTurn("turn-1", "chat-1", "11111111-1111-1111-1111-111111111111",
+            "Pierwsze pytanie", "hash-1", created.plusSeconds(1));
+        store.failSessionChatTurn("chat-1", "turn-1", "test", created.plusSeconds(2));
+        store.saveSessionChatTurn("turn-2", "chat-1", "22222222-2222-2222-2222-222222222222",
+            "Ostatnie pytanie", "hash-2", created.plusSeconds(3));
+
+        var index = store.sessionChatIndex(sessionId);
+
+        assertEquals(1, index.size());
+        assertEquals(2, index.get(0).turnCount());
+        assertEquals("Ostatnie pytanie", index.get(0).lastQuestion());
+        assertEquals("RUNNING", index.get(0).lastTurnStatus());
+    }
+
+    @Test
     void preservesPerSpanSessionOwnershipAcrossMixedAndReorderedBatches() throws Exception {
         var original = MixedEpisodeTraceFixture.spans();
         for (int mode = 0; mode < 3; mode++) {

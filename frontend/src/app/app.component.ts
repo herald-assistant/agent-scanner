@@ -53,12 +53,12 @@ export class AppComponent {
 
   async selectSession(session: Session): Promise<void> {
     this.detailsPanel.close();
-    await this.router.navigate(['/sessions', session.id]);
+    await this.router.navigate(['/sessions', session.id, 'overview']);
   }
 
   async importSessionFile(file: File): Promise<void> {
     const sessionId = await this.state.importSession(file);
-    if (sessionId != null) await this.router.navigate(['/sessions', sessionId]);
+    if (sessionId != null) await this.router.navigate(['/sessions', sessionId, 'overview']);
   }
 
   async deleteAll(): Promise<void> {
@@ -84,7 +84,7 @@ export class AppComponent {
   }
 
   private updateSelectedSessionId(): void {
-    const match = this.router.url.split(/[?#]/, 1)[0].match(/^\/sessions\/(\d+)$/);
+    const match = this.router.url.split(/[?#]/, 1)[0].match(/^\/sessions\/(\d+)(?:\/[^/]+)?$/);
     this.selectedSessionIdState.set(match ? Number(match[1]) : undefined);
     if (!match) this.state.setSelectedTurnCount(0);
   }

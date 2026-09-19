@@ -15,9 +15,6 @@ import DOMPurify from 'dompurify';
 
 export interface SessionChatDialogData {
   sessionId: number;
-  focusRoundRefs: string[];
-  focusLabel: string;
-  actorLabel: string;
   initialChat?: SessionChatView;
   openEvidence?: (ref: string) => void;
 }
@@ -100,7 +97,7 @@ export class SessionChatDialogComponent {
     try {
       let current = this.chat();
       if (!current) {
-        current = await this.api.createSessionChat(this.data.sessionId, this.selectedModel(), this.data.focusRoundRefs);
+        current = await this.api.createSessionChat(this.data.sessionId, this.selectedModel());
         this.chat.set(current);
       }
       const turn = await this.api.askSessionChat(current.sessionId, current.id, question, crypto.randomUUID());
@@ -134,9 +131,6 @@ export class SessionChatDialogComponent {
       return 'Nie udało się odczytać odpowiedzi modelu. Wstaw pytanie ponownie.';
     }
     return turn.error || 'Ta odpowiedź nie została ukończona.';
-  }
-  focusLabel(item: SessionChatView): string {
-    return item.focus.roundRefs.length ? `${item.focus.roundRefs.length} wskazanych rund` : 'cała sesja';
   }
   compact(value: number | null | undefined): string {
     return value == null ? '—' : new Intl.NumberFormat('pl-PL', {notation: 'compact', maximumFractionDigits: 1}).format(value);

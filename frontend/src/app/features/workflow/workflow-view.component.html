@@ -31,147 +31,32 @@
   </header>
 
   @if (interaction(); as current) {
-    <div class="analysis-menu-slot" [style.height.px]="analysisMenuCompact() ? analysisMenuExpandedHeight() : null">
-      <span #analysisMenuSentinel class="analysis-menu-sentinel" aria-hidden="true"></span>
-      <section #analysisMenu class="analysis-menu" [class.compact]="analysisMenuCompact()"
-        [style.left.px]="analysisMenuCompact() ? analysisMenuFrame().left : null"
-        [style.width.px]="analysisMenuCompact() ? analysisMenuFrame().width : null"
-        aria-label="Analiza przepływu">
-      <div class="analysis-menu-copy"><mat-icon>auto_awesome</mat-icon><div><span class="eyebrow">ANALIZA PRZEPŁYWU</span><h3>Czego model żąda od agenta?</h3><span class="analysis-scope">ZAKRES: CAŁA SESJA AGENTÓW</span><p>{{ plural(catalog().rounds.length, 'runda pracy', 'rundy pracy', 'rund pracy') }} · {{ plural(catalog().agents.length, 'agent', 'agentów', 'agentów') }} · {{ catalog().request.tools.length }} unikalnych definicji@if (contextCompactions().length) { · {{ plural(contextCompactions().length, 'kompaktowanie', 'kompaktowania', 'kompaktowań') }} pokazane na osi }@if (catalog().missing) { · {{ catalog().missing }} żądań bez jednoznacznej definicji }</p></div></div>
-      <div class="analysis-controls">
-        <span class="analysis-mini-label"><mat-icon>auto_awesome</mat-icon> Analiza przepływu</span>
-        <div class="analysis-actions">
-          @if (hasAiResult()) { <span class="classification-ready"><mat-icon>check_circle</mat-icon> Analiza gotowa</span> }
-          @else {
-            <button class="classify-button" [disabled]="classifying() || restoringClassification() || !catalog().request.contexts.length" (click)="classifyTools()" [attr.aria-busy]="classifying()"
-              [matTooltip]="classificationEstimateTooltip()" matTooltipClass="scanner-info-tooltip"><mat-icon>{{ classifying() ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>{{ classifying() ? 'Analizowanie działań…' : 'Przeanalizuj działania modelu' }}</button>
-          }
-          <button class="catalog-button" (click)="open(catalogDialog, 'Zakres wysyłany do AI')"><mat-icon>visibility</mat-icon> Zakres analizy</button>
-          @if (visibleCompactions().length) {
-            <button class="catalog-button compaction-guide-button" (click)="openCompactionGuidance($event.currentTarget)" matTooltip="Pokaż lokalne techniki bez uruchamiania analizy AI" matTooltipClass="scanner-info-tooltip"><mat-icon>lightbulb</mat-icon> Techniki dla kompaktowania</button>
-          }
-        </div>
-        <div class="analysis-navigation">
-          <fieldset class="analysis-view-choice"><legend>WIDOK</legend><div class="analysis-view-switch"><label [class.selected]="aiVisible()"><input type="radio" name="workflow-analysis-view" value="classification" [checked]="aiVisible()" [disabled]="!hasAiResult()" (change)="setAnalysisView('classification')"> Kategorie</label><label [class.selected]="!aiVisible()"><input type="radio" name="workflow-analysis-view" value="facts" [checked]="!aiVisible()" (change)="setAnalysisView('facts')"> Fakty</label></div></fieldset>
-          @if (interactions().length > 1) {
-            <fieldset class="interaction-choice"><legend>INTERAKCJA</legend><div class="interaction-switch" aria-label="Wybór interakcji">
-              @for (item of interactions(); track item.trace) {
-                <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
-                  [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">I{{ item.round.turn.interactionIndex }}</button>
-              }
-            </div></fieldset>
-          }
-          <fieldset class="layer-choice"><legend>WARSTWA MAPY</legend><div class="layer-switch" aria-label="Warstwa danych mapy">
-            <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
-            <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
-            <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
-          </div></fieldset>
-        </div>
-      </div>
-        <p class="analysis-disclosure" aria-live="polite">@if (aiResult(); as result) { Analiza AI · {{ result.model }} · kategorie opisują żądane akcje. Wykonania i odbiór wyników potwierdza telemetria. } @else { Przepływ pokazuje fakty. Analiza wyśle do GitHub Copilot definicje, zlecenia, skrócone argumenty i krótkie fragmenty odpowiedzi modelu; zużywa limit konta. }</p>
-      </section>
-    </div>
-
-    @if (analyzedCreditScope(); as creditScope) {
-      <section class="action-summary" aria-label="Podział credits według kategorii pracy">
-        <header>
-          <div><span class="eyebrow">PODZIAŁ CREDITS WEDŁUG KATEGORII · INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>Gdzie zużyto credits?</h3></div>
-          <p>{{ plural(classifiedRoundCount(), 'odpowiedź przypisana do kategorii', 'odpowiedzi przypisane do kategorii', 'odpowiedzi przypisanych do kategorii') }}@if (visibleCompactions().length) { · {{ plural(visibleCompactions().length, 'kompaktowanie dodane lokalnie', 'kompaktowania dodane lokalnie', 'kompaktowań dodanych lokalnie') }} } · zestawienie obejmuje {{ creditScope.coveredCalls }}/{{ creditScope.totalCalls }} wywołań z pomiarem credits.</p>
-        </header>
-        @if (optimizationLead(); as lead) {
-          <article class="optimization-hero">
-            <span class="optimization-icon"><mat-icon>{{ lead.icon }}</mat-icon></span>
-            <div class="optimization-copy">
-              <span class="eyebrow">NAJWIĘKSZY OBSZAR DO SPRAWDZENIA</span>
-              <h4>{{ lead.label }}</h4>
-              <p><strong>{{ lead.estimated ? '≈ ' : '' }}{{ credits(lead.shareOfKnown ?? 0) }}%</strong> wszystkich credits objętych zestawieniem <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Czym są credits objęte zestawieniem" [matTooltip]="analyzedCreditsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon> przypada na tę kategorię.</p>
-            </div>
-          </article>
-        }
-        <div class="credit-share-coverage" aria-label="Pokrycie procentowego podziału credits">
-          <span>Ujęte w kategoriach <strong>{{ shareOfKnown(creditScope.assignedCredits, creditScope.knownCredits) }}</strong></span>
-          <span>Poza kategoriami <strong>{{ shareOfKnown(creditScope.unattributedCredits, creditScope.knownCredits) }}</strong></span>
-        </div>
-        <div class="action-ranking" role="list" aria-label="Procentowy udział kategorii w credits objętych zestawieniem">
-          @for (item of creditCategories(); track item.id) {
-            <article class="action-ranking-row" role="listitem" [class.compaction-category]="!item.estimated" [class.unresolved]="item.totalCredits === null">
-              <div class="action-ranking-main">
-                <span class="action-rank">{{ $index + 1 }}</span>
-                <span class="action-summary-icon"><mat-icon>{{ item.icon }}</mat-icon></span>
-                <span class="action-summary-copy"><strong>{{ item.label }}</strong><span class="action-summary-meter"><i [style.width.%]="item.shareOfKnown ?? 0"></i></span></span>
-                <span class="action-credit-share"><strong>{{ item.shareOfKnown === null ? '—' : (item.estimated ? '≈ ' : '') + credits(item.shareOfKnown) + '%' }}</strong><small>{{ item.shareOfKnown === null ? 'brak podstawy do wyliczenia' : item.estimated ? 'lokalna estymacja udziału' : 'wyemitowane credits' }}</small></span>
-                <button type="button" class="category-guide-button" [attr.aria-label]="'Poznaj techniki dla: ' + item.label" (click)="openCategoryGuidance(item, $event.currentTarget)"><mat-icon>lightbulb</mat-icon><span>Poznaj techniki</span></button>
-              </div>
-            </article>
-          }
-        </div>
-      </section>
-    }
-
-    @if (aiResult()) {
-      <section class="phase-panel" aria-label="Zagregowany przebieg pracy">
-        <header class="panel-heading">
-          <div><span class="eyebrow">ZAGREGOWANY PRZEBIEG · AGENT, SUBAGENCI I KOMPAKTOWANIA</span><h3>Jak zmieniała się praca modeli?</h3></div>
-          <div class="map-status">{{ plural(aggregatedPhases().length, 'etap', 'etapy', 'etapów') }}</div>
-        </header>
-        <div class="phase-overview">
-          <div class="phase-overview-copy"><p>Sąsiednie rundy o tym samym znaczeniu tworzą jedną fazę. Kompaktowania są osobnymi etapami dodanymi chronologicznie z telemetrii, bez wysyłania ich do AI. Karty pokazują pełne credits wywołań.</p></div>
-          <div class="phase-strip" aria-label="Zagregowane fazy rund i kompaktowania w kolejności przebiegu">
-            @for (phase of aggregatedPhases(); track phase.id) {
-              <div class="phase-step">
-                <mat-icon class="phase-arrow" [class.phase-arrow-placeholder]="$first" aria-hidden="true">arrow_forward</mat-icon>
-                <article class="phase-card" [class.unmapped]="phase.signature === 'UNMAPPED'" [class.compaction-phase]="!!phase.compaction" [style.--phase-credit-strength]="phase.creditStrength">
-                  <div class="phase-title phase-explained" tabindex="0" [matTooltip]="phaseCategoryTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">
-                    <span class="phase-category-icon" aria-hidden="true"><mat-icon>{{ phase.icon }}</mat-icon></span><strong>{{ phase.label }}</strong>
-                  </div>
-                  <span class="phase-rounds">
-                    <mat-icon class="phase-actor-icon phase-explained" tabindex="0" role="img" [matTooltip]="phase.compaction ? phaseCategoryTooltip(phase) : phase.hasSubagent ? phaseSubagentTooltip() : phaseRoundsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above" [attr.aria-label]="phase.compaction ? 'Osobne wywołanie kompaktowania' : phase.hasSubagent ? 'Faza zawiera pracę subagenta' : 'Faza głównego agenta'">{{ phase.compaction ? 'compress' : phase.hasSubagent ? 'account_tree' : 'smart_toy' }}</mat-icon>
-                    <span class="phase-round-copy"><strong>{{ phase.actorLabels.join(' + ') }}</strong><span class="phase-round-labels phase-explained" tabindex="0" [matTooltip]="phase.compaction ? phaseCategoryTooltip(phase) : phaseRoundsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">{{ compactRoundLabels(phase.roundLabels) }}</span></span>
-                  </span>
-                  @if (phase.compaction) {
-                    <span class="phase-tool-empty compaction-source phase-explained" tabindex="0" [matTooltip]="phaseCategoryTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><mat-icon aria-hidden="true">fact_check</mat-icon>Fakt z telemetrii · poza analizą AI</span>
-                  } @else if (phase.toolShares.length) {
-                    <div class="phase-tool-mix" [class.general-only]="phase.toolShares.length === 1 && phase.toolShares[0].specialization === 'GENERAL_PURPOSE'" [attr.aria-label]="phase.toolMixLabel">
-                      @if (phase.toolShares.length > 1) {
-                        <span class="phase-tool-bar phase-explained" tabindex="0" [matTooltip]="phaseToolMixTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">
-                          @for (share of phase.toolShares; track share.specialization) {
-                            <i [class]="'specialization-' + share.specialization" [style.width.%]="share.percent" aria-hidden="true"></i>
-                          }
-                        </span>
-                      }
-                      <span class="phase-tool-legend">
-                        @for (share of phase.toolShares; track share.specialization) {
-                          <span class="phase-explained" tabindex="0" [matTooltip]="phaseToolSpecializationTooltip(share.specialization)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><i [class]="'specialization-' + share.specialization" aria-hidden="true"></i>{{ share.label }} <b>{{ share.percent }}%</b></span>
-                        }
-                      </span>
-                    </div>
-                  } @else {
-                    <span class="phase-tool-empty phase-explained" tabindex="0" [matTooltip]="phaseWithoutToolsTooltip()" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><mat-icon aria-hidden="true">do_not_disturb_on</mat-icon>Bez żądań narzędzi</span>
-                  }
-                  <span class="phase-metric phase-explained" [class.context-metric]="layer() === 'context'" [class.tokens-metric]="layer() === 'tokens'" [class.credits-metric]="layer() === 'credits'"
-                    tabindex="0" [matTooltip]="phaseMetricTooltip(phase)" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"><small>{{ phaseMetricLabel(phase) }}</small><b>{{ phaseMetricValue(phase) }}</b>
-                    @if (phaseMetricCoverage(phase); as coverage) { <em>{{ coverage }}</em> }
-                  </span>
-                  <button type="button" class="phase-guide-button" [attr.aria-label]="'Poznaj techniki dla fazy: ' + phase.label"
-                    [matTooltip]="'Poznaj techniki dla fazy: ' + phase.label" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above"
-                    (click)="openPhaseGuidance(phase, $event.currentTarget)"><mat-icon>lightbulb</mat-icon></button>
-                </article>
-              </div>
+    <section class="analysis-menu factual-menu" aria-label="Sterowanie mapą pracy">
+      <div class="analysis-menu-copy"><mat-icon>account_tree</mat-icon><div><span class="eyebrow">MAPA PRACY</span><h3>Faktyczny przebieg wybranej interakcji</h3><p>Mapa korzysta wyłącznie z telemetrii i deterministycznych powiązań.</p></div></div>
+      <div class="analysis-navigation">
+        @if (interactions().length > 1) {
+          <fieldset class="interaction-choice"><legend>INTERAKCJA</legend><div class="interaction-switch" aria-label="Wybór interakcji">
+            @for (item of interactions(); track item.trace) {
+              <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
+                [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">I{{ item.round.turn.interactionIndex }}</button>
             }
-          </div>
-        </div>
-      </section>
-    }
+          </div></fieldset>
+        }
+        <fieldset class="layer-choice"><legend>WARSTWA MAPY</legend><div class="layer-switch" aria-label="Warstwa danych mapy">
+          <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
+          <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
+          <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
+        </div></fieldset>
+      </div>
+    </section>
 
     <section class="map-panel" aria-label="Szczegółowy przebieg pracy">
       <header class="panel-heading">
-        <div><span class="eyebrow">SZCZEGÓŁOWY PRZEBIEG · RUNDY MODELU · WYBRANA INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>{{ aiResult() ? 'Rundy modelu i subagentów' : 'Interakcja → model → agent → odpowiedź' }}</h3></div>
+        <div><span class="eyebrow">RUNDY MODELU · WYBRANA INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>Interakcja → model → agent → odpowiedź</h3></div>
         <div class="panel-heading-actions">
           <div class="map-status" aria-live="polite">@if (refreshing()) { Aktualizowanie… } @else { <small>ZAKRES: INTERAKCJA {{ current.round.turn.interactionIndex }}</small><strong>{{ plural(columns().length, 'wywołanie M', 'wywołania M', 'wywołań M') }} · {{ plural(lanes().length - 1, 'subagent', 'subagenci', 'subagentów') }}</strong> }</div>
-          @if (aiResult()) { <button type="button" class="map-detail-toggle" [attr.aria-expanded]="detailedMapVisible()" (click)="detailedMap.set(!detailedMap())"><mat-icon>{{ detailedMapVisible() ? 'unfold_less' : 'account_tree' }}</mat-icon>{{ detailedMapVisible() ? 'Ukryj diagram' : 'Pokaż diagram' }}</button> }
         </div>
       </header>
-      @if (detailedMapVisible()) {
       <div class="map-toolbar">
         <p><mat-icon>touch_app</mat-icon> Wybierz krok, aby zobaczyć zlecenie, pracę modelu, odpowiedź lub kompaktowanie.</p>
         <div class="map-toolbar-controls">
@@ -182,36 +67,8 @@
               <button type="button" aria-label="Przewiń mapę w prawo" matTooltip="Dalsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(1)"><mat-icon>chevron_right</mat-icon></button>
             </span>
           }
-          <button type="button" class="session-chat-toggle" [disabled]="buildingDiscussion()" (click)="openWholeSessionDiscussion()">
-            <mat-icon>chat</mat-icon>Zapytaj o sesję
-          </button>
-          <button type="button" class="round-range-toggle" [class.selected]="roundRangeMode()"
-            [attr.aria-pressed]="roundRangeMode()" (click)="toggleRoundRange()">
-            <mat-icon>{{ roundRangeMode() ? 'close' : 'forum' }}</mat-icon>{{ roundRangeMode() ? 'Anuluj wybór' : 'Zapytaj o rundy' }}
-          </button>
-          <button type="button" class="session-chat-history-toggle" [disabled]="buildingDiscussion()" (click)="openSessionChatHistory()">
-            <mat-icon>history</mat-icon>Poprzednie rozmowy
-          </button>
         </div>
       </div>
-      @if (roundRangeMode()) {
-        <div class="round-range-bar" role="status">
-          <mat-icon>linear_scale</mat-icon>
-          @if (!discussionRounds().length) {
-            <p><strong>Wybierz początek.</strong> Kliknij pierwszą rundę ciągłego zakresu.</p>
-          } @else if (!discussionRangeReady()) {
-            <p><strong>Początek: M{{ discussionRounds()[0].turn.interactionTurnIndex }}.</strong> Teraz kliknij rundę końcową tego samego agenta. Aby wybrać jedną rundę, kliknij ją ponownie.</p>
-          } @else {
-            <p><strong>{{ streamDisplayLabel(discussionStream()!) }} · {{ discussionRangeLabel() }}</strong>
-              {{ plural(discussionRounds().length, 'runda', 'rundy', 'rund') }} bez przerw ·
-              credits {{ discussionCreditSummary().credits === null ? '—' : credits(discussionCreditSummary().credits!) }} ·
-              pokrycie {{ discussionCreditSummary().covered }}/{{ discussionCreditSummary().total }}.</p>
-            <button type="button" [disabled]="buildingDiscussion()" (click)="openFocusedSessionDiscussion()">
-              <mat-icon>{{ buildingDiscussion() ? 'hourglass_top' : 'chat' }}</mat-icon>Przejdź do rozmowy
-            </button>
-          }
-        </div>
-      }
       <div #mapScroll class="map-scroll" [class.dragging]="mapDragging()"
         (pointerdown)="startMapDrag($event)" (pointermove)="moveMapDrag($event)" (pointerup)="endMapDrag($event)"
         (pointercancel)="endMapDrag($event)" (lostpointercapture)="endMapDrag($event)" tabindex="0"
@@ -278,7 +135,6 @@
                 <strong>{{ streamPrimaryLabel(lane.stream) }}</strong>
                 @if (streamProviderLabel(lane.stream); as provider) { <small class="lane-agent-name">{{ provider }}</small> }
                 <small>{{ lane.stream.parentId ? 'Potwierdzona delegacja' : 'Główna ścieżka' }}</small>
-                @if (aiResult()) { <small class="lane-functions" matTooltip="Akcje z własnych odpowiedzi modelu tego agenta. Jedno wywołanie może zawierać kilka akcji.">@for (item of agentProfile(lane.stream).slice(0, 3); track item.action) { <span>{{ roundCategories[item.action].label }} · {{ item.count }}</span> }</small> }
                 @if (lane.stream.parentId) { <span class="depth-label">Poziom {{ lane.stream.depth }}</span> }
               </div>
               <div class="lane-track" [class.primary-lane]="!lane.stream.parentId" [style.grid-template-columns]="'repeat(' + mapColumnCount() + ', 88px)'">
@@ -299,16 +155,14 @@
                   </button>
                 }
                 @for (round of lane.rounds; track round.ref) {
-                  <button class="round-node model-round-node" [class.ai-node]="!!aiResult()" [class.final-response-node]="isFinalResponseRound(round)" [class.active]="selected()?.ref === round.ref && !roundRangeMode()"
-                    [class.range-selected]="roundInDiscussionRange(round)" [class.range-endpoint]="roundRangeEndpoint(round)"
-                    [style.grid-column]="column(round)" [attr.aria-pressed]="roundRangeMode() ? roundInDiscussionRange(round) : selected()?.ref === round.ref"
-                    [attr.aria-label]="roundRangeMode() ? 'Wybierz ' + roundLabel(round) + ' jako granicę rozmowy' : isFinalResponseRound(round) ? 'Otwórz końcową odpowiedź ' + roundLabel(round) + ' z interakcji ' + round.turn.interactionIndex : streamDisplayLabel(lane.stream) + ', ' + roundLabel(round) + ', ' + roundDescription(round)"
-                    [matTooltip]="roundRangeMode() ? 'Wybierz granicę ciągłego zakresu' : roundLayerTooltip(round)"
-                    matTooltipClass="scanner-info-tooltip" (click)="handleRoundClick(round, $event.currentTarget)">
+                  <button class="round-node model-round-node" [class.final-response-node]="isFinalResponseRound(round)" [class.active]="selected()?.ref === round.ref"
+                    [style.grid-column]="column(round)" [attr.aria-pressed]="selected()?.ref === round.ref"
+                    [attr.aria-label]="isFinalResponseRound(round) ? 'Otwórz końcową odpowiedź ' + roundLabel(round) + ' z interakcji ' + round.turn.interactionIndex : streamDisplayLabel(lane.stream) + ', ' + roundLabel(round) + ', ' + roundDescription(round)"
+                    [matTooltip]="roundLayerTooltip(round)" matTooltipClass="scanner-info-tooltip" (click)="openRoundContent(round, $event.currentTarget)">
                     <span class="round-number">M{{ round.turn.interactionTurnIndex }}</span>
                     <span class="node-icon"><mat-icon>{{ isFinalResponseRound(round) ? 'output' : roundIcon(round) }}</mat-icon></span>
                     <span class="node-caption">{{ isFinalResponseRound(round) ? 'Odpowiedź' : roundCaption(round) }}</span>
-                    @if (!aiResult()) { <span class="cycle-route">{{ cycleFlowLabel(round) }}</span> }
+                    <span class="cycle-route">{{ cycleFlowLabel(round) }}</span>
                     <span class="node-data">
                       @if (layer() === 'context') {
                         <span class="mini-bar"><i [style.width.%]="percent(contextMetric(round))"></i></span><small>{{ known(contextMetric(round)) ? value(contextMetric(round), '%') : 'brak danych' }}</small>
@@ -345,14 +199,12 @@
         @else { <span>{{ layer() === 'context' ? sdkContextMode() ? 'Stan okna sesji z SDK' : 'Input / całe okno kontekstowe' : 'Wyemitowane credits' }}</span> }
         <span class="legend-note">Kolejność kroków · szerokość nie oznacza czasu</span>
       </div>
-      }
     </section>
 
     @if (selected(); as round) {
       @if (selectedStream().parentId) {
         <section class="delegation-panel">
           <header class="panel-heading"><div><span class="eyebrow">PRZEPŁYW SUBAGENTA</span><h3>Co weszło, co wróciło?</h3></div><span class="exact-link" matTooltip="Zgodne identyfikatory delegacji; w zagnieżdżonym epizodzie uwzględniamy także relacje rodziców spanów."><mat-icon>link</mat-icon> Potwierdzona relacja delegacji</span></header>
-          @if (aiResult()) { <div class="subagent-profiles">@for (item of agentProfile(selectedStream()); track item.action) { <span>{{ roundCategories[item.action].label }} · {{ plural(item.count, 'runda', 'rundy', 'rund') }}</span> }</div><p class="agent-role-reason">Profil zestawia kategorie jego własnych rund. Jedna runda może mieć kilka akcji.</p> }
           @if (selectedStream().flow; as flow) {
             <div class="payload-flow"><div><mat-icon>input</mat-icon><span>Zlecenie</span><strong>{{ compact(flow.delegation.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>account_tree</mat-icon><span>Unikalne wyniki narzędzi</span><strong>{{ compact(flow.results.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>output</mat-icon><span>Zwrot do rodzica</span><strong>{{ compact(flow.returned.value) }} <small>B</small></strong></div></div>
             <p class="payload-note">Bajty UTF-8 pełnych przechwyconych payloadów. Zlecenie nie jest pełnym inputem modelu; wyniki mogły być skrócone przed odbiorem.</p>
@@ -370,18 +222,5 @@
   } @else {
     <div class="empty-map"><mat-icon>conversion_path</mat-icon><h3>Mapa czeka na rundy</h3><p>W tej sesji nie ma jeszcze spanów chat, które można ułożyć w przebieg pracy.</p></div>
   }
-  <footer class="snapshot"><span>Fakty z telemetrii · snapshot #{{ analysis().cutoffSignalId }}</span><span>{{ aiResult() ? 'Analiza AI · ' + aiResult()!.version : 'Kategorie AI nie są wyświetlane' }}</span></footer>
+  <footer class="snapshot"><span>Fakty z telemetrii · snapshot #{{ analysis().cutoffSignalId }}</span><span>Bez interpretacji AI</span></footer>
 </section>
-
-<ng-template #catalogDialog>
-  <div class="raw-dialog catalog-dialog">
-    <header><div><span class="eyebrow">ZAKRES ANALIZY AI</span><h2>Definicje i odpowiedzi modelu</h2></div><button class="icon-button" mat-dialog-close aria-label="Zamknij katalog"><mat-icon>close</mat-icon></button></header>
-    <p>Do Copilota trafiają poniższe unikalne definicje, struktura agentów i rund, zlecenia, krótkie fragmenty odpowiedzi oraz argumenty żądań z odpowiedzi modelu. Argumenty tekstowe są ograniczone do 100 znaków, cele do 4000, a odpowiedzi do 1000 znaków. Wyniki narzędzi, pełne requesty modelu, liczniki tokenów i osobne wywołania kompaktowania pozostają poza zapytaniem.</p>
-    <div class="raw-scroll">
-      @for (agent of catalog().request.agents; track agent.id) { <details><summary>Agent · {{ agent.id }} · {{ plural(agent.contextIds.length, 'zlecenie', 'zlecenia', 'zleceń') }}</summary><pre>{{ definitionText(agent) }}</pre></details> }
-      @for (context of catalog().request.contexts; track context.id) { <details><summary>Zlecenie · {{ context.id }} · {{ plural(context.rounds.length, 'runda', 'rundy', 'rund') }}</summary><pre>{{ context.goal || 'Treść zlecenia niewyemitowana — dopasowanie będzie nieustalone.' }}</pre>@for (round of context.rounds; track round.id) { <pre>{{ definitionText(round) }}</pre> }</details> }
-      @for (tool of catalog().request.tools; track tool.id) { <details><summary>{{ tool.name }} · {{ tool.id }}</summary><pre>{{ definitionText(tool.definition) }}</pre></details> }
-      @if (catalog().missing) { <p>{{ catalog().missing }} żądań bez jednoznacznej definicji — akcje ocenimy po widocznych argumentach; specjalizacja pozostanie nieustalona.</p> }
-    </div>
-  </div>
-</ng-template>

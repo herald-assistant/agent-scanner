@@ -61,13 +61,12 @@ public class SessionAnalysisQueryService {
             text(material, "reconstructionVersion"), REDACTION_CONTRACT, "local-user");
     }
 
-    public Map<String, Object> bootstrap(Scope scope, List<String> focusRefs) {
+    public Map<String, Object> bootstrap(Scope scope) {
         Material material = material(scope);
-        List<String> focus = normalizedFocus(material, focusRefs);
         Map<String, Object> overview = overview(scope);
         Map<String, Object> configuration = configuration(scope);
-        @SuppressWarnings("unchecked") List<Map<String, Object>> rounds = (List<Map<String, Object>>) listRounds(scope,
-            null, null, focus.isEmpty() ? null : focus, 0, MAX_PAGE).get("items");
+        @SuppressWarnings("unchecked") List<Map<String, Object>> interactions =
+            (List<Map<String, Object>>) listInteractions(scope, 0, DEFAULT_PAGE).get("items");
 
         Map<String, Object> session = new LinkedHashMap<>();
         session.put("sessionRef", scope.rootSessionId());
@@ -78,22 +77,20 @@ public class SessionAnalysisQueryService {
         putIfPresent(session, "startedAt", material.sourceSession().get("startedAt"));
         putIfPresent(session, "lastSignalAt", material.sourceSession().get("lastSeenAt"));
 
-        Map<String, Object> focusNode = new LinkedHashMap<>();
-        focusNode.put("roundRefs", focus);
-        if (!rounds.isEmpty()) {
-            focusNode.put("interactionRefs", rounds.stream().map(row -> row.get("interactionRef"))
-                .filter(Objects::nonNull).distinct().toList());
-            focusNode.put("actorRefs", rounds.stream().map(row -> row.get("actorRef"))
-                .filter(Objects::nonNull).distinct().toList());
-        }
-
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("contract", BOOTSTRAP_CONTRACT);
         result.put("session", session);
-        result.put("focus", focusNode);
         result.put("summary", overview.get("summary"));
         result.put("configuration", configuration.get("summary"));
-        result.put("focusDigest", rounds);
+        result.put("interactions", interactions);
+        result.put("navigation", Map.of(
+            "interactions", "scanner_list_interactions",
+            "rounds", "scanner_list_rounds",
+            "roundEvidence", "scanner_get_round_evidence",
+            "configuration", "scanner_get_configuration",
+            "costs", "scanner_get_cost_summary",
+            "subagents", "scanner_get_subagent_tree",
+            "search", "scanner_search_session"));
         result.put("coverage", overview.get("coverage"));
         result.put("limitations", overview.get("limitations"));
         result.put("capturedAt", Instant.now().toString());
@@ -407,20 +404,6 @@ public class SessionAnalysisQueryService {
         details.add(detail(root));
         for (Map<String, Object> value : list(source.get("relatedDetails"))) details.add(detail(value));
         return new Material(source, map(source.get("view")), details, map(root.get("session")));
-    }
-
-    private List<String> normalizedFocus(Material material, List<String> refs) {
-        if (refs == null) return List.of();
-        if (refs.size() > 50) throw badRequest("Punkt startowy może zawierać najwyżej 50 rund.");
-        LinkedHashSet<String> available = material.details().stream().flatMap(detail -> detail.spans().stream())
-            .filter(span -> "chat".equals(text(span, "operationName"))).map(this::spanRef)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        LinkedHashSet<String> result = new LinkedHashSet<>();
-        for (String ref : refs) {
-            if (ref == null || ref.isBlank() || !available.contains(ref)) throw badRequest("Punkt startowy zawiera rundę spoza tej sesji.");
-            result.add(ref);
-        }
-        return List.copyOf(result);
     }
 
     private List<Map<String, Object>> roundSummaries(Material material) {

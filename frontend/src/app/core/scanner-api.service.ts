@@ -2,7 +2,7 @@ import {Injectable} from '@angular/core';
 import {ImportSessionResult, ScannerStatus, Session, SessionAnalysisResponse, SessionDetail, SessionWorkflowSourcesResponse} from '../models/scanner.models';
 import {ToolClassificationRequest, ToolClassificationResult, ToolClassificationStatus} from '../models/tool-classification.models';
 import {OptimizationAdvicePreview, OptimizationAdviceResult, OptimizationAdviceRuntimeStatus, OptimizationTechniqueCatalog} from '../models/optimization-guidance.models';
-import {SessionChatModelsResponse, SessionChatTurn, SessionChatView} from '../models/session-chat.models';
+import {SessionChatModelsResponse, SessionChatSummary, SessionChatTurn, SessionChatView} from '../models/session-chat.models';
 
 @Injectable({providedIn: 'root'})
 export class ScannerApiService {
@@ -18,13 +18,13 @@ export class ScannerApiService {
     }
     return this.sessionChatModelsRequest;
   }
-  sessionChats(sessionId: number): Promise<SessionChatView[]> { return this.get(`/api/ai/session-chats?sessionId=${sessionId}`); }
+  sessionChats(sessionId: number): Promise<SessionChatSummary[]> { return this.get(`/api/ai/session-chats?sessionId=${sessionId}`); }
   sessionChat(sessionId: number, id: string): Promise<SessionChatView> {
     return this.get(`/api/ai/session-chats/${id}?sessionId=${sessionId}`);
   }
-  async createSessionChat(sessionId: number, model: string, roundRefs: string[]): Promise<SessionChatView> {
+  async createSessionChat(sessionId: number, model: string): Promise<SessionChatView> {
     const response = await fetch(`/api/ai/session-chats?sessionId=${sessionId}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model, focus: {roundRefs}})
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model})
     });
     const result = await response.json().catch(() => null) as (SessionChatView & {error?: string}) | null;
     if (!response.ok || !result) throw new Error(result?.error || 'Nie udało się utworzyć rozmowy o sesji.');

@@ -1,7 +1,15 @@
 # Plan rozmowy analitycznej o całej sesji
 
 Stan dokumentu: 2026-09-19.  
-Status: wdrożony jako jedyny mechanizm rozmowy o sesji.
+Status: historyczny plan bazowy; kontrakt wejścia został uproszczony przez AI Hub.
+
+> Obowiązujący kontrakt nie ma `focus`, `focusDigest` ani `focus_json`. Rozmowa
+> zawsze obejmuje całą sesję zamrożoną na jednym `cutoffSignalId`, a użytkownik
+> wskazuje interesującą interakcję lub rundę naturalnym językiem w pierwszej
+> wiadomości. Aktualny układ i migrację opisuje
+> [`plan-ai-hub-i-czysta-mapa-pracy.md`](plan-ai-hub-i-czysta-mapa-pracy.md).
+> Dalsze fragmenty o focusie dokumentują wcześniejszy wariant, a nie publiczny
+> kontrakt bieżącej implementacji.
 
 ## 1. Cel dokumentu
 

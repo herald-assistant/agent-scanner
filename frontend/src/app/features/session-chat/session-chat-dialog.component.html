@@ -11,7 +11,7 @@
     <div class="conversation-bar">
       <div class="conversation-scope">
         <mat-icon>database</mat-icon>
-        <span><strong>Cała zapisana sesja</strong><small>Punkt startowy: {{ focusLabel(current) }} · {{ current.model }}</small></span>
+        <span><strong>Cała zapisana sesja</strong><small>{{ current.model }} · tylko odczyt</small></span>
       </div>
       <div class="conversation-actions">
         <button mat-stroked-button type="button" (click)="startNew()"><mat-icon>add</mat-icon>Nowa rozmowa</button>
@@ -75,8 +75,8 @@
       <section class="welcome">
         <div class="welcome-icon"><mat-icon>auto_awesome</mat-icon></div>
         <h3>Co chcesz sprawdzić w tej sesji?</h3>
-        <p>Scanner AI może odczytywać całą zapisaną sesję. Wskazane rundy są punktem startowym, a nie granicą analizy.</p>
-        <div class="scope-pills"><span><mat-icon>database</mat-icon>Cała sesja</span><span><mat-icon>my_location</mat-icon>{{ data.focusLabel }}</span><span><mat-icon>lock</mat-icon>Tylko odczyt</span></div>
+        <p>Scanner AI może odczytywać całą zapisaną sesję. Jeśli interesują Cię konkretne rundy, wskaż je w pierwszej wiadomości, np. „porównaj M3–M6”.</p>
+        <div class="scope-pills"><span><mat-icon>database</mat-icon>Cała sesja</span><span><mat-icon>search</mat-icon>Rundy wskazujesz w pytaniu</span><span><mat-icon>lock</mat-icon>Tylko odczyt</span></div>
 
         <div class="starter-grid">
           @for (starter of starters; track starter) {

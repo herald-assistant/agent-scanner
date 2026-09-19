@@ -90,12 +90,11 @@ Ekran prowadzi od celu do szczegółów:
 
 1. nagłówek wyjaśnia schemat `interakcja → M → A → M → odpowiedź`;
 2. zlecenie użytkownika ustala kontekst biznesowy;
-3. menu analizy pokazuje, czy widok korzysta z faktów czy kategorii AI;
-4. podział credits wskazuje największy obszar do sprawdzenia;
-5. zagregowany przebieg pokazuje następstwo faz i ich pełne credits;
-6. szczegółowy diagram pozwala odnaleźć konkretną rundę;
-7. prawy panel `M → A → M` pokazuje dokładne żądanie i dane następnego modelu;
-8. `Dane techniczne` zachowują pełną ścieżkę audytu do raw OTLP.
+3. wybór interakcji i warstwy pozwala czytać wyłącznie faktyczny przebieg;
+4. szczegółowy diagram pozwala odnaleźć konkretną rundę;
+5. `AI Hub` pokazuje zapisany podział credits i udostępnia rozmowę o sesji;
+6. prawy panel `M → A → M` pokazuje dokładne żądanie i dane następnego modelu;
+7. `Dane techniczne` zachowują pełną ścieżkę audytu do raw OTLP.
 
 Tabela techniczna nie powinna wyprzedzać odpowiedzi na pytanie „co się działo”.
 Wartości liczbowe mają wspierać historię, a nie zastępować jej.
@@ -106,9 +105,9 @@ Wartości liczbowe mają wspierać historię, a nie zastępować jej.
 |---|---|
 | Fakty | Dane wyemitowane przez runtime oraz deterministyczne relacje i formuły. |
 | Analiza | Jawnie uruchomiony proces wysłania ograniczonego zakresu do AI i walidacji odpowiedzi. |
-| Kategorie | Wynik analizy AI nałożony na żądania modelu i rundy. |
+| AI Hub | Jawnie uruchamiana analiza kategorii i rozmowy o całej zapisanej sesji. |
+| Kategorie | Wynik analizy AI prezentowany w `AI Hub`. |
 | Pozyskanie danych | Wyszukiwanie i odczyt, których wyniki mogą zasilić dalszy model. |
-| Faza | Sąsiednie wywołania modelu z identycznym zbiorem kategorii działań. |
 | Szczegółowy przebieg | Faktyczny graf wywołań modeli głównego agenta i subagentów. |
 | Credits | GitHub Copilot AI credits wyemitowane w telemetrii, bez przeliczenia na walutę. |
 | Credits objęte analizą | Credits wywołań mających dane potrzebne do lokalnej estymacji kategorii. |

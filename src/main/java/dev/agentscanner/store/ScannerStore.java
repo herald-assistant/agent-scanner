@@ -284,21 +284,21 @@ public class ScannerStore {
 
     public void saveSessionChat(String id, long sessionId, String model, long cutoffSignalId,
                                 String reconstructionVersion, String promptVersion, String toolsetVersion,
-                                String redactionVersion, String focusJson, String bootstrapJson,
+                                String redactionVersion, String bootstrapJson,
                                 String contextHash, Instant createdAt) {
         jdbc.update("""
             INSERT INTO session_chat
               (id, session_id, model, cutoff_signal_id, reconstruction_version, prompt_version,
-               toolset_version, redaction_version, focus_json, bootstrap_json, context_hash, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+               toolset_version, redaction_version, bootstrap_json, context_hash, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             """, id, sessionId, model, cutoffSignalId, reconstructionVersion, promptVersion,
-            toolsetVersion, redactionVersion, focusJson, bootstrapJson, contextHash, ts(createdAt), ts(createdAt));
+            toolsetVersion, redactionVersion, bootstrapJson, contextHash, ts(createdAt), ts(createdAt));
     }
 
     public Optional<SessionChatSource> sessionChat(String id) {
         return jdbc.query("""
             SELECT id, session_id, model, cutoff_signal_id, reconstruction_version, prompt_version,
-              toolset_version, redaction_version, focus_json, bootstrap_json, context_hash,
+              toolset_version, redaction_version, bootstrap_json, context_hash,
               copilot_session_id, revision, created_at, updated_at
             FROM session_chat WHERE id=?
             """, sessionChatMapper(), id).stream().findFirst();
@@ -307,16 +307,40 @@ public class ScannerStore {
     public List<SessionChatSource> sessionChats(long sessionId) {
         return jdbc.query("""
             SELECT id, session_id, model, cutoff_signal_id, reconstruction_version, prompt_version,
-              toolset_version, redaction_version, focus_json, bootstrap_json, context_hash,
+              toolset_version, redaction_version, bootstrap_json, context_hash,
               copilot_session_id, revision, created_at, updated_at
             FROM session_chat WHERE session_id=? ORDER BY updated_at DESC, id DESC
             """, sessionChatMapper(), sessionId);
     }
 
+    public List<SessionChatIndexSource> sessionChatIndex(long sessionId) {
+        return jdbc.query("""
+            SELECT c.id, c.session_id, c.model, c.cutoff_signal_id, c.revision,
+              c.created_at, c.updated_at, COUNT(t.id) AS turn_count,
+              (SELECT latest.question FROM session_chat_turn latest
+                WHERE latest.chat_id=c.id ORDER BY latest.created_at DESC, latest.id DESC
+                FETCH FIRST 1 ROW ONLY) AS last_question,
+              (SELECT latest.status FROM session_chat_turn latest
+                WHERE latest.chat_id=c.id ORDER BY latest.created_at DESC, latest.id DESC
+                FETCH FIRST 1 ROW ONLY) AS last_turn_status
+            FROM session_chat c
+            LEFT JOIN session_chat_turn t ON t.chat_id=c.id
+            WHERE c.session_id=?
+            GROUP BY c.id, c.session_id, c.model, c.cutoff_signal_id, c.revision,
+              c.created_at, c.updated_at
+            ORDER BY c.updated_at DESC, c.id DESC
+            """, (rs, row) -> new SessionChatIndexSource(
+                rs.getString("id"), rs.getLong("session_id"), rs.getString("model"),
+                rs.getLong("cutoff_signal_id"), rs.getInt("revision"),
+                rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
+                rs.getInt("turn_count"), rs.getString("last_question"), rs.getString("last_turn_status")),
+            sessionId);
+    }
+
     public List<SessionChatSource> allSessionChats() {
         return jdbc.query("""
             SELECT id, session_id, model, cutoff_signal_id, reconstruction_version, prompt_version,
-              toolset_version, redaction_version, focus_json, bootstrap_json, context_hash,
+              toolset_version, redaction_version, bootstrap_json, context_hash,
               copilot_session_id, revision, created_at, updated_at
             FROM session_chat ORDER BY updated_at DESC, id DESC
             """, sessionChatMapper());
@@ -326,7 +350,7 @@ public class ScannerStore {
         return (rs, row) -> new SessionChatSource(
             rs.getString("id"), rs.getLong("session_id"), rs.getString("model"),
             rs.getLong("cutoff_signal_id"), rs.getString("reconstruction_version"), rs.getString("prompt_version"),
-            rs.getString("toolset_version"), rs.getString("redaction_version"), rs.getString("focus_json"),
+            rs.getString("toolset_version"), rs.getString("redaction_version"),
             rs.getString("bootstrap_json"), rs.getString("context_hash"), rs.getString("copilot_session_id"),
             rs.getInt("revision"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant());
     }
@@ -549,8 +573,14 @@ public class ScannerStore {
     public record SessionChatSource(
         String id, long sessionId, String model, long cutoffSignalId,
             String reconstructionVersion, String promptVersion, String toolsetVersion,
-            String redactionVersion, String focusJson, String bootstrapJson, String contextHash,
+            String redactionVersion, String bootstrapJson, String contextHash,
             String copilotSessionId, int revision, Instant createdAt, Instant updatedAt
+    ) {
+    }
+
+    public record SessionChatIndexSource(
+        String id, long sessionId, String model, long cutoffSignalId, int revision,
+        Instant createdAt, Instant updatedAt, int turnCount, String lastQuestion, String lastTurnStatus
     ) {
     }
 

@@ -69,7 +69,7 @@ public final class SessionChatController {
     }
 
     @GetMapping
-    public List<SessionChat.ChatView> list(@RequestParam long sessionId) {
+    public List<SessionChat.ChatSummary> list(@RequestParam long sessionId) {
         return service.list(sessionId);
     }
 

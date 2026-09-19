@@ -18,8 +18,9 @@ import {analyzeToolUsage} from '../../core/tool-usage-analysis';
 import {TechnicalViewComponent} from '../technical/technical-view.component';
 import {InteractionTimelineComponent} from '../interaction-timeline/interaction-timeline.component';
 import {WorkflowViewComponent} from '../workflow/workflow-view.component';
+import {AiHubComponent} from '../ai-hub/ai-hub.component';
 import {WorkflowAnalysis} from '../../models/workflow.models';
-import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
+import {RoundDetailsPanelOpenMode, RoundDetailsPanelService} from '../../core/round-details-panel.service';
 import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 import {OptimizationGuidanceComponent} from '../optimization/optimization-guidance.component';
 import {sessionEmitterLabel, sessionHeading, sessionRepositoryName, sessionSourceLabel} from '../../core/session-presentation';
@@ -30,11 +31,28 @@ import {
   OptimizationGuidanceContext,
   OptimizationGuidanceEvidenceOpenRequest
 } from '../../models/optimization-guidance.models';
+import {ContextCompactionDetailsComponent} from '../context-compaction/context-compaction-details.component';
+import {buildGuidanceEvidencePreview} from '../../core/optimization/guidance-evidence';
+import {flowToolCatalog} from '../../core/flow-tool-catalog';
+import {ToolClassificationService} from '../../core/tool-classification.service';
+import {ordered} from '../../core/workflow/telemetry';
+
+const SESSION_TAB_PATH: Record<Tab, string> = {
+  overview: 'overview',
+  loop: 'cost',
+  workflow: 'workflow',
+  'ai-hub': 'ai-hub',
+  technical: 'technical'
+};
+
+const SESSION_TAB_BY_PATH = new Map<string, Tab>(
+  Object.entries(SESSION_TAB_PATH).map(([tab, path]) => [path, tab as Tab])
+);
 
 @Component({
   selector: 'as-session-page',
   imports: [MatButtonModule, MatIconModule, MatTooltipModule, CostDashboardComponent, ToolOptimizationOverviewComponent, SessionCapabilityOverviewComponent, TechnicalViewComponent,
-    InteractionTimelineComponent, WorkflowViewComponent, OptimizationGuidanceComponent],
+    InteractionTimelineComponent, WorkflowViewComponent, AiHubComponent, OptimizationGuidanceComponent, ContextCompactionDetailsComponent],
   templateUrl: './session-page.component.html',
   styleUrl: './session-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -46,6 +64,7 @@ export class SessionPageComponent {
   private readonly notifications = inject(NotificationService);
   private readonly analysis = inject(SessionAnalysisService);
   private readonly detailsPanel = inject(RoundDetailsPanelService);
+  private readonly classification = inject(ToolClassificationService);
   private readonly shell = inject(ScannerShellStateService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -63,7 +82,7 @@ export class SessionPageComponent {
   readonly optimizationAdvicePreviewLoading = signal(false);
   readonly optimizationAdviceResult = signal<OptimizationAdviceResult | undefined>(undefined);
   readonly optimizationAdviceLoading = signal(false);
-  private readonly workflowView = viewChild(WorkflowViewComponent);
+  private readonly compactionEvidenceBody = viewChild.required<TemplateRef<unknown>>('compactionEvidenceBody');
   private sessionRequest = 0;
   private sessionAbort?: AbortController;
   private loadingSessionSignature?: string;
@@ -233,7 +252,21 @@ export class SessionPageComponent {
           void this.router.navigate(['/'], {replaceUrl: true});
           return;
         }
+        const rawTab = params.get('tab');
+        const tab = rawTab == null ? 'overview' : SESSION_TAB_BY_PATH.get(rawTab);
+        if (sessionId != null && tab == null) {
+          this.routeSessionId.set(undefined);
+          void this.router.navigate(['/sessions', sessionId, SESSION_TAB_PATH.overview], {replaceUrl: true});
+          return;
+        }
+        if (tab != null && tab !== this.activeTabState()) {
+          this.detailsPanel.close();
+          this.activeTabState.set(tab);
+        }
         this.routeSessionId.set(sessionId);
+        if ((tab === 'workflow' || tab === 'ai-hub') && this.detail?.session.id === sessionId) {
+          void this.loadWorkflow();
+        }
       });
     effect(() => {
       this.shell.refreshRevision();
@@ -294,7 +327,7 @@ export class SessionPageComponent {
     this.loadedSessionSignature = signature;
     this.loadingSessionSignature = undefined;
     this.shell.setSelectedTurnCount(this.modelTurns().length);
-    if (this.activeTab === 'workflow') void this.loadWorkflow();
+    if (this.activeTab === 'workflow' || this.activeTab === 'ai-hub') void this.loadWorkflow();
   }
 
   async closeSession(): Promise<void> {
@@ -335,9 +368,9 @@ export class SessionPageComponent {
 
   selectTab(tab: Tab): void {
     if (this.activeTab === tab) return;
-    this.detailsPanel.close();
-    this.activeTabState.set(tab);
-    if (tab === 'workflow') void this.loadWorkflow();
+    const sessionId = this.routeSessionId();
+    if (sessionId == null) return;
+    void this.router.navigate(['/sessions', sessionId, SESSION_TAB_PATH[tab]]);
   }
 
   async loadWorkflow(): Promise<void> {
@@ -400,13 +433,13 @@ export class SessionPageComponent {
   }
 
   openOptimizationEvidence(request: OptimizationGuidanceEvidenceOpenRequest): void {
-    this.workflowView()?.openGuidanceEvidence(request.evidence, request.origin);
+    this.openEvidence(request.evidence.id, request.origin, 'push');
   }
 
   async prepareOptimizationAdvicePreview(request: OptimizationAdvicePreviewRequest): Promise<void> {
-    const workflow = this.workflowView();
+    const workflow = this.workflowState();
     if (!workflow) {
-      this.notifications.error('Podgląd wymaga aktualnej mapy pracy. Otwórz ponownie wskazaną fazę.');
+      this.notifications.error('Podgląd wymaga aktualnego modelu sesji. Otwórz ponownie wskazany obszar.');
       return;
     }
     const sequence = ++this.optimizationAdvicePreviewRequest;
@@ -416,7 +449,13 @@ export class SessionPageComponent {
     this.optimizationAdviceLoading.set(false);
     this.optimizationAdvicePreviewLoading.set(true);
     try {
-      const localPreview = await workflow.prepareOptimizationAdvicePreview(request);
+      const catalog = flowToolCatalog(workflow);
+      const firstRoundRef = request.context.evidence.find(item => item.kind === 'ROUND')?.id;
+      const interactionTraceId = workflow.streams.flatMap(stream => stream.rounds)
+        .find(round => round.ref === firstRoundRef)?.turn.model.traceId;
+      const localPreview = await buildGuidanceEvidencePreview({...request, analysis: workflow, catalog,
+        classification: this.classification.result(workflow.source.session.id, catalog),
+        compactions: this.contextCompactions(), relatedDetails: this.relatedDetails, interactionTraceId});
       if (sequence === this.optimizationAdvicePreviewRequest) this.optimizationAdvicePreview.set(localPreview);
       const preview = await this.api.prepareOptimizationAdvice(localPreview.request.scope.rootSessionId, localPreview.request);
       if (sequence === this.optimizationAdvicePreviewRequest) this.optimizationAdvicePreview.set(preview);
@@ -454,6 +493,43 @@ export class SessionPageComponent {
     } finally {
       if (sequence === this.optimizationAdviceExecutionRequest) this.optimizationAdviceLoading.set(false);
     }
+  }
+
+  openEvidence(ref: string, origin?: EventTarget | null, panelMode: RoundDetailsPanelOpenMode = 'reset'): void {
+    const workflow = this.workflowState();
+    if (!workflow) return;
+    const compaction = this.contextCompactions().find(item => item.id === ref);
+    if (compaction) {
+      this.detailsPanel.openTemplate(this.compactionEvidenceBody(), {$implicit: compaction},
+        `KOMPAKTOWANIE · ${compaction.afterInteractionIndex != null ? `PRZED INTERAKCJĄ ${compaction.afterInteractionIndex}` : 'PO OSTATNIEJ INTERAKCJI'}`,
+        'Kompaktowanie sesji', 'Szczegóły kompaktowania sesji', origin, undefined, panelMode);
+      return;
+    }
+    const stream = workflow.streams.find(candidate => candidate.rounds.some(round => round.ref === ref));
+    const round = stream?.rounds.find(candidate => candidate.ref === ref);
+    if (!stream || !round) {
+      this.notifications.error('Wskazany dowód nie jest dostępny w aktualnej migawce sesji.');
+      return;
+    }
+    const indexInStream = stream.rounds.findIndex(candidate => candidate.ref === ref);
+    const next = stream.rounds[indexInStream + 1];
+    const receiving = next?.turn.model.traceId === round.turn.model.traceId ? next : undefined;
+    const sequence = workflow.streams.flatMap(item => item.rounds)
+      .filter(item => item.turn.model.traceId === round.turn.model.traceId).sort((a, b) => ordered(a.turn.model, b.turn.model));
+    const sequenceIndex = sequence.findIndex(item => item.ref === ref);
+    const actor = stream.parentId ? 'Subagent' : 'Główny agent';
+    this.detailsPanel.openRound({turn: receiving?.turn ?? round.turn, sourceTurn: receiving ? round.turn : undefined,
+      mode: receiving ? 'cycle' : 'final', messages: stream.source.messages, calibrationSpans: stream.source.spans,
+      headingContext: receiving ? `${actor} · cykl po rundzie ${round.turn.interactionTurnIndex}` : `${actor} · odpowiedź końcowa`,
+      subagent: !!stream.parentId}, `${actor} · interakcja ${round.turn.interactionIndex} · runda ${round.turn.interactionTurnIndex}`,
+    origin, {
+      previous: sequenceIndex > 0 ? () => this.openEvidence(sequence[sequenceIndex - 1].ref, null, 'replace') : undefined,
+      next: sequenceIndex >= 0 && sequenceIndex + 1 < sequence.length ? () => this.openEvidence(sequence[sequenceIndex + 1].ref, null, 'replace') : undefined
+    }, panelMode);
+  }
+
+  compactionSource(compaction: ContextCompactionMeasurement): SessionDetail | undefined {
+    return [this.detail, ...this.relatedDetails].find((source): source is SessionDetail => source != null && source.session.id === compaction.sessionId);
   }
 
   allMessages(): MessageRecord[] {

@@ -27,7 +27,8 @@ describe('SessionPageComponent', () => {
     routeParams = new BehaviorSubject(convertToParamMap({}));
     navigate = vi.fn(async (commands: unknown[]) => {
       const sessionId = commands[0] === '/sessions' ? String(commands[1]) : undefined;
-      routeParams.next(convertToParamMap(sessionId ? {sessionId} : {}));
+      const tab = commands[0] === '/sessions' && commands[2] != null ? String(commands[2]) : undefined;
+      routeParams.next(convertToParamMap(sessionId ? {sessionId, ...(tab ? {tab} : {})} : {}));
       return true;
     });
     TestBed.configureTestingModule({
@@ -71,18 +72,43 @@ describe('SessionPageComponent', () => {
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
     expect(element.querySelector('as-session-capability-overview')).not.toBeNull();
+    expect([...element.querySelectorAll<HTMLButtonElement>('.tabs button')].map(button => button.textContent?.trim()?.replace(/\s+\d+$/, '')))
+      .toEqual(['Podsumowanie', 'Koszt i przebieg', 'Mapa pracy', 'AI Hub', 'Dane techniczne']);
     const costTab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.includes('Koszt i przebieg'));
     expect(costTab).toBeDefined(); costTab!.click(); fixture.detectChanges();
+    expect(navigate).toHaveBeenLastCalledWith(['/sessions', sources[0].session.id, 'cost']);
     expect([...element.querySelector('.loop-view')!.children].map(child => child.tagName)).toEqual([
       'AS-COST-DASHBOARD', 'AS-TOOL-OPTIMIZATION-OVERVIEW', 'AS-INTERACTION-TIMELINE'
     ]);
     const tab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')].find(button => button.textContent?.trim() === 'Mapa pracy');
     expect(tab).toBeDefined(); tab!.click();
+    expect(navigate).toHaveBeenLastCalledWith(['/sessions', sources[0].session.id, 'workflow']);
     await vi.waitFor(() => expect(fixture.componentInstance.workflowState()?.streams).toHaveLength(2));
     fixture.detectChanges();
     expect(element.querySelector('as-workflow-view')).not.toBeNull();
     expect(element.querySelector('as-cost-dashboard')).toBeNull();
     expect(element.querySelector('as-technical-view')).toBeNull();
+  });
+
+  it('restores the active tab from the session URL', async () => {
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    const sources = workflowFixture();
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? sources.map(source => source.session) :
+        url.endsWith(`/api/sessions/${sources[0].session.id}/analysis`) ? undefined :
+          sources.find(source => url.endsWith(`/api/sessions/${source.session.id}`));
+      return new Response(JSON.stringify(body), {status: body === undefined ? 404 : 200, headers: {'Content-Type': 'application/json'}});
+    }));
+
+    routeParams.next(convertToParamMap({sessionId: String(sources[0].session.id), tab: 'technical'}));
+    await fixture.componentInstance.refresh();
+    await vi.waitFor(() => expect(fixture.componentInstance.detail?.session.id).toBe(sources[0].session.id));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeTab).toBe('technical');
+    expect(fixture.nativeElement.querySelector('as-technical-view')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tabs button[aria-current="page"]')?.textContent?.trim()).toBe('Dane techniczne');
   });
 
   it('uses the backend reconstruction without fetching session candidates from the browser', async () => {
