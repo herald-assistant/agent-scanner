@@ -1,9 +1,10 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
-import {SessionDetail, SpanRecord} from '../../models/scanner.models';
+import {SessionDetail, SessionView, SpanRecord} from '../../models/scanner.models';
 import {InteractionTimelineComponent} from './interaction-timeline.component';
 import {mixedEpisodeFixture} from '../../core/workflow/mixed-episode.fixture';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
+import {SessionAnalysisService} from '../../core/session-analysis.service';
 
 describe('InteractionTimelineComponent', () => {
   let fixture: ComponentFixture<InteractionTimelineComponent>;
@@ -35,6 +36,37 @@ describe('InteractionTimelineComponent', () => {
     expect(component.subagentTurns(launch)[4].tools[0].statusCode).toBe('STATUS_CODE_ERROR');
     expect(component.subagentCredits(launch)).toBeCloseTo(1.6);
     expect(component.friendlyToolTitle(launch)).toBe('Subagent');
+  });
+
+  it('links serialized turn spans to child rounds and excludes their copies from auxiliary calls', () => {
+    const [root, child] = mixedEpisodeFixture();
+    // REST JSON repeats spans in the detail, turns and related calls as distinct objects.
+    const view = JSON.parse(JSON.stringify(new SessionAnalysisService().build(root, [child]))) as SessionView;
+    const helper = {span: span({id: 9000, traceId: 'helper-trace', spanId: 'helper'}), label: 'Generowanie tytułu'};
+    fixture.componentRef.setInput('detail', view.source);
+    fixture.componentRef.setInput('relatedDetails', view.relatedSource);
+    fixture.componentRef.setInput('turns', view.modelTurns);
+    fixture.componentRef.setInput('interactions', view.interactions);
+    fixture.componentRef.setInput('relatedModelCalls', [...view.relatedModelCalls, helper]);
+    const launch = view.modelTurns.flatMap(turn => turn.tools).find(tool => tool.id === 2000)!;
+    expect(launch).not.toBe(view.source.spans.find(tool => tool.id === launch.id));
+
+    expect(component.subagentModelCalls(launch)).toHaveLength(16);
+    expect(component.subagentTools(launch)).toHaveLength(15);
+    expect(component.subagentCredits(launch)).toBeCloseTo(1.6);
+    expect(component.subagentNumber(launch)).toBe(2);
+    expect(component.subagentTimelineTitle(launch)).toBe('Subagent 2');
+    expect(component.friendlyToolTitle(launch)).toBe('Subagent');
+    expect(component.auxiliaryModelCalls()).toEqual([helper]);
+    expect(component.subagentModelCalls({...launch, traceId: 'unrelated-trace'})).toEqual([]);
+
+    fixture.detectChanges();
+    const rows = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.timeline-subagent')];
+    expect(rows).toHaveLength(2);
+    expect(rows[1].textContent).toContain('16 wywołań modelu');
+    component.openSubagentRoundDetails(launch, component.subagentTurns(launch)[0], new Event('click'));
+    const panel = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(panel?.kind === 'round' ? panel.data.headingContext : null).toBe('SUBAGENT · S2:M1 → A → S2:M2');
   });
 
   it('marks a round when telemetry explicitly reports an error', () => {

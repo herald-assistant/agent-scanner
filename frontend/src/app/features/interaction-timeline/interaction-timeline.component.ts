@@ -5,7 +5,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, SessionDetail, SpanRecord, UserInteraction} from '../../models/scanner.models';
 import {episodeLaunches, sessionEpisodes} from '../../core/session-episodes';
 import {cacheWriteValue, creditsValue, inputCacheTotals, InputCacheTotals, sdkContextState} from '../../core/copilot-telemetry';
-import {TelemetryReader} from '../../core/workflow/telemetry';
+import {spanRef, TelemetryReader} from '../../core/workflow/telemetry';
 import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 import {ContextCompactionDetailsComponent} from '../context-compaction/context-compaction-details.component';
 
@@ -47,10 +47,14 @@ export class InteractionTimelineComponent {
   readonly subagentCreditsMetricTooltip = 'Suma GitHub Copilot AI credits z dokładnie powiązanych wywołań modelu subagenta. Każda wartość pochodzi z nano AIU wyemitowanego w telemetrii i jest dzielona przez 1 000 000 000.';
   private readonly episodes = computed(() => sessionEpisodes(this.detail(), this.relatedDetails()));
   private readonly launches = computed(() => episodeLaunches(this.episodes()));
+  // REST reconstruction and depth decoration create separate objects for the same span.
+  private readonly launchesByRef = computed(() => new Map(
+    [...this.launches()].map(([tool, episode]) => [spanRef(tool), episode])
+  ));
   private readonly subagentNumbers = computed(() => new Map(
     [...this.launches().keys()]
       .sort((left, right) => this.timestamp(left.startedAt) - this.timestamp(right.startedAt) || left.id - right.id)
-      .map((tool, index) => [tool, index + 1] as const)
+      .map((tool, index) => [spanRef(tool), index + 1] as const)
   ));
 
   private readonly detailsPanel = inject(RoundDetailsPanelService);
@@ -207,8 +211,8 @@ export class InteractionTimelineComponent {
   auxiliaryModelCalls(): RelatedModelCall[] {
     const subagentCalls = new Set(this.turns()
       .flatMap(turn => this.subagentLaunchesForTurn(turn))
-      .flatMap(tool => this.subagentModelCalls(tool)));
-    return this.relatedModelCalls().filter(call => !subagentCalls.has(call.span));
+      .flatMap(tool => this.subagentModelCalls(tool)).map(spanRef));
+    return this.relatedModelCalls().filter(call => !subagentCalls.has(spanRef(call.span)));
   }
 
   auxiliarySpans(): SpanRecord[] { return this.auxiliaryModelCalls().map(call => call.span); }
@@ -308,7 +312,7 @@ export class InteractionTimelineComponent {
     return `S${this.subagentNumber(tool)}:M${this.turnNumber(turn)}`;
   }
 
-  subagentNumber(tool: SpanRecord): number | '?' { return this.subagentNumbers().get(tool) ?? '?'; }
+  subagentNumber(tool: SpanRecord): number | '?' { return this.subagentNumbers().get(spanRef(tool)) ?? '?'; }
 
   subagentDelegationLabel(tool: SpanRecord, turn: ModelTurn): string {
     return `INTERAKCJA ${turn.interactionIndex ?? 1} · M${this.turnNumber(turn)}:S${this.subagentNumber(tool)}`;
@@ -317,7 +321,7 @@ export class InteractionTimelineComponent {
   subagentWorkTitle(tool: SpanRecord): string { return `Praca i rezultat Subagenta ${this.subagentNumber(tool)}`; }
 
   subagentTimelineTitle(tool: SpanRecord): string {
-    const number = this.subagentNumbers().get(tool);
+    const number = this.subagentNumbers().get(spanRef(tool));
     return number ? `Subagent ${number}` : this.friendlyToolTitle(tool);
   }
 
@@ -395,7 +399,7 @@ export class InteractionTimelineComponent {
   }
 
   private subagentEpisode(tool: SpanRecord): SessionDetail | undefined {
-    return this.launches().get(tool)?.source;
+    return this.launchesByRef().get(spanRef(tool))?.source;
   }
 
   subagentTools(tool: SpanRecord): SpanRecord[] {
@@ -419,7 +423,7 @@ export class InteractionTimelineComponent {
   }
 
   friendlyToolTitle(span: SpanRecord): string {
-    if (this.launches().has(span)) return 'Subagent';
+    if (this.subagentEpisode(span)) return 'Subagent';
     const name = this.attribute(span, 'gen_ai.tool.name');
     const labels: Record<string, string> = {
       execution_subagent: 'Subagent',

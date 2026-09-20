@@ -6,34 +6,20 @@ Stan dokumentu: 2026-09-20.
 
 ```text
 GitHub Copilot w VS Code
-              │
-              │ OTLP/HTTP: traces, metrics, logs
-              ▼
-        OtlpController
-              │ dekodowanie, gzip, limit payloadu
-              ▼
-     OtlpIngestionService
-              │ raw + normalizacja stabilnych pól
-              ▼
-          ScannerStore ───────────── H2
-    │                       └─ telemetry, model odczytowy i audyt AI
-              ▼
- SessionReconstructionService
-    │ wersjonowana rekonstrukcja sesji i powiązanych źródeł
-    ▼
-     ScannerApiController ────────── REST /api
-              │
-              ▼
-       ScannerApiService
-              │
-     ScannerShellStateService + AppComponent
-    │ /sessions/:id/{overview|cost|workflow|ai-hub|technical}
-    ▼
-  SessionPageComponent
-    ├─ SessionAnalysisService
-    ├─ WorkflowAnalysisService + session-episodes.ts
-    ├─ flow-tool-catalog.ts + action-credit-attribution.ts
-    └─ komponenty widoków Angular
+  -> OTLP/HTTP: traces, metrics, logs
+  -> OtlpController: dekodowanie, gzip, limit payloadu
+  -> OtlpIngestionService: raw payload + normalizacja stabilnych pól
+  -> ScannerStore + H2: telemetry, model odczytowy i audyt AI
+  -> SessionReconstructionService: wersjonowana rekonstrukcja sesji i źródeł
+  -> ScannerApiController: REST /api
+  -> ScannerApiService
+  -> ScannerShellStateService + AppComponent
+  -> /sessions/:id/{overview|cost|workflow|ai-hub|technical}
+  -> SessionPageComponent
+     |- SessionAnalysisService
+     |- WorkflowAnalysisService + session-episodes.ts
+     |- flow-tool-catalog.ts + action-credit-attribution.ts
+     `- komponenty widoków Angular
 
 Jawne funkcje AI w AI Hub:
 AI Hub → ToolClassificationController → ToolClassificationService

@@ -6,6 +6,7 @@ import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 import {workflowFixture} from '../../core/workflow/workflow.fixtures';
 import {SessionPageComponent} from './session-page.component';
 import {SessionAnalysisService} from '../../core/session-analysis.service';
+import {RoundDetailsPanelService} from '../../core/round-details-panel.service';
 
 const status = {
   paused: false,
@@ -134,6 +135,19 @@ describe('SessionPageComponent', () => {
     await fixture.componentInstance.refresh();
     await vi.waitFor(() => expect(fixture.componentInstance.modelTurns().length).toBeGreaterThan(0));
     await fixture.componentInstance.refresh();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const costTab = [...element.querySelectorAll<HTMLButtonElement>('.tabs button')]
+      .find(button => button.textContent?.includes('Koszt i przebieg'))!;
+    costTab.click();
+    fixture.detectChanges();
+    const subagent = element.querySelector<HTMLElement>('.timeline-subagent .detail-trigger');
+    expect(subagent?.textContent).toContain('Subagent 1');
+    expect(subagent?.textContent).toContain('2 wywołania modelu');
+    expect(element.querySelector('.auxiliary-calls')).toBeNull();
+    subagent!.click();
+    const panel = TestBed.inject(RoundDetailsPanelService).panel();
+    expect(panel?.kind === 'template' ? panel.eyebrow : null).toBe('INTERAKCJA 1 · M2:S1');
     await fixture.componentInstance.loadWorkflow();
 
     expect(fixture.componentInstance.workflowState()?.streams).toHaveLength(2);
