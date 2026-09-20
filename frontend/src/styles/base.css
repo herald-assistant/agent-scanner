@@ -1,0 +1,63 @@
+* { box-sizing: border-box; }
+
+html, body {
+  min-height: 100%;
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  font-size: 100%;
+  font-synthesis: none;
+  line-height: var(--leading-normal);
+}
+
+body { font-size: var(--text-base); }
+button, input, textarea, select { font: inherit; }
+button { color: inherit; }
+button, summary { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), summary { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+input, textarea, select { min-width: 0; }
+code, pre, kbd, .mono { font-family: var(--font-mono); }
+pre { tab-size: 2; }
+a { color: var(--color-info); text-underline-offset: 0.2em; }
+::selection { background: var(--color-selection); }
+::placeholder { color: var(--color-text-muted); opacity: 1; }
+
+/* Inset focus remains visible inside bounded cards, tabs and scrolling tables. */
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+}
+
+/* Accessibility is a global contract, including lazy routes and CDK overlays. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

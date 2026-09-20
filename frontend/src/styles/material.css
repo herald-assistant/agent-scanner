@@ -1,0 +1,94 @@
+/* Angular Material 22 adapter. Keep public theme tokens and overlay geometry here. */
+:root {
+  --mat-sys-primary: var(--color-info);
+  --mat-sys-on-primary: var(--color-text-inverse);
+  --mat-sys-primary-container: var(--color-info-soft);
+  --mat-sys-on-primary-container: var(--color-info);
+  --mat-sys-surface: var(--color-surface);
+  --mat-sys-surface-container: var(--color-surface-raised);
+  --mat-sys-surface-container-high: var(--color-surface-raised);
+  --mat-sys-surface-container-highest: var(--color-surface-hover);
+  --mat-sys-on-surface: var(--color-text);
+  --mat-sys-on-surface-variant: var(--color-text-secondary);
+  --mat-sys-outline: var(--color-border-strong);
+  --mat-sys-outline-variant: var(--color-border);
+  --mat-sys-error: var(--color-danger);
+  --mat-sys-body-large-font: var(--font-sans);
+  --mat-sys-body-medium-font: var(--font-sans);
+  --mat-sys-body-small-font: var(--font-sans);
+  --mat-sys-label-large-font: var(--font-sans);
+  --mat-sys-label-medium-font: var(--font-sans);
+  --mat-sys-label-small-font: var(--font-sans);
+  --mat-sys-title-large-font: var(--font-sans);
+  --mat-sys-title-medium-font: var(--font-sans);
+  --mat-sys-title-small-font: var(--font-sans);
+  --mat-sidenav-container-shape: 0;
+  --mat-sidenav-container-width: var(--sidebar-width);
+  --mat-sidenav-scrim-color: var(--color-backdrop);
+  --mat-icon-button-state-layer-size: var(--control-height);
+  --mat-icon-button-icon-size: var(--icon-md);
+  --mat-dialog-container-color: var(--color-surface);
+  --mat-dialog-container-shape: var(--radius-lg);
+  --mat-dialog-container-elevation-shadow: var(--shadow-overlay);
+  --mat-dialog-subhead-color: var(--color-text);
+  --mat-dialog-supporting-text-color: var(--color-text-secondary);
+  --mat-dialog-subhead-font: var(--font-sans);
+  --mat-dialog-supporting-text-font: var(--font-sans);
+  --mat-dialog-content-padding: var(--panel-padding);
+  --mat-tooltip-container-color: var(--color-surface-raised);
+  --mat-tooltip-supporting-text-color: var(--color-text);
+  --mat-tooltip-container-shape: var(--radius-sm);
+  --mat-tooltip-supporting-text-font: var(--font-sans);
+  --mat-tooltip-supporting-text-size: var(--text-sm);
+  --mat-tooltip-supporting-text-line-height: var(--leading-normal);
+  --mat-snack-bar-container-color: var(--color-surface-raised);
+  --mat-snack-bar-supporting-text-color: var(--color-text);
+  --mat-snack-bar-supporting-text-font: var(--font-sans);
+  --mat-snack-bar-supporting-text-size: var(--text-base);
+  --mat-snack-bar-container-shape: var(--radius-md);
+  --mat-snack-bar-button-color: var(--color-info);
+}
+
+/* These surface dimensions have no Material token; scope adapters to our panels. */
+:is(.scanner-detail-dialog, .session-chat-dialog-panel, .session-chat-history-dialog-panel, .tool-definition-dialog-panel) .mat-mdc-dialog-surface {
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+}
+:is(.scanner-detail-dialog, .session-chat-dialog-panel, .session-chat-history-dialog-panel) .mat-mdc-dialog-content { max-height: none; }
+.tool-definition-dialog-panel .mat-mdc-dialog-content { max-height: calc(90dvh - 96px); }
+
+:is(.scanner-info-tooltip, .scanner-reasoning-tooltip, .round-problem-tooltip) .mat-mdc-tooltip-surface {
+  max-width: min(420px, calc(100vw - 32px));
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-overlay);
+}
+.round-problem-tooltip { --mat-tooltip-container-color: var(--color-danger-soft); }
+.round-problem-tooltip .mat-mdc-tooltip-surface { max-width: min(480px, calc(100vw - 32px)); border-color: var(--color-danger-border); white-space: pre-line; }
+.scanner-reasoning-tooltip { --mat-tooltip-container-color: var(--color-violet-soft); }
+.scanner-reasoning-tooltip .mat-mdc-tooltip-surface {
+  max-width: min(860px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 48px));
+  overflow: auto;
+  scrollbar-gutter: stable;
+  border-color: var(--color-violet-border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.scanner-error-snackbar { --mat-snack-bar-button-color: var(--color-danger); }
+.scanner-success-snackbar { --mat-snack-bar-button-color: var(--color-accent); }
+
+.session-chat-dialog-panel {
+  --mat-form-field-container-height: var(--space-11);
+  --mat-form-field-container-vertical-padding: var(--space-5);
+  --mat-form-field-container-text-font: var(--font-sans);
+  --mat-form-field-container-text-size: var(--text-base);
+  --mat-form-field-outlined-label-text-font: var(--font-sans);
+  --mat-form-field-outlined-label-text-size: var(--text-sm);
+  --mat-form-field-subscript-text-font: var(--font-sans);
+  --mat-form-field-subscript-text-size: var(--text-xs);
+  --mat-select-trigger-text-font: var(--font-sans);
+  --mat-select-trigger-text-size: var(--text-base);
+  --mat-select-trigger-text-line-height: var(--leading-normal);
+  --mat-select-arrow-transform: none;
+}

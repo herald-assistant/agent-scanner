@@ -1,0 +1,121 @@
+/* Single source of visual values. Components consume semantic tokens, never palette literals. */
+:root {
+  color-scheme: dark;
+
+  --color-bg: #0a0c10;
+  --color-surface: #11161d;
+  --color-surface-raised: #1b232d;
+  --color-surface-inset: #0c1016;
+  --color-surface-hover: #242f3c;
+  --color-border: #303c4a;
+  --color-border-strong: #566779;
+  --color-text: #eef2f6;
+  --color-text-secondary: #c1cbd5;
+  --color-text-muted: #9ba9b8;
+  --color-text-inverse: #10160c;
+
+  --color-accent: #b8f36b;
+  --color-info: #75d9df;
+  --color-output: #ff9b73;
+  --color-warning: #f5b86d;
+  --color-danger: #ff7b79;
+  --color-violet: #d5b4f1;
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  --color-info-soft: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
+  --color-info-border: color-mix(in srgb, var(--color-info) 40%, var(--color-border));
+  --color-output-soft: color-mix(in srgb, var(--color-output) 8%, var(--color-surface));
+  --color-output-border: color-mix(in srgb, var(--color-output) 40%, var(--color-border));
+  --color-warning-soft: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  --color-danger-soft: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  --color-violet-soft: color-mix(in srgb, var(--color-violet) 8%, var(--color-surface));
+  --color-violet-border: color-mix(in srgb, var(--color-violet) 40%, var(--color-border));
+  --color-backdrop: rgb(2 5 8 / 72%);
+  --color-shadow: rgb(0 0 0 / 48%);
+  --color-selection: color-mix(in srgb, var(--color-accent) 24%, transparent);
+
+  /* Stable telemetry roles, independent of the component that displays them. */
+  --metric-fresh: var(--color-accent);
+  --metric-cache: var(--color-info);
+  --metric-output: var(--color-output);
+  --metric-credits: var(--color-warning);
+  --metric-cache-write: var(--color-violet);
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 1.5rem;
+  --text-4xl: 1.75rem;
+  --text-5xl: 2rem;
+  --text-display: 2.5rem;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+  --tracking-label: 0.08em;
+  --tracking-heading: -0.025em;
+
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 40px;
+  --space-11: 48px;
+  --space-12: 64px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --shadow-overlay: 0 20px 64px var(--color-shadow);
+  --shadow-aside: -24px 0 64px var(--color-shadow);
+  --focus-ring: 2px solid var(--color-info);
+  --focus-offset: 2px;
+  --control-height: 36px;
+  --control-height-sm: 32px;
+  --control-height-lg: 44px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  /* Compact glyph sizes for dense telemetry rows; controls retain their own hit area. */
+  --icon-12: 12px;
+  --icon-14: 14px;
+  --icon-16: 16px;
+  --icon-18: 18px;
+  --icon-20: 20px;
+  --icon-22: 22px;
+  --icon-24: 24px;
+  --icon-28: 28px;
+  --icon-32: 32px;
+  --icon-40: 40px;
+  --icon-48: 48px;
+  --topbar-height: 68px;
+  --sidebar-width: 304px;
+  --page-padding: clamp(var(--space-6), 3vw, var(--space-10));
+  --panel-padding: var(--space-8);
+  --motion-fast: 160ms;
+  --motion-normal: 240ms;
+  --ease-standard: cubic-bezier(.2, .8, .2, 1);
+  --z-toolbar: 20;
+  --z-aside: 1000;
+}
+
+@media (max-width: 700px) {
+  :root { --panel-padding: var(--space-6); }
+}
