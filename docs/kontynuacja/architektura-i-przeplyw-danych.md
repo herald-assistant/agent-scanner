@@ -1,6 +1,6 @@
 # Architektura i przepływ danych
 
-Stan dokumentu: 2026-09-11.
+Stan dokumentu: 2026-09-20.
 
 ## Widok całości
 
@@ -16,28 +16,35 @@ GitHub Copilot w VS Code
               │ raw + normalizacja stabilnych pól
               ▼
           ScannerStore ───────────── H2
-              │                       │
-              │ REST /api             └─ zapis wyników analizy AI
+    │                       └─ telemetry, model odczytowy i audyt AI
               ▼
-     ScannerApiController
+ SessionReconstructionService
+    │ wersjonowana rekonstrukcja sesji i powiązanych źródeł
+    ▼
+     ScannerApiController ────────── REST /api
               │
               ▼
        ScannerApiService
               │
-              ├─ SessionAnalysisService
-              ├─ WorkflowAnalysisService
-              ├─ session-episodes.ts
-              ├─ flow-tool-catalog.ts
-              ├─ action-credit-attribution.ts
-              └─ komponenty widoków Angular
+     ScannerShellStateService + AppComponent
+    │ /sessions/:id/{overview|cost|workflow|ai-hub|technical}
+    ▼
+  SessionPageComponent
+    ├─ SessionAnalysisService
+    ├─ WorkflowAnalysisService + session-episodes.ts
+    ├─ flow-tool-catalog.ts + action-credit-attribution.ts
+    └─ komponenty widoków Angular
 
-Jawna analiza użytkownika:
-Mapa pracy → ToolClassificationController → ToolClassificationService
+Jawne funkcje AI w AI Hub:
+AI Hub → ToolClassificationController → ToolClassificationService
            → CopilotCompletion → Copilot CLI / GitHub Copilot
            → ścisła walidacja JSON → H2 → kategorie w UI
 
-Jawna rozmowa o całej sesji:
-Mapa pracy → opcjonalne roundRefs jako punkt startowy
+AI Hub → OptimizationAdviceController → lokalne prepare źródeł
+  → jawne wykonanie CopilotCompletion → ścisła walidacja → H2
+
+AI Hub → rozmowa o całej sesji:
+użytkownik wskazuje interakcję lub rundę w pierwszej wiadomości
            → SessionAnalysisQueryService → zamrożony cutoff + mały bootstrap
            → SessionChatController → createSession / resumeSession
            → ograniczone narzędzia scanner_* → ścisła walidacja JSON i evidence refs
@@ -49,6 +56,11 @@ interpretacji prezentacyjnej pozostaje po stronie Angulara, natomiast determinis
 rekonstrukcja i odczyty analityczne są współdzielone przez REST i narzędzia AI.
 AI nie otrzymuje repozytorium ani narzędzi obserwowanej sesji; może wykonywać tylko
 zamknięty zestaw odczytów `scanner_*` w zakresie jednej zamrożonej sesji.
+
+`Mapa pracy` pozostaje widokiem faktograficznym: pokazuje wyłącznie telemetrię i
+deterministyczne powiązania. Korzysta z tego samego modelu `WorkflowAnalysis`, który
+`AI Hub` może przygotować dla jawnie uruchomionej analizy, ale sama mapa nie wysyła
+danych do Copilota ani nie prezentuje klasyfikacji AI.
 
 ## Warstwy backendu
 
@@ -169,9 +181,17 @@ interpretacji mapy ani formatowania szczegółów rund.
 
 Główne zakładki:
 
+- `Podsumowanie` — krótki widok stanu i najważniejszych danych sesji;
 - `Koszt i przebieg` — KPI sesji oraz chronologia interakcji;
-- `Mapa pracy` — przebieg, subagenci, opcjonalne kategorie AI i hipotezy kosztowe;
+- `Mapa pracy` — faktograficzny przebieg rund, narzędzi i subagentów w warstwach
+  `Kontekst`, `Tokeny` oraz `Credits`;
+- `AI Hub` — jedyne miejsce dla jawnie uruchamianej klasyfikacji, doradztwa i rozmów
+  o zamrożonej sesji;
 - `Dane techniczne` — drzewo spanów i raw dane.
+
+Routingi są lazy-loaded: shell aplikacji obsługuje stronę główną i adres
+`/sessions/:sessionId/:tab`, a `SessionPageComponent` ładuje szczegóły sesji oraz
+źródła Mapy pracy dopiero po otwarciu zakładki `Mapa pracy` lub `AI Hub`.
 
 ### Interpretacja sesji
 
