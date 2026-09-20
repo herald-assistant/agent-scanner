@@ -4,7 +4,7 @@
       <h2 mat-dialog-title>Rozmowa o sesji</h2>
       <p>Zapytaj o przebieg, credits, promptowanie lub konfigurację agenta.</p>
     </div>
-    <button type="button" class="icon-button close-button" aria-label="Zamknij rozmowę" (click)="close()"><mat-icon>close</mat-icon></button>
+    <button type="button" class="icon-button close-button ui-icon-button" aria-label="Zamknij rozmowę" (click)="close()"><mat-icon>close</mat-icon></button>
   </header>
 
   <mat-dialog-content>
@@ -19,13 +19,13 @@
             <div class="assistant-message" [class.failed]="turn.status === 'FAILED'">
               <span>Scanner AI · {{ turn.status === 'FAILED' ? 'Nie udało się odpowiedzieć' : answerLabel(turn) }}</span>
               @if (turn.answer; as answer) {
-                <div class="answer-markdown" [innerHTML]="markdown(answer.answerMarkdown)"></div>
+                <div class="answer-markdown scanner-markdown" [innerHTML]="markdown(answer.answerMarkdown)"></div>
                 @if (answer.evidence.length) {
                   <details class="evidence-list">
                     <summary><mat-icon>fact_check</mat-icon>Dowody użyte w odpowiedzi ({{ answer.evidence.length }})</summary>
                     <div>
                       @for (item of answer.evidence; track item.ref) {
-                        <button type="button" [disabled]="!data.openEvidence" (click)="openEvidence(item.ref)">{{ item.label || item.ref }}<small>{{ item.ref }}</small></button>
+                        <button class="ui-button" type="button" [disabled]="!data.openEvidence" (click)="openEvidence(item.ref)">{{ item.label || item.ref }}<small>{{ item.ref }}</small></button>
                       }
                     </div>
                   </details>
@@ -39,7 +39,7 @@
                 }
               } @else if (turn.status === 'FAILED') {
                 <p>{{ failureLabel(turn) }}</p>
-                <button mat-stroked-button type="button" class="retry-button" (click)="retry(turn.question)"><mat-icon>refresh</mat-icon>Wstaw pytanie ponownie</button>
+                <button mat-stroked-button type="button" class="retry-button ui-button" (click)="retry(turn.question)"><mat-icon>refresh</mat-icon>Wstaw pytanie ponownie</button>
               } @else {
                 <div class="thinking"><mat-spinner diameter="18" />Analizuję sesję…</div>
               }
@@ -96,7 +96,7 @@
                   rows="1" maxlength="4000" [value]="question()" (input)="question.set(questionBox.value)" (keydown.control.enter)="send()"></textarea>
         <mat-hint>Ctrl+Enter wysyła · {{ question().length }}/4000</mat-hint>
       </mat-form-field>
-      <button type="button" class="icon-button send-button" [disabled]="!canSend()" (click)="send()"
+      <button type="button" class="icon-button send-button ui-icon-button" [disabled]="!canSend()" (click)="send()"
               [attr.aria-label]="chat() ? 'Wyślij wiadomość' : 'Rozpocznij rozmowę'">
         @if (sending()) { <mat-spinner diameter="18" /> } @else { <mat-icon>arrow_upward</mat-icon> }
       </button>

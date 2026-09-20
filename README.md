@@ -361,6 +361,11 @@ znajdują się w [`AGENTS.md`](AGENTS.md).
 
 ## Development
 
+Wspólny [standard stylowania](docs/standard-stylowania.md) opisuje tokeny, klasy
+`ui-*`, adapter Angular Material i podział odpowiedzialności. Paletę i skalę
+zmieniaj w `frontend/src/styles/tokens.css`; lokalne arkusze odpowiadają za układ
+widoku. `npm run check:styles` sprawdza te zasady i działa też przed buildem.
+
 Domyślny zestaw ikon `material-symbols-outlined` jest rejestrowany globalnie w
 `frontend/src/app/app.config.ts`. Provider nie może być ograniczony do komponentu
 strony, ponieważ dynamiczne overlaye `MatDialog` korzystają z głównego injectora;

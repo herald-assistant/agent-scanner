@@ -1,6 +1,6 @@
 <section class="rounds-section">
   <header class="rounds-heading">
-    <div><span class="eyebrow">KOLEJNOŚĆ WYKONANIA</span><h2>Praca i rezultat głównego Agenta</h2></div>
+    <div><span class="eyebrow ui-eyebrow">KOLEJNOŚĆ WYKONANIA</span><h2>Praca i rezultat głównego Agenta</h2></div>
     <div class="rounds-note"><mat-icon class="info-tip" tabindex="0" role="img" aria-label="Źródło metryki kontekstu" [matTooltip]="hasSdkContextState() ? 'SDK emituje w zdarzeniu usage_info stan okna sesji. To inna metryka niż input bieżącego requestu. Szczegół źródła znajdziesz przy każdej rundzie.' : 'Scanner pokazuje tokeny requestów wyemitowane w OTLP. VS Code Session Info pokazuje osobny klientowy stan rozmowy, którego Copilot nie eksportuje.'" matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon><span>{{ hasSdkContextState() ? 'Kontekst z OTLP: stan okna sesji SDK' : 'Kontekst modelu z OTLP, nie licznik Session Info' }}</span></div>
   </header>
   <ng-template #compactionRow let-compaction>
@@ -19,7 +19,7 @@
       </div>
     </article>
   </ng-template>
-  <div class="round-list">
+  <div class="round-list ui-card">
     @for (turn of turns(); track turn.model.id) {
       @for (compaction of compactionsForTurn(turn); track compaction.id) {
         <ng-container *ngTemplateOutlet="compactionRow; context: {$implicit: compaction}" />
@@ -111,9 +111,9 @@
   </div>
   @if (auxiliaryModelCalls(); as auxiliaryCalls) {
     @if (auxiliaryCalls.length) {
-      <details class="auxiliary-calls">
+      <details class="auxiliary-calls ui-card">
         <summary>
-          <div><span class="eyebrow">POZA GŁÓWNĄ PĘTLĄ</span><h3>Pozostałe wywołania modeli pomocniczych</h3><p>Operacje Copilota i VS Code wykonywane obok rund głównego agenta.</p></div>
+          <div><span class="eyebrow ui-eyebrow">POZA GŁÓWNĄ PĘTLĄ</span><h3>Pozostałe wywołania modeli pomocniczych</h3><p>Operacje Copilota i VS Code wykonywane obok rund głównego agenta.</p></div>
           <div class="auxiliary-summary">
             <span><b>{{ auxiliaryCalls.length }}</b> wywołań</span>
             <span class="fresh">NOWY INPUT <b>{{ aggregateTokenLabel(auxiliaryFreshInputTokens()) }}</b></span>
@@ -132,7 +132,7 @@
               <span class="round-token input"><small>INPUT ŁĄCZNIE</small><strong>{{ roundTokenLabel(call.span, 'input') }}</strong></span>
               <span class="round-token output"><small>OUTPUT</small><strong>{{ roundTokenLabel(call.span, 'output') }}</strong></span>
               <span class="round-token credits"><small>CREDITS</small><strong>{{ spanCreditsLabel(call.span) }}</strong></span>
-              <button type="button" class="auxiliary-open" aria-label="Pokaż żądanie pomocnicze" (click)="openAuxiliaryRoundDetails(call, $event)"><mat-icon>visibility</mat-icon></button>
+              <button type="button" class="auxiliary-open ui-icon-button" aria-label="Pokaż żądanie pomocnicze" (click)="openAuxiliaryRoundDetails(call, $event)"><mat-icon>visibility</mat-icon></button>
             </article>
           }
         </div>
@@ -159,10 +159,10 @@
       </div>
       <section class="subagent-rounds">
         <header class="rounds-heading">
-          <div><span class="eyebrow">PRACA SUBAGENTA W KOLEJNOŚCI</span><h2>{{ subagentWorkTitle(tool) }}</h2></div>
+          <div><span class="eyebrow ui-eyebrow">PRACA SUBAGENTA W KOLEJNOŚCI</span><h2>{{ subagentWorkTitle(tool) }}</h2></div>
           <div class="rounds-note"><span>{{ modelCallsLabel(subagentTurns(tool).length) }} · {{ toolActionsLabel(subagentTools(tool).length) }}</span></div>
         </header>
-        <div class="round-list">
+        <div class="round-list ui-card">
           @for (subturn of subagentTurns(tool); track subturn.model.id) {
             @if (subturn.index === 1) {
               <article class="round-row initial-request-row subagent-round-row">

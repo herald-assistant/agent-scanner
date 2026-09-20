@@ -1,8 +1,8 @@
-        <section class="advice-preview" aria-labelledby="advice-preview-heading">
+        <section class="advice-preview ui-card" aria-labelledby="advice-preview-heading">
   <header>
     <div class="preview-icon"><mat-icon>inventory_2</mat-icon></div>
     <div><span>{{ preview().preparation ? 'ZWERYFIKOWANO LOKALNIE · NIE WYSŁANO DO AI' : 'NIE WYSŁANO' }} · {{ preview().request.version }}</span><h4 id="advice-preview-heading">Podgląd pakietu dla AI</h4></div>
-    <button type="button" (click)="refreshed.emit()"><mat-icon>refresh</mat-icon>Odśwież migawkę</button>
+    <button class="ui-button" type="button" (click)="refreshed.emit()"><mat-icon>refresh</mat-icon>Odśwież migawkę</button>
   </header>
   <p class="preview-lead">To zamrożona migawka danych, na których później może powstać rekomendacja. Jej przygotowanie nie uruchomiło modelu. Liczba elementów i znaków nie blokuje analizy — o pojemności decyduje okno kontekstowe wybranego modelu.</p>
 
@@ -59,7 +59,7 @@
   @if (preview().preparation && !adviceSent()) {
     <section class="send-advice">
       <div><strong>Uruchom doradcę dopiero po sprawdzeniu pakietu</strong><p>Do modelu trafi dokładnie ta zamrożona migawka. Wywołanie może zużyć limit konta Copilot.</p></div>
-      <button type="button" [disabled]="!sendAvailable() || adviceLoading()" (click)="adviceRequested.emit(preview())">
+      <button class="ui-button ui-button--primary" type="button" [disabled]="!sendAvailable() || adviceLoading()" (click)="adviceRequested.emit(preview())">
         @if (adviceLoading()) { <span class="spinner"></span>Analizowanie… }
         @else { <mat-icon>auto_awesome</mat-icon>{{ sendAvailable() ? 'Wyślij do AI' : 'Migawka wygasła' }} }
       </button>

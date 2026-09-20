@@ -1,7 +1,7 @@
-<section class="tool-opportunities" aria-labelledby="tool-opportunities-heading">
+<section class="tool-opportunities ui-card" aria-labelledby="tool-opportunities-heading">
   <header>
     <div>
-      <span class="eyebrow">POTENCJALNE USPRAWNIENIA · BEZ AI</span>
+      <span class="eyebrow ui-eyebrow">POTENCJALNE USPRAWNIENIA · BEZ AI</span>
       <h2 id="tool-opportunities-heading">Które narzędzia warto sprawdzić?</h2>
       <p>Zestawienie pokazuje widoczną w telemetrii dostępność narzędzi, ich użycia oraz orientacyjny udział treści. To hipotezy do weryfikacji, nie automatyczna rekomendacja wyłączenia.</p>
     </div>
@@ -11,7 +11,7 @@
         <span class="unused"><strong>{{ overview().unusedTools }}</strong> niewykorzystanych</span>
         <small>Definicje: {{ overview().callsWithDefinitions }}/{{ overview().modelCalls }} wywołań · output: {{ overview().callsWithOutput }}/{{ overview().modelCalls }}</small>
       </div>
-      <button class="expand-toggle" type="button" aria-controls="tool-opportunities-content" [attr.aria-expanded]="expanded()" [attr.aria-label]="expanded() ? 'Zwiń zestawienie narzędzi' : 'Rozwiń zestawienie narzędzi'" [matTooltip]="expanded() ? 'Zwiń zestawienie' : 'Rozwiń zestawienie'" matTooltipClass="scanner-info-tooltip" (click)="expanded.set(!expanded())">
+      <button class="expand-toggle ui-icon-button" type="button" aria-controls="tool-opportunities-content" [attr.aria-expanded]="expanded()" [attr.aria-label]="expanded() ? 'Zwiń zestawienie narzędzi' : 'Rozwiń zestawienie narzędzi'" [matTooltip]="expanded() ? 'Zwiń zestawienie' : 'Rozwiń zestawienie'" matTooltipClass="scanner-info-tooltip" (click)="expanded.set(!expanded())">
         <mat-icon aria-hidden="true">{{ expanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
       </button>
     </div>
@@ -20,7 +20,7 @@
   @if (expanded()) {
     <div id="tool-opportunities-content" class="tool-content">
       @if (overview().rows.length) {
-        <nav class="tool-tabs" role="tablist" aria-label="Wykorzystanie narzędzi">
+        <nav class="tool-tabs ui-tabs" role="tablist" aria-label="Wykorzystanie narzędzi">
           <button id="unused-tools-tab" type="button" role="tab" [class.active]="activeTab() === 'unused'" [attr.aria-selected]="activeTab() === 'unused'" aria-controls="unused-tools-panel" (click)="activeTab.set('unused')">Niewykorzystane <span>{{ unusedRows().length }}</span></button>
           <button id="used-tools-tab" type="button" role="tab" [class.active]="activeTab() === 'used'" [attr.aria-selected]="activeTab() === 'used'" aria-controls="used-tools-panel" (click)="activeTab.set('used')">Wykorzystane <span>{{ usedRows().length }}</span></button>
         </nav>

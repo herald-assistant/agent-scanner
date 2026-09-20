@@ -1,29 +1,179 @@
-:host { display: block; }
-.eyebrow { color: var(--dim); font-size: 8px; font-weight: 800; letter-spacing: .19em; }
-.config-panel { position: relative; display: grid; grid-template-columns: minmax(250px, .7fr) minmax(430px, 1.3fr); gap: 40px; align-items: start; padding: 28px 70px 28px 7%; background: #12170f; border-bottom: 1px solid #34402a; }
-.config-copy h2 { margin: 6px 0 12px; font-size: 22px; }
-.connection-instructions { max-width: 620px; color: #aeb5a7; font-size: 12px; line-height: 1.55; text-align: left; }
-.connection-instructions > strong { color: #e5eadf; }
-.connection-instructions ol { margin: 8px 0 0; padding-left: 22px; }
-.connection-instructions li + li { margin-top: 5px; }
-.connection-instructions code, .connection-instructions kbd { padding: 2px 5px; color: #d7e8c7; background: #090d09; border: 1px solid #303a2b; border-radius: 4px; font: 11px/1.5 "SFMono-Regular", Consolas, monospace; }
-.code-wrap { position: relative; background: #090b0e; border: 1px solid #30372b; border-radius: 8px; overflow: hidden; }
-.code-wrap pre { margin: 0; padding: 16px 110px 16px 18px; color: #c5d5b5; line-height: 1.6; font-size: 11px; white-space: pre-wrap; }
-.copy { position: absolute; right: 10px; top: 10px; padding: 8px 11px; border: 0; border-radius: 5px; background: var(--lime); color: #17200e; cursor: pointer; font-size: 11px; font-weight: 750; }
-.close { position: absolute; right: 24px; top: 18px; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
-.close mat-icon { width: 22px; height: 22px; font-size: 22px; }
-.onboarding { min-height: calc(100vh - 68px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 45px; text-align: center; }
-.onboarding h1 { margin: 9px 0 20px; font-size: 34px; letter-spacing: -.04em; }
-.onboarding-instructions, .onboarding-code { width: min(720px, 100%); }
-.onboarding-instructions { margin-bottom: 18px; }
-.onboarding-code { text-align: left; }
-.onboarding-code pre { padding-right: 180px; }
-.link-button { margin-top: 18px; border: 0; background: transparent; color: #98a388; cursor: pointer; font-size: 10px; }
-.radar { position: relative; width: 74px; height: 74px; margin-bottom: 25px; border: 1px solid #2d3927; border-radius: 50%; background: radial-gradient(circle, #b8f36b14, transparent 65%); }
-.radar i { position: absolute; inset: 10px; border: 1px solid #252e21; border-radius: 50%; }
-.radar i:nth-child(2) { inset: 22px; }
-.radar i:nth-child(3) { inset: 34px; border-color: var(--lime); }
-.radar span { position: absolute; top: 50%; left: 0; width: 50%; height: 1px; transform-origin: right; background: linear-gradient(90deg, transparent, var(--lime)); animation: scan 2.8s linear infinite; }
-@keyframes scan { to { transform: rotate(360deg); } }
-@media (max-width: 1000px) { .config-panel { grid-template-columns: 1fr; gap: 18px; } }
-@media (max-width: 700px) { .config-panel { padding: 24px 45px 24px 18px; }.onboarding { padding: 35px 16px; }.onboarding-code pre { padding-top: 55px; padding-right: 15px; } }
+:host {
+  display: block;
+}
+
+.config-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(250px, .7fr) minmax(430px, 1.3fr);
+  gap: var(--space-10);
+  align-items: start;
+  padding: var(--space-8) 70px var(--space-8) 7%;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.config-copy h2 {
+  margin: var(--space-3) 0 var(--space-5);
+  font-size: var(--text-3xl);
+}
+
+.connection-instructions {
+  max-width: 620px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  text-align: left;
+}
+
+.connection-instructions > strong {
+  color: var(--color-text);
+}
+
+.connection-instructions ol {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-7);
+}
+
+.connection-instructions li + li {
+  margin-top: var(--space-2);
+}
+
+.connection-instructions code,
+.connection-instructions kbd {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  font: var(--text-sm)/1.5 var(--font-mono);
+}
+
+.code-wrap {
+  position: relative;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.code-wrap pre {
+  margin: 0;
+  padding: var(--space-6) 110px var(--space-6) var(--space-6);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+
+.copy {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.close {
+  position: absolute;
+  right: 24px;
+  top: 18px;
+}
+
+.onboarding {
+  min-height: calc(100vh - var(--topbar-height));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-11);
+  text-align: center;
+}
+
+.onboarding h1 {
+  margin: var(--space-4) 0 var(--space-7);
+  font-size: var(--text-5xl);
+  letter-spacing: var(--tracking-heading);
+}
+
+.onboarding-instructions,
+.onboarding-code {
+  width: min(720px, 100%);
+}
+
+.onboarding-instructions {
+  margin-bottom: var(--space-6);
+}
+
+.onboarding-code {
+  text-align: left;
+}
+
+.onboarding-code pre {
+  padding-right: 180px;
+}
+
+.link-button {
+  margin-top: var(--space-6);
+}
+
+.radar {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  margin-bottom: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 65%);
+}
+
+.radar i {
+  position: absolute;
+  inset: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+}
+
+.radar i:nth-child(2) {
+  inset: 22px;
+}
+
+.radar i:nth-child(3) {
+  inset: 34px;
+  border-color: var(--color-accent);
+}
+
+.radar span {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 50%;
+  height: 1px;
+  transform-origin: right;
+  background: linear-gradient(90deg, transparent, var(--color-accent));
+  animation: scan 2.8s linear infinite;
+}
+
+@keyframes scan {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1000px) {
+  .config-panel {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+@media (max-width: 700px) {
+  .config-panel {
+    padding: var(--space-8) var(--space-11) var(--space-8) var(--space-6);
+  }
+  .onboarding {
+    padding: var(--space-9) var(--space-6);
+  }
+  .onboarding-code pre {
+    padding-top: var(--space-11);
+    padding-right: var(--space-6);
+  }
+}

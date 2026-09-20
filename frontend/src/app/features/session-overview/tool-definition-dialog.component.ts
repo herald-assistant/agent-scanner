@@ -1,5 +1,4 @@
 import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
-import {MatButtonModule} from '@angular/material/button';
 import {MAT_DIALOG_DATA, MatDialogModule} from '@angular/material/dialog';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -27,7 +26,7 @@ interface ToolDefinitionView {
 
 @Component({
   selector: 'as-tool-definition-dialog',
-  imports: [MatButtonModule, MatDialogModule, MatIconModule, MatTooltipModule],
+  imports: [MatDialogModule, MatIconModule, MatTooltipModule],
   templateUrl: './tool-definition-dialog.component.html',
   styleUrl: './tool-definition-dialog.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush

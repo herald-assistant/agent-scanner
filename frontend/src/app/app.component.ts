@@ -1,11 +1,11 @@
 import {ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal, TemplateRef} from '@angular/core';
-import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {MatButtonModule} from '@angular/material/button';
+import {takeUntilDestroyed, toSignal} from '@angular/core/rxjs-interop';
+import {BreakpointObserver} from '@angular/cdk/layout';
 import {MatIconModule} from '@angular/material/icon';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {NavigationEnd, Router, RouterOutlet} from '@angular/router';
-import {filter} from 'rxjs';
+import {filter, map} from 'rxjs';
 import {RoundDetailsPanelService} from './core/round-details-panel.service';
 import {ScannerShellStateService} from './core/scanner-shell-state.service';
 import {SessionAnalysisService} from './core/session-analysis.service';
@@ -17,7 +17,7 @@ import {Session} from './models/scanner.models';
 
 @Component({
   selector: 'as-scanner-shell',
-  imports: [MatButtonModule, MatIconModule, MatSidenavModule, MatTooltipModule, RouterOutlet, TopbarComponent,
+  imports: [MatIconModule, MatSidenavModule, MatTooltipModule, RouterOutlet, TopbarComponent,
     SessionSidebarComponent, RoundDetailsAsideComponent, OptimizationGuidanceComponent],
   providers: [
     ScannerShellStateService
@@ -31,8 +31,13 @@ export class AppComponent {
   private readonly router = inject(Router);
   private readonly analysis = inject(SessionAnalysisService);
   private readonly detailsPanel = inject(RoundDetailsPanelService);
+  private readonly viewport = inject(BreakpointObserver);
   readonly state = inject(ScannerShellStateService);
-  private readonly sidebarOpenState = signal(true);
+  readonly compactLayout = toSignal(
+    this.viewport.observe('(max-width: 900px)').pipe(map(state => state.matches)),
+    {initialValue: this.viewport.isMatched('(max-width: 900px)')}
+  );
+  private readonly sidebarOpenState = signal(!this.compactLayout());
   private readonly selectedSessionIdState = signal<number | undefined>(undefined);
 
   readonly visibleSessions = computed(() => this.state.sessions().filter(session => !this.analysis.isAuxiliarySession(session)));
@@ -51,9 +56,14 @@ export class AppComponent {
     this.sidebarOpenState.update(open => !open);
   }
 
+  closeSidebar(): void {
+    this.sidebarOpenState.set(false);
+  }
+
   async selectSession(session: Session): Promise<void> {
     this.detailsPanel.close();
-    await this.router.navigate(['/sessions', session.id, 'overview']);
+    const navigated = await this.router.navigate(['/sessions', session.id, 'overview']);
+    if (navigated && this.compactLayout()) this.closeSidebar();
   }
 
   async importSessionFile(file: File): Promise<void> {

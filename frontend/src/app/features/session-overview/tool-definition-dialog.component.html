@@ -2,11 +2,11 @@
   <header class="dialog-header">
     <div class="title-icon"><mat-icon aria-hidden="true">build</mat-icon></div>
     <div>
-      <span class="eyebrow">DEFINICJA NARZĘDZIA</span>
+      <span class="eyebrow ui-eyebrow">DEFINICJA NARZĘDZIA</span>
       <h2 mat-dialog-title>{{ data.tool.name }}</h2>
       <p>{{ data.tool.agents.join(' · ') }}</p>
     </div>
-    <button mat-icon-button mat-dialog-close type="button" aria-label="Zamknij definicję narzędzia" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip">
+    <button class="ui-icon-button" mat-dialog-close type="button" aria-label="Zamknij definicję narzędzia" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip">
       <mat-icon aria-hidden="true">close</mat-icon>
     </button>
   </header>
@@ -18,7 +18,7 @@
       <span><small>ESTYMACJA INPUTU</small><strong>≈ {{ data.tool.definitionTokens }}</strong><em>tokenów definicji</em></span>
     </div>
 
-    <section class="duplicate-summary" aria-labelledby="duplicate-summary-heading">
+    <section class="duplicate-summary ui-card" aria-labelledby="duplicate-summary-heading">
       <header>
         <div>
           <span>POWTÓRZONE WYWOŁANIA</span>
@@ -67,7 +67,7 @@
 
     @if (definitions.length) {
       @for (definition of definitions; track definition.version) {
-        <article class="definition-version">
+        <article class="definition-version ui-card">
           <header>
             <div>
               <span>WERSJA {{ definition.version }}</span>

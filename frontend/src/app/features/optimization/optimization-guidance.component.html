@@ -14,7 +14,7 @@
     <div class="guide-state error" role="alert">
       <mat-icon>error</mat-icon>
       <span>Nie udało się wczytać lokalnego katalogu.</span>
-      <button type="button" (click)="load()">Spróbuj ponownie</button>
+      <button class="ui-button" type="button" (click)="load()">Spróbuj ponownie</button>
     </div>
   } @else {
     @if (context(); as source) {
@@ -39,7 +39,7 @@
             <span>Sprawdź dowody w przepływie</span>
             <div>
               @for (evidence of source.evidence; track evidence.kind + ':' + evidence.id) {
-                <button
+                <button class="ui-button"
                   type="button"
                   [matTooltip]="evidence.description"
                   matTooltipClass="scanner-info-tooltip"
@@ -59,7 +59,7 @@
             <strong>Sprawdź, jakie dowody trafiłyby do rekomendacji</strong>
             <p>Scanner zbuduje ograniczoną migawkę tej fazy lub tego kompaktowania, usunie instrukcje systemowe i ukryje rozpoznane sekrety.</p>
           </div>
-          <button type="button" [disabled]="advicePreviewLoading()" (click)="prepareAdvicePreview()">
+          <button class="ui-button ui-button--primary" type="button" [disabled]="advicePreviewLoading()" (click)="prepareAdvicePreview()">
             @if (advicePreviewLoading()) { <span class="spinner"></span>Przygotowywanie… }
             @else { <mat-icon>inventory_2</mat-icon>{{ advicePreview() ? 'Przygotuj ponownie' : 'Przygotuj podgląd dla AI' }} }
           </button>
@@ -118,12 +118,12 @@
       </aside>
 
       @if (selectedTechnique(); as technique) {
-        <article class="technique-detail">
+        <article class="technique-detail ui-card">
           <header class="detail-heading">
             <div><span>{{ technique.id }} · rewizja {{ technique.revision }}</span><h3>{{ technique.title }}</h3></div>
             <button
               type="button"
-              class="copy-button"
+              class="copy-button ui-button"
               matTooltip="Skopiuj cel, kroki i kryteria porównania"
               matTooltipClass="scanner-info-tooltip"
               (click)="copyTrialPlan(technique)">
@@ -186,7 +186,7 @@
           </details>
 
           @if (technique.relatedTechniqueIds.length) {
-            <section class="related"><span>Powiązane techniki</span>@for (id of technique.relatedTechniqueIds; track id) {@if (relatedTechnique(id); as related) {<button type="button" (click)="selectTechnique(related)">{{ id }} · {{ related.title }}</button>}}</section>
+            <section class="related"><span>Powiązane techniki</span>@for (id of technique.relatedTechniqueIds; track id) {@if (relatedTechnique(id); as related) {<button class="ui-button ui-button--small" type="button" (click)="selectTechnique(related)">{{ id }} · {{ related.title }}</button>}}</section>
           }
         </article>
       }

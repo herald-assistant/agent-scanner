@@ -33,14 +33,14 @@
                   <mat-icon>arrow_back</mat-icon><span><small>DOWÓD ŹRÓDŁOWY</small>Wróć do techniki</span>
                 </button>
               }
-              <header class="aside-title">
+              <header class="aside-title ui-panel-header">
                 <div><span>{{ entry.eyebrow }}</span><h2>{{ entry.title }}</h2></div>
                 <div class="aside-actions">
                   @if (entry.navigation) {
-                    <button type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.previous" (click)="detailsPanel.previous()"><mat-icon>chevron_left</mat-icon></button>
-                    <button type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.next" (click)="detailsPanel.next()"><mat-icon>chevron_right</mat-icon></button>
+                    <button class="ui-icon-button" type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.previous" (click)="detailsPanel.previous()"><mat-icon>chevron_left</mat-icon></button>
+                    <button class="ui-icon-button" type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!entry.navigation.next" (click)="detailsPanel.next()"><mat-icon>chevron_right</mat-icon></button>
                   }
-                  <button type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="detailsPanel.close()"><mat-icon>close</mat-icon></button>
+                  <button class="ui-icon-button" type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="detailsPanel.close()"><mat-icon>close</mat-icon></button>
                 </div>
               </header>
               <div class="aside-scroll"><ng-container *ngTemplateOutlet="entry.template; context: entry.context"></ng-container></div>

@@ -1,9 +1,9 @@
 <div class="session-panel">
   <div class="aside-title">
-    <div><span class="eyebrow">HISTORIA</span><h2>Sesje</h2></div>
+    <div><span class="eyebrow ui-eyebrow">HISTORIA</span><h2>Sesje</h2></div>
     <div class="aside-title-actions">
       <span class="count">{{ sessions().length }}</span>
-      <button class="sidebar-toggle" matTooltip="Zwiń panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Zwiń panel sesji" (click)="collapse.emit()"><mat-icon>left_panel_close</mat-icon></button>
+      <button class="sidebar-toggle ui-icon-button" matTooltip="Zwiń panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Zwiń panel sesji" (click)="collapse.emit()"><mat-icon>left_panel_close</mat-icon></button>
     </div>
   </div>
   @if (sessions().length) {
@@ -29,9 +29,9 @@
   }
   <div class="session-import">
     <input #sessionImportInput type="file" accept=".json,application/json" (change)="onFileSelected($event)">
-    <button type="button" (click)="sessionImportInput.click()" [disabled]="importing()">
+    <button class="ui-button" type="button" (click)="sessionImportInput.click()" [disabled]="importing()">
       <mat-icon aria-hidden="true">upload_file</mat-icon>{{ importing() ? 'Importowanie…' : 'Importuj sesję JSON' }}
     </button>
   </div>
-  <div class="aside-footer"><span>Retencja {{ retentionDays() }} dni</span><button (click)="clearAll.emit()" [disabled]="!canClear()">Wyczyść</button></div>
+  <div class="aside-footer"><span>Retencja {{ retentionDays() }} dni</span><button class="ui-button ui-button--ghost ui-button--danger" (click)="clearAll.emit()" [disabled]="!canClear()">Wyczyść</button></div>
 </div>

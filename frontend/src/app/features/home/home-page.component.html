@@ -1,7 +1,7 @@
 @if (showConfig()) {
   <section class="config-panel">
     <div class="config-copy">
-      <span class="eyebrow">OPENTELEMETRY</span>
+      <span class="eyebrow ui-eyebrow">OPENTELEMETRY</span>
       <h2>Połącz GitHub Copilot w VS Code</h2>
       <div class="connection-instructions">
         <strong>W VS Code</strong>
@@ -14,15 +14,15 @@
     </div>
     <div class="code-wrap">
       <pre>{{ configText }}</pre>
-      <button class="copy" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj' }}</button>
+      <button class="copy ui-button ui-button--primary" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj' }}</button>
     </div>
-    <button class="close" aria-label="Zamknij konfigurację" (click)="setConfigVisible(false)"><mat-icon>close</mat-icon></button>
+    <button class="close ui-icon-button" aria-label="Zamknij konfigurację" (click)="setConfigVisible(false)"><mat-icon>close</mat-icon></button>
   </section>
 }
 
 <section class="onboarding">
   <div class="radar"><i></i><i></i><i></i><span></span></div>
-  <span class="eyebrow">OTLP/HTTP · PORT 8081</span>
+  <span class="eyebrow ui-eyebrow">OTLP/HTTP · PORT 8081</span>
   <h1>Podłącz sesję agenta z VS Code</h1>
   <div class="connection-instructions onboarding-instructions">
     <strong>W VS Code</strong>
@@ -32,6 +32,6 @@
       <li>Wstaw poniższe właściwości do istniejącego głównego obiektu JSON:</li>
     </ol>
   </div>
-  <div class="code-wrap onboarding-code"><pre>{{ configText }}</pre><button class="copy" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj konfigurację' }}</button></div>
-  <button class="link-button" (click)="setConfigVisible(true)">Bezpieczeństwo i priorytet ustawień →</button>
+  <div class="code-wrap onboarding-code"><pre>{{ configText }}</pre><button class="copy ui-button ui-button--primary" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj konfigurację' }}</button></div>
+  <button class="link-button ui-button ui-button--ghost" (click)="setConfigVisible(true)">Bezpieczeństwo i priorytet ustawień →</button>
 </section>

@@ -487,7 +487,22 @@ Do not create pass-through components that add no semantic boundary. Do extract 
 component when it owns behavior, state, a repeated visual contract or a testable
 piece of domain presentation.
 
-### Angular Material conventions
+### Shared styling contract
+
+Follow [`docs/standard-stylowania.md`](docs/standard-stylowania.md). The single
+visual source is `frontend/src/styles/tokens.css`; `styles.css` imports base,
+explicit `ui-*` primitives, the Material adapter and scoped Markdown styles once.
+Use the shared color, metric, rem typography, spacing and radius tokens in every
+feature. Feature CSS owns layout and domain visuals; it must not copy primitive
+button chrome or redefine a local palette. Material tokens and internal surface
+selectors belong only in `styles/material.css`. Do not use `::ng-deep` or component
+`!important`. Preserve exact chart geometry and evidence semantics. Run
+`npm run check:styles` (also executed by `prebuild`), frontend tests and the build
+after shared styling changes; inspect routes and overlays at desktop and narrow
+widths. Maintain visible keyboard focus, reduced-motion handling and bounded raw
+content. CSS-only changes do not require new tests that merely repeat CSS rules.
+
+### Angular Material components
 
 Use Angular Material for:
 

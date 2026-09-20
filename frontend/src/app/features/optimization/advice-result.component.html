@@ -1,4 +1,4 @@
-<section class="advice-result" aria-labelledby="advice-result-heading">
+<section class="advice-result ui-card" aria-labelledby="advice-result-heading">
   <header>
     <span class="result-icon"><mat-icon>auto_awesome</mat-icon></span>
     <div><span>REKOMENDACJA AI · {{ result().model }}</span><h4 id="advice-result-heading">Techniki warte sprawdzenia</h4></div>
@@ -17,7 +17,7 @@
           @if (evidenceFor(proposal).length) {
             <div class="proposal-evidence"><strong>Dowody z migawki</strong>
               @for (evidence of evidenceFor(proposal); track evidence.kind + ':' + evidence.id) {
-                <button type="button" (click)="openEvidence(evidence, $event.currentTarget)"><mat-icon>arrow_outward</mat-icon>{{ evidence.label }}</button>
+                <button class="ui-button" type="button" (click)="openEvidence(evidence, $event.currentTarget)"><mat-icon>arrow_outward</mat-icon>{{ evidence.label }}</button>
               }
             </div>
           }

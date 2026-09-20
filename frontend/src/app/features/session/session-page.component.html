@@ -7,7 +7,7 @@
       <section class="content">
         <div class="session-title">
           <div>
-            <span class="eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
+            <span class="eyebrow ui-eyebrow">SESJA AGENTA · {{ sessionStatus() }}</span>
             <h1>{{ isAuxiliarySession(detail.session) ? sessionTitle(detail.session) : mainSessionHeading(detail.session) }}</h1>
             <p>
               <span>{{ sourceLabel(detail.session) }}</span><b>·</b><span>{{ repositoryName() }}</span><b>·</b>
@@ -17,12 +17,12 @@
             </p>
           </div>
           <div class="session-actions">
-            <button class="icon-button" matTooltip="Eksportuj sesję do JSON" matTooltipClass="scanner-info-tooltip" aria-label="Eksportuj sesję do JSON" (click)="exportSession()"><mat-icon>download</mat-icon></button>
-            <button class="icon-button danger" matTooltip="Usuń sesję" matTooltipClass="scanner-info-tooltip" aria-label="Usuń sesję" (click)="deleteSession()"><mat-icon>delete</mat-icon></button>
-            <button class="icon-button" matTooltip="Zamknij sesję" matTooltipClass="scanner-info-tooltip" aria-label="Zamknij sesję" (click)="closeSession()"><mat-icon>close</mat-icon></button>
+            <button class="icon-button ui-icon-button" matTooltip="Eksportuj sesję do JSON" matTooltipClass="scanner-info-tooltip" aria-label="Eksportuj sesję do JSON" (click)="exportSession()"><mat-icon>download</mat-icon></button>
+            <button class="icon-button danger ui-icon-button ui-button--danger" matTooltip="Usuń sesję" matTooltipClass="scanner-info-tooltip" aria-label="Usuń sesję" (click)="deleteSession()"><mat-icon>delete</mat-icon></button>
+            <button class="icon-button ui-icon-button" matTooltip="Zamknij sesję" matTooltipClass="scanner-info-tooltip" aria-label="Zamknij sesję" (click)="closeSession()"><mat-icon>close</mat-icon></button>
           </div>
         </div>
-        <nav class="tabs">
+        <nav class="tabs ui-tabs" aria-label="Widoki sesji">
           <button [class.active]="activeTab === 'overview'" [attr.aria-current]="activeTab === 'overview' ? 'page' : null" (click)="selectTab('overview')">Podsumowanie</button>
           <button [class.active]="activeTab === 'loop'" [attr.aria-current]="activeTab === 'loop' ? 'page' : null" (click)="selectTab('loop')">Koszt i przebieg <span>{{ primaryModelSpans().length }}</span></button>
           <button [class.active]="activeTab === 'workflow'" [attr.aria-current]="activeTab === 'workflow' ? 'page' : null" (click)="selectTab('workflow')">Mapa pracy</button>
@@ -68,7 +68,7 @@
             <p role="status">Układanie mapy rund i powiązań subagentów…</p>
           }
           @if (workflowFailed()) {
-            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
+            <button class="button quiet ui-button" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
           }
         }
         @if (activeTab === 'ai-hub') {
@@ -83,7 +83,7 @@
             <p role="status">Przygotowywanie danych AI Hub…</p>
           }
           @if (workflowFailed()) {
-            <button class="button quiet" (click)="loadWorkflow()">Ponów przygotowanie AI Hub</button>
+            <button class="button quiet ui-button" (click)="loadWorkflow()">Ponów przygotowanie AI Hub</button>
           }
         }
 </section>

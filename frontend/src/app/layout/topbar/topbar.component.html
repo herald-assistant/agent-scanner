@@ -9,8 +9,8 @@
       <span>{{ status().paused ? 'Nasłuchiwanie wstrzymane' : status().connected ? 'Ostatnio odebrano telemetrię' : 'Oczekiwanie na telemetrię' }}</span>
       @if (status().lastSignalAt) {<small>{{ time(status().lastSignalAt) }}</small>}
     </div>
-    <button class="button guide-button" matTooltip="Katalog technik optymalizacji bez AI" matTooltipClass="scanner-info-tooltip" aria-label="Techniki optymalizacji" (click)="optimizationGuide.emit($event)"><mat-icon>lightbulb</mat-icon><span>Techniki optymalizacji</span></button>
-    <button class="icon-button" matTooltip="Konfiguracja połączenia" matTooltipClass="scanner-info-tooltip" aria-label="Konfiguracja połączenia" (click)="configure.emit()"><mat-icon>settings</mat-icon></button>
-    <button class="button quiet" (click)="pauseToggle.emit()">{{ status().paused ? 'Wznów' : 'Pauza' }}</button>
+    <button class="button guide-button ui-button" matTooltip="Katalog technik optymalizacji bez AI" matTooltipClass="scanner-info-tooltip" aria-label="Techniki optymalizacji" (click)="optimizationGuide.emit($event)"><mat-icon>lightbulb</mat-icon><span>Techniki optymalizacji</span></button>
+    <button class="icon-button ui-icon-button" matTooltip="Konfiguracja połączenia" matTooltipClass="scanner-info-tooltip" aria-label="Konfiguracja połączenia" (click)="configure.emit()"><mat-icon>settings</mat-icon></button>
+    <button class="button quiet ui-button" (click)="pauseToggle.emit()">{{ status().paused ? 'Wznów' : 'Pauza' }}</button>
   </div>
 </header>

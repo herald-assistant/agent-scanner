@@ -19,7 +19,7 @@
 
   <header class="map-intro">
     <div class="intro-copy">
-      <span class="eyebrow"><span class="tiny-orbit"></span> CZYTANIE PRZEBIEGU SESJI</span>
+      <span class="eyebrow ui-eyebrow"><span class="tiny-orbit"></span> CZYTANIE PRZEBIEGU SESJI</span>
       <h2>Od zlecenia, przez cykle pracy, do odpowiedzi.</h2>
       <p>Każdy cykl zaczyna decyzja modelu, agent wykonuje żądane działania, a ich wyniki mogą zasilić następne wywołanie modelu.</p>
     </div>
@@ -31,18 +31,18 @@
   </header>
 
   @if (interaction(); as current) {
-    <section class="analysis-menu factual-menu" aria-label="Sterowanie mapą pracy">
-      <div class="analysis-menu-copy"><mat-icon>account_tree</mat-icon><div><span class="eyebrow">MAPA PRACY</span><h3>Faktyczny przebieg wybranej interakcji</h3><p>Mapa korzysta wyłącznie z telemetrii i deterministycznych powiązań.</p></div></div>
+    <section class="analysis-menu factual-menu ui-card" aria-label="Sterowanie mapą pracy">
+      <div class="analysis-menu-copy"><mat-icon>account_tree</mat-icon><div><span class="eyebrow ui-eyebrow">MAPA PRACY</span><h3>Faktyczny przebieg wybranej interakcji</h3><p>Mapa korzysta wyłącznie z telemetrii i deterministycznych powiązań.</p></div></div>
       <div class="analysis-navigation">
         @if (interactions().length > 1) {
-          <fieldset class="interaction-choice"><legend>INTERAKCJA</legend><div class="interaction-switch" aria-label="Wybór interakcji">
+          <fieldset class="interaction-choice"><legend>INTERAKCJA</legend><div class="interaction-switch ui-segmented" aria-label="Wybór interakcji">
             @for (item of interactions(); track item.trace) {
               <button type="button" [class.selected]="current.trace === item.trace" [attr.aria-pressed]="current.trace === item.trace"
                 [attr.aria-label]="'Interakcja ' + item.round.turn.interactionIndex" (click)="selectInteraction(item.trace)">I{{ item.round.turn.interactionIndex }}</button>
             }
           </div></fieldset>
         }
-        <fieldset class="layer-choice"><legend>WARSTWA MAPY</legend><div class="layer-switch" aria-label="Warstwa danych mapy">
+        <fieldset class="layer-choice"><legend>WARSTWA MAPY</legend><div class="layer-switch ui-segmented" aria-label="Warstwa danych mapy">
           <button type="button" [class.selected]="layer() === 'context'" [attr.aria-pressed]="layer() === 'context'" (click)="layer.set('context')">Kontekst</button>
           <button type="button" [class.selected]="layer() === 'tokens'" [attr.aria-pressed]="layer() === 'tokens'" (click)="layer.set('tokens')">Tokeny</button>
           <button type="button" [class.selected]="layer() === 'credits'" [attr.aria-pressed]="layer() === 'credits'" (click)="layer.set('credits')">Credits</button>
@@ -50,9 +50,9 @@
       </div>
     </section>
 
-    <section class="map-panel" aria-label="Szczegółowy przebieg pracy">
+    <section class="map-panel ui-card" aria-label="Szczegółowy przebieg pracy">
       <header class="panel-heading">
-        <div><span class="eyebrow">RUNDY MODELU · WYBRANA INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>Interakcja → model → agent → odpowiedź</h3></div>
+        <div><span class="eyebrow ui-eyebrow">RUNDY MODELU · WYBRANA INTERAKCJA {{ current.round.turn.interactionIndex }}</span><h3>Interakcja → model → agent → odpowiedź</h3></div>
         <div class="panel-heading-actions">
           <div class="map-status" aria-live="polite">@if (refreshing()) { Aktualizowanie… } @else { <small>ZAKRES: INTERAKCJA {{ current.round.turn.interactionIndex }}</small><strong>{{ plural(columns().length, 'wywołanie M', 'wywołania M', 'wywołań M') }} · {{ plural(lanes().length - 1, 'subagent', 'subagenci', 'subagentów') }}</strong> }</div>
         </div>
@@ -63,8 +63,8 @@
           @if (columns().length > 8) {
             <span class="map-navigation-hint"><mat-icon>swipe</mat-icon>{{ mapColumnCount() }} kroków · przeciągnij mapę</span>
             <span class="map-navigation-buttons">
-              <button type="button" aria-label="Przewiń mapę w lewo" matTooltip="Wcześniejsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(-1)"><mat-icon>chevron_left</mat-icon></button>
-              <button type="button" aria-label="Przewiń mapę w prawo" matTooltip="Dalsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(1)"><mat-icon>chevron_right</mat-icon></button>
+              <button class="ui-icon-button" type="button" aria-label="Przewiń mapę w lewo" matTooltip="Wcześniejsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(-1)"><mat-icon>chevron_left</mat-icon></button>
+              <button class="ui-icon-button" type="button" aria-label="Przewiń mapę w prawo" matTooltip="Dalsze kroki" matTooltipClass="scanner-info-tooltip" (click)="scrollMap(1)"><mat-icon>chevron_right</mat-icon></button>
             </span>
           }
         </div>
@@ -204,7 +204,7 @@
     @if (selected(); as round) {
       @if (selectedStream().parentId) {
         <section class="delegation-panel">
-          <header class="panel-heading"><div><span class="eyebrow">PRZEPŁYW SUBAGENTA</span><h3>Co weszło, co wróciło?</h3></div><span class="exact-link" matTooltip="Zgodne identyfikatory delegacji; w zagnieżdżonym epizodzie uwzględniamy także relacje rodziców spanów."><mat-icon>link</mat-icon> Potwierdzona relacja delegacji</span></header>
+          <header class="panel-heading"><div><span class="eyebrow ui-eyebrow">PRZEPŁYW SUBAGENTA</span><h3>Co weszło, co wróciło?</h3></div><span class="exact-link" matTooltip="Zgodne identyfikatory delegacji; w zagnieżdżonym epizodzie uwzględniamy także relacje rodziców spanów."><mat-icon>link</mat-icon> Potwierdzona relacja delegacji</span></header>
           @if (selectedStream().flow; as flow) {
             <div class="payload-flow"><div><mat-icon>input</mat-icon><span>Zlecenie</span><strong>{{ compact(flow.delegation.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>account_tree</mat-icon><span>Unikalne wyniki narzędzi</span><strong>{{ compact(flow.results.value) }} <small>B</small></strong></div><mat-icon class="payload-arrow">arrow_forward</mat-icon><div><mat-icon>output</mat-icon><span>Zwrot do rodzica</span><strong>{{ compact(flow.returned.value) }} <small>B</small></strong></div></div>
             <p class="payload-note">Bajty UTF-8 pełnych przechwyconych payloadów. Zlecenie nie jest pełnym inputem modelu; wyniki mogły być skrócone przed odbiorem.</p>

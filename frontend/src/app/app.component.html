@@ -6,7 +6,7 @@
     (pauseToggle)="state.togglePause()" />
 
   <mat-drawer-container class="workspace" autosize>
-    <mat-drawer class="sessions" mode="side" [opened]="sidebarOpen()">
+    <mat-drawer class="sessions" [mode]="compactLayout() ? 'over' : 'side'" [opened]="sidebarOpen()" (closedStart)="closeSidebar()">
       <as-session-sidebar
         [sessions]="visibleSessions()"
         [selectedSessionId]="selectedSessionId()"
@@ -22,7 +22,7 @@
 
     <mat-drawer-content class="workspace-content">
       @if (!sidebarOpen()) {
-        <button mat-icon-button class="sidebar-open" matTooltip="Pokaż panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Pokaż panel sesji" (click)="toggleSidebar()"><mat-icon>left_panel_open</mat-icon></button>
+        <button class="sidebar-open ui-icon-button" matTooltip="Pokaż panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Pokaż panel sesji" (click)="toggleSidebar()"><mat-icon>left_panel_open</mat-icon></button>
       }
       <router-outlet />
     </mat-drawer-content>

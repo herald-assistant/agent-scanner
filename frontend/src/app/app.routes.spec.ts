@@ -1,4 +1,6 @@
 import {TestBed} from '@angular/core/testing';
+import {BreakpointObserver} from '@angular/cdk/layout';
+import {of} from 'rxjs';
 import {Router} from '@angular/router';
 import {RouterTestingHarness} from '@angular/router/testing';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -79,5 +81,31 @@ describe('application routes', () => {
     expect(router.url).toBe(`/sessions/${source.session.id}/technical`);
     expect(harness.routeNativeElement?.querySelector('.tabs button[aria-current="page"]')?.textContent?.trim())
       .toBe('Dane techniczne');
+  });
+
+  it('opens sessions over the content on narrow screens and closes the drawer after selection', async () => {
+    TestBed.overrideProvider(BreakpointObserver, {useValue: {
+      isMatched: () => true,
+      observe: () => of({matches: true, breakpoints: {'(max-width: 900px)': true}})
+    }});
+    const harness = await RouterTestingHarness.create('/');
+    const router = TestBed.inject(Router);
+    await vi.waitFor(() => expect(harness.routeNativeElement?.querySelector('.session-card')).not.toBeNull());
+    harness.detectChanges();
+    const drawer = harness.routeNativeElement!.querySelector('mat-drawer')!;
+    expect(drawer.classList.contains('mat-drawer-over')).toBe(true);
+    expect(drawer.classList.contains('mat-drawer-opened')).toBe(false);
+
+    (harness.routeNativeElement!.querySelector('.sidebar-open') as HTMLButtonElement).click();
+    harness.detectChanges();
+    await vi.waitFor(() => expect(drawer.classList.contains('mat-drawer-opened')).toBe(true));
+    (harness.routeNativeElement!.querySelector('.session-card') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(router.url).toMatch(/^\/sessions\/\d+\/overview$/));
+    harness.detectChanges();
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(drawer.classList.contains('mat-drawer-opened')).toBe(false);
+    });
+    expect(harness.routeNativeElement!.querySelector('.sidebar-open')).not.toBeNull();
   });
 });

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "start": "ng serve --proxy-config proxy.conf.json",
+    "check:styles": "node scripts/check-styles.mjs",
+    "prebuild": "npm run check:styles",
     "build": "ng build",
     "test": "ng test --watch=false"
   },

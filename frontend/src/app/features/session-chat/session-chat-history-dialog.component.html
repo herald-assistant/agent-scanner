@@ -1,7 +1,7 @@
 <section class="history-dialog">
   <header>
     <div><h2 mat-dialog-title>Poprzednie rozmowy</h2><p>Wybierz rozmowę, aby kontynuować ją z zachowanym kontekstem.</p></div>
-    <button type="button" class="icon-button close-button" aria-label="Zamknij historię rozmów" (click)="close()"><mat-icon>close</mat-icon></button>
+    <button type="button" class="icon-button close-button ui-icon-button" aria-label="Zamknij historię rozmów" (click)="close()"><mat-icon>close</mat-icon></button>
   </header>
 
   <mat-dialog-content>
@@ -21,7 +21,7 @@
               <span class="conversation-meta"><small>{{ item.model }}</small><small>cała sesja</small></span>
               <mat-icon>arrow_forward</mat-icon>
             </button>
-            <button type="button" class="icon-button delete-conversation" aria-label="Usuń rozmowę" (click)="delete(item, $event)"><mat-icon>delete</mat-icon></button>
+            <button type="button" class="icon-button delete-conversation ui-icon-button ui-button--danger" aria-label="Usuń rozmowę" (click)="delete(item, $event)"><mat-icon>delete</mat-icon></button>
           </article>
         }
       </div>

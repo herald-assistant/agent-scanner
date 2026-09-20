@@ -1,12 +1,12 @@
 <section class="dialog-shell" [class.request-view]="mode() === 'request'" [class.cycle-view]="mode() === 'cycle'" [class.final-view]="mode() === 'final'">
-  <header class="dialog-title">
+  <header class="dialog-title ui-panel-header">
     <div><span>{{ headingContext() }} · {{ panelModelLabel() }}</span><h2>{{ panelTitle() }}</h2></div>
     <div class="dialog-actions">
       @if (navigationVisible()) {
-        <button type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasPrevious()" (click)="previous.emit()"><mat-icon>chevron_left</mat-icon></button>
-        <button type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasNext()" (click)="next.emit()"><mat-icon>chevron_right</mat-icon></button>
+        <button class="ui-icon-button" type="button" aria-label="Poprzednia runda" matTooltip="Poprzednia runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasPrevious()" (click)="previous.emit()"><mat-icon>chevron_left</mat-icon></button>
+        <button class="ui-icon-button" type="button" aria-label="Następna runda" matTooltip="Następna runda" matTooltipClass="scanner-info-tooltip" [disabled]="!hasNext()" (click)="next.emit()"><mat-icon>chevron_right</mat-icon></button>
       }
-      <button type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+      <button class="ui-icon-button" type="button" aria-label="Zamknij szczegóły" matTooltip="Zamknij" matTooltipClass="scanner-info-tooltip" (click)="closed.emit()"><mat-icon>close</mat-icon></button>
     </div>
   </header>
   <div class="round-detail-scroll">
