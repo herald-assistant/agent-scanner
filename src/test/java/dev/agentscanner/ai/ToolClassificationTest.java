@@ -127,6 +127,12 @@ class ToolClassificationTest {
         assertEquals(first, restored);
         verify(completion, times(1)).complete(anyString());
     }
+    @Test void deletesOnlyTheClassificationMatchingTheCurrentRequest() throws Exception {
+        service.delete(42, request("Cel"));
+
+        verify(store).deleteToolClassification(eq(42L), matches("[0-9a-f]{64}"));
+        verifyNoInteractions(completion);
+    }
     @Test void serializesEmptyAllowlistAndDisablesRuntimeDiscovery() throws Exception {
         // Verify the actual SDK wire request, rather than serializing its Optional-based config bean.
         var builder = Class.forName("com.github.copilot.SessionRequestBuilder").getDeclaredMethod("buildCreateRequest",
@@ -169,6 +175,19 @@ class ToolClassificationTest {
             var failed = mvc.perform(post("/api/ai/tool-classification").param("sessionId", "42").contentType("application/json").content(mapper.writeValueAsBytes(request("Cel")))).andReturn();
             String body = mvc.perform(asyncDispatch(failed)).andExpect(status().isBadGateway()).andReturn().getResponse().getContentAsString();
             assertFalse(body.contains("synthetic-secret"));
+        } finally { coordinator.close(); }
+    }
+    @Test void deletesAClassificationThroughHttpWithoutStartingAi() throws Exception {
+        var coordinator = new AiExecutionCoordinator();
+        var controller = new ToolClassificationController(properties, service, coordinator);
+        try {
+            var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+            mvc.perform(delete("/api/ai/tool-classification").param("sessionId", "42")
+                .contentType("application/json").content(mapper.writeValueAsBytes(request("Cel"))))
+                .andExpect(status().isNoContent());
+
+            verify(store).deleteToolClassification(eq(42L), matches("[0-9a-f]{64}"));
+            verifyNoInteractions(completion);
         } finally { coordinator.close(); }
     }
     @Test void exposesSafeActionableAiExecutionFailure() throws Exception {

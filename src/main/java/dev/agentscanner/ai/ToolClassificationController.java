@@ -41,6 +41,18 @@ public class ToolClassificationController {
             catch (Exception failure) { return error(502, "Nie uzyskano poprawnej klasyfikacji. Sprawdź token, model, instalację Copilot CLI i połączenie. Możesz ponowić analizę przyciskiem."); }
         }).orElseGet(() -> CompletableFuture.completedFuture(error(409, "Trwa inne działanie AI. Poczekaj na jego zakończenie.")));
     }
+
+    @DeleteMapping
+    public ResponseEntity<?> delete(@RequestParam long sessionId, @Valid @RequestBody ToolClassification.Request request) {
+        try {
+            service.delete(sessionId, request);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException failure) {
+            return error(400, "Definicje narzędzi lub cele analizy są niepoprawne.");
+        } catch (Exception failure) {
+            return error(500, "Nie udało się usunąć zapisanej analizy.");
+        }
+    }
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<?> invalid() { return error(400, "Niepoprawny katalog narzędzi lub celów analizy."); }
     private ResponseEntity<?> error(int code, String message) { return ResponseEntity.status(code).body(Map.of("error", message)); }

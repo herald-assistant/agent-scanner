@@ -61,26 +61,9 @@ export class SessionChatDialogComponent {
   close(): void { this.dialogRef.close(); }
   chooseStarter(value: string): void { this.setQuestion(value); }
 
-  startNew(): void {
-    this.chat.set(null);
-    this.question.set('');
-    this.error.set('');
-    this.resizeComposer();
-  }
-
   retry(question: string): void {
     this.setQuestion(question);
     this.error.set('');
-  }
-
-  async deleteChat(item: SessionChatView): Promise<void> {
-    if (!window.confirm('Usunąć tę rozmowę i jej lokalny stan Copilot SDK?')) return;
-    try {
-      await this.api.deleteSessionChat(item.sessionId, item.id);
-      if (this.chat()?.id === item.id) this.startNew();
-    } catch (failure) {
-      this.error.set(failure instanceof Error ? failure.message : 'Nie udało się usunąć rozmowy.');
-    }
   }
 
   openEvidence(ref: string): void {

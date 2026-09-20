@@ -33,10 +33,11 @@ describe('action credit attribution', () => {
     expect(respond.requestCredits).toBeCloseTo(.05);
     expect(estimate.linkedResultOccurrences).toBe(3);
     expect(estimate.unlinkedResultOccurrences).toBe(0);
+    expect(estimate.initialMessageCredits).toBeCloseTo(.05);
     expect(estimate.assignedCredits).toBeCloseTo(.25);
-    expect(estimate.unattributedCredits).toBeCloseTo(.05);
+    expect(estimate.unattributedCredits).toBeCloseTo(0);
     expect(estimate.categories.reduce((sum, item) => sum + item.totalCredits, 0)).toBeCloseTo(estimate.assignedCredits!);
-    expect(estimate.assignedCredits! + estimate.unattributedCredits!).toBeCloseTo(estimate.knownCredits!);
+    expect(estimate.initialMessageCredits! + estimate.assignedCredits! + estimate.unattributedCredits!).toBeCloseTo(estimate.knownCredits!);
   });
 
   it('reports the exact known subtree credits behind a root delegation without adding them to category estimates', async () => {
@@ -49,7 +50,7 @@ describe('action credit attribution', () => {
     expect(estimate.delegatedSubtreeCredits).toBeCloseTo(.2);
     expect(estimate.delegatedSubtreeCoveredCalls).toBe(2);
     expect(estimate.delegatedSubtreeTotalCalls).toBe(2);
-    expect(estimate.assignedCredits! + estimate.unattributedCredits!).toBeCloseTo(estimate.knownCredits!);
+    expect((estimate.initialMessageCredits ?? 0) + estimate.assignedCredits! + estimate.unattributedCredits!).toBeCloseTo(estimate.knownCredits!);
   });
 
   it('keeps missing credits missing instead of presenting a zero estimate', async () => {
@@ -61,6 +62,7 @@ describe('action credit attribution', () => {
     const estimate = estimateActionCredits(analysis, catalog, classified(catalog, () => ['RESPOND']), analysis.streams[0].rounds);
 
     expect(estimate.knownCredits).toBeNull();
+    expect(estimate.initialMessageCredits).toBeNull();
     expect(estimate.assignedCredits).toBeNull();
     expect(estimate.unattributedCredits).toBeNull();
     expect(estimate.coveredCalls).toBe(0);

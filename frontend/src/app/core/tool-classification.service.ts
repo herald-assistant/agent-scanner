@@ -39,6 +39,16 @@ export class ToolClassificationService {
       this.store(key, result);
     } finally { this.pending.set(undefined); }
   }
+  async delete(sessionId: number, catalog: FlowToolCatalog): Promise<void> {
+    const key = this.key(sessionId, catalog);
+    await this.api.deleteToolClassification(sessionId, catalog.request);
+    this.results.update(previous => {
+      const next = new Map(previous);
+      next.delete(key);
+      return next;
+    });
+    this.checked.delete(key);
+  }
   private store(key: string, result: ToolClassificationResult): void {
     this.results.update(previous => {
       const next = new Map(previous);

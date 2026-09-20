@@ -2,6 +2,23 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {OptimizationAdvicePreview} from '../models/optimization-guidance.models';
 import {ScannerApiService} from './scanner-api.service';
 
+describe('ScannerApiService tool classification', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('deletes only the classification matching the current request', async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request) => new Response(null, {status: 204}));
+    vi.stubGlobal('fetch', fetchMock);
+    const service = new ScannerApiService();
+    const request = {tools: [], agents: [], contexts: []};
+
+    await service.deleteToolClassification(42, request);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/ai/tool-classification?sessionId=42', expect.objectContaining({
+      method: 'DELETE', body: JSON.stringify(request)
+    }));
+  });
+});
+
 describe('ScannerApiService optimization advice preparation', () => {
   afterEach(() => vi.unstubAllGlobals());
 

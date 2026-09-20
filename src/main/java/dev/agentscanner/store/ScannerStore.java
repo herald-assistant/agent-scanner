@@ -207,6 +207,10 @@ public class ScannerStore {
             """, sessionId, requestHash, version, model, ts(analyzedAt), resultJson);
     }
 
+    public void deleteToolClassification(long sessionId, String requestHash) {
+        jdbc.update("DELETE FROM tool_classification_result WHERE session_id=? AND request_hash=?", sessionId, requestHash);
+    }
+
     public Optional<GuidanceSpanSource> guidanceSpanSource(long sessionId, long spanRecordId) {
         List<GuidanceSpanSource> rows = jdbc.query("""
             SELECT s.id, s.session_id, s.signal_id, s.trace_id, s.span_id, s.operation_name,

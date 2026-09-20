@@ -147,7 +147,12 @@ osobno reasoning ani cache read. Jeżeli brakuje inputu, outputu albo credits,
 wywołanie pozostaje poza estymacją i zwiększa licznik brakującego pokrycia.
 
 Część wyjściową w całości przypisujemy kategoriom żądań obecnych w odpowiedzi
-modelu. Część wejściową w całości przypisujemy kategoriom wyników odnalezionych
+modelu. Część wejściową pierwszego wywołania modelu głównego w wybranej
+interakcji pokazujemy osobno jako estymowaną pozycję `Inicjalna wiadomość`.
+Obejmuje ona cały input tego wywołania: tekst użytkownika, instrukcje, definicje
+narzędzi i pozostały kontekst startowy; telemetria nie pozwala wydzielić kosztu
+samego tekstu użytkownika. Część wejściową kolejnych wywołań w całości
+przypisujemy kategoriom wyników odnalezionych
 w przechwyconym inpucie po dokładnym call ID. Dzięki temu koszt przetworzenia
 wyniku odczytu lub wyszukiwania pojawia się przy tej kategorii w następnym
 wywołaniu modelu, a koszt utworzenia żądania zapisu pozostaje w outputcie
@@ -159,12 +164,14 @@ otrzymały 100% odpowiedniej części credits. Gdy jedno żądanie ma kilka kate
 jego udział dzielimy między nie równo; AI nie wyznacza wag kosztowych.
 
 `Poza kategoriami` pozostaje tylko część wywołania agenta, dla której nie ma dowodu
-pozwalającego przypisać kategorię, na przykład input pierwszego wywołania agenta.
+pozwalającego przypisać kategorię, z wyłączeniem osobno pokazanej
+`Inicjalnej wiadomości`.
 Credits jednoznacznie powiązanych kompaktowań są następnie dodawane do wspólnego
 mianownika jako osobna, deterministyczna kategoria. Jej procent nie ma znaku `≈`,
 ponieważ jest ilorazem wyemitowanych credits kompaktora i wszystkich znanych
-credits zestawienia. Dzięki temu zachodzi: `wyemitowane credits = estymowane
-kategorie działań + kompaktowanie + poza kategoriami`. Brak danych nie jest zerem.
+credits zestawienia. Dzięki temu zachodzi: `wyemitowane credits = inicjalna
+wiadomość + estymowane kategorie działań + kompaktowanie + poza kategoriami`.
+Brak danych nie jest zerem.
 
 Credits wywołań subagentów są rozdzielane według ich własnych sklasyfikowanych
 akcji. Przy kategorii delegacji pokazujemy dodatkowo dokładną znaną sumę drzewa

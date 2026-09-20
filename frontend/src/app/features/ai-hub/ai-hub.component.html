@@ -34,24 +34,33 @@
     } @else if (quickAnalysis(); as view) {
       <div class="analysis-meta"><span><mat-icon>check_circle</mat-icon>Analiza zapisana · model analizy: {{ result()?.model }}</span>
         <span>{{ view.classifiedRoundCount }}/{{ view.rounds.length }} odpowiedzi przypisanych do kategorii</span>
-        <span>credits: {{ view.coveredCalls }}/{{ view.totalCalls }} wywołań</span></div>
-      <div class="coverage"><span>Ujęte w kategoriach <strong>{{ assignedShare() }}</strong></span>
+        <span>credits: {{ view.coveredCalls }}/{{ view.totalCalls }} wywołań</span>
+        <button type="button" class="delete-analysis-action" [disabled]="deletingAnalysis() || classifying()"
+          matTooltip="Usuń zapisany wynik. Dane sesji nie zostaną usunięte."
+          matTooltipClass="scanner-info-tooltip" (click)="deleteAnalysis()">
+          @if (deletingAnalysis()) { <mat-spinner diameter="16" />Usuwanie… } @else { <mat-icon>delete</mat-icon>Usuń analizę }
+        </button></div>
+      <div class="coverage"><span class="initial-message" matTooltip="Estymowana inputowa część credits pierwszego wywołania modelu. Obejmuje wiadomość użytkownika, instrukcje, definicje narzędzi i pozostały kontekst startowy." matTooltipClass="scanner-info-tooltip">
+          Inicjalna wiadomość <mat-icon>info</mat-icon><strong>{{ initialMessageShare() }}</strong>
+        </span><span>Ujęte w kategoriach <strong>{{ assignedShare() }}</strong></span>
         <span class="unattributed" matTooltip="Credits części wywołań, których Scanner nie może jednoznacznie powiązać z kategorią działania. Obejmują m.in. nieprzypisany input i elementy requestu bez dokładnego dowodu kategorii." matTooltipClass="scanner-info-tooltip">
           Poza kategoriami <mat-icon>info</mat-icon><strong>{{ unattributedShare() }}</strong>
         </span></div>
       <div class="category-list" role="list" aria-label="Podział credits według kategorii">
         @for (item of view.categories; track item.id) {
-          <article role="listitem" [class.telemetry]="!item.estimated">
-            <span class="rank">{{ $index + 1 }}</span><span class="category-icon"><mat-icon>{{ categoryIcon(item) }}</mat-icon></span>
+          <article role="listitem" [class.telemetry]="!item.estimated" [class.initial-message]="item.id === 'INITIAL_MESSAGE'">
+            <span class="rank">{{ item.id === 'INITIAL_MESSAGE' ? '—' : (view.initialMessageCredits != null ? $index : $index + 1) }}</span><span class="category-icon"><mat-icon>{{ categoryIcon(item) }}</mat-icon></span>
             <div class="category-copy"><strong>{{ categoryLabel(item) }}</strong><p>{{ categoryHint(item) }}</p>
               <span class="meter"><i [style.width.%]="item.shareOfKnown ?? 0"></i></span></div>
             <div class="category-value"><strong>{{ item.shareOfKnown == null ? '—' : (item.estimated ? '≈ ' : '') + percent(item.shareOfKnown) }}</strong>
               <small>{{ item.totalCredits == null ? 'brak pomiaru' : (item.estimated ? '≈ ' : '') + credits(item.totalCredits) + ' credits' }}</small></div>
-            <button type="button" class="guide-button" [attr.aria-label]="'Poznaj techniki dla: ' + categoryLabel(item)" (click)="openCategoryGuidance(item, $event.currentTarget)"><mat-icon>lightbulb</mat-icon>Poznaj techniki</button>
+            @if (item.id !== 'INITIAL_MESSAGE') {
+              <button type="button" class="guide-button" [attr.aria-label]="'Poznaj techniki dla: ' + categoryLabel(item)" (click)="openCategoryGuidance(item, $event.currentTarget)"><mat-icon>lightbulb</mat-icon>Poznaj techniki</button>
+            } @else { <span class="category-kind">Kontekst startowy</span> }
           </article>
         } @empty { <div class="hub-state">Analiza nie przypisała żadnej kategorii w tej interakcji.</div> }
       </div>
-      <p class="analysis-note"><mat-icon>info</mat-icon>≈ oznacza estymowane przypisanie pełnych credits wywołań do działań. „Poza kategoriami” to zmierzone credits bez wystarczającego dowodu przypisania, a nie niesklasyfikowane odpowiedzi. Kompaktowanie pozostaje osobnym faktem z telemetrii.</p>
+      <p class="analysis-note"><mat-icon>info</mat-icon>≈ oznacza estymowane przypisanie credits. „Inicjalna wiadomość” obejmuje cały input pierwszego wywołania, nie tylko tekst użytkownika. „Poza kategoriami” nie zawiera tej pozycji i oznacza pozostałe credits bez wystarczającego dowodu przypisania. Kompaktowanie pozostaje osobnym faktem z telemetrii.</p>
     }
   </section>
 

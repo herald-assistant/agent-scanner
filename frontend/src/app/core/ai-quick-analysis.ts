@@ -11,7 +11,7 @@ export interface AiQuickInteraction {
 }
 
 export interface AiQuickCategory {
-  id: ActionCategory | 'CONTEXT_COMPACTION';
+  id: ActionCategory | 'INITIAL_MESSAGE' | 'CONTEXT_COMPACTION';
   action?: ActionCategory;
   totalCredits: number | null;
   shareOfKnown: number | null;
@@ -28,6 +28,7 @@ export interface AiQuickAnalysis {
   rounds: RoundObservation[];
   classifiedRoundCount: number;
   knownCredits: number | null;
+  initialMessageCredits: number | null;
   assignedCredits: number | null;
   unattributedCredits: number | null;
   coveredCalls: number;
@@ -78,6 +79,7 @@ export function buildAiQuickAnalysis(analysis: WorkflowAnalysis, catalog: FlowTo
   const compactionTotal = compactionCredits.length ? compactionCredits.reduce((sum, value) => sum + value, 0) : null;
   const coveredCalls = attribution.coveredCalls + compactionCredits.length;
   const knownCredits = coveredCalls ? (attribution.knownCredits ?? 0) + (compactionTotal ?? 0) : null;
+  const initialMessageCredits = attribution.initialMessageCredits;
   const assignedCredits = coveredCalls ? (attribution.assignedCredits ?? 0) + (compactionTotal ?? 0) : null;
   const unattributedCredits = coveredCalls ? attribution.unattributedCredits ?? 0 : null;
   const categories: AiQuickCategory[] = ACTIONS.flatMap(action => {
@@ -96,12 +98,20 @@ export function buildAiQuickAnalysis(analysis: WorkflowAnalysis, catalog: FlowTo
       roundRefs: [], compactionRefs: selectedCompactions.map(item => item.id)});
   }
   categories.sort((left, right) => (right.totalCredits ?? -1) - (left.totalCredits ?? -1));
+  if (initialMessageCredits != null) {
+    const initialRound = rounds.find(round => round.streamId === analysis.streams[0]?.id);
+    categories.unshift({id: 'INITIAL_MESSAGE', totalCredits: initialMessageCredits,
+      shareOfKnown: knownCredits != null && knownCredits > 0 ? initialMessageCredits / knownCredits * 100 : null,
+      estimated: true, coveredCalls: 1, totalCalls: 1,
+      roundRefs: initialRound ? [initialRound.ref] : [], compactionRefs: []});
+  }
   return {
     traceId,
     interactionIndex: quickInteractions(analysis).find(item => item.traceId === traceId)?.interactionIndex ?? 1,
     rounds,
     classifiedRoundCount: rounds.filter(round => (actions.get(round.ref)?.length ?? 0) > 0).length,
     knownCredits,
+    initialMessageCredits,
     assignedCredits,
     unattributedCredits,
     coveredCalls,

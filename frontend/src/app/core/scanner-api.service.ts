@@ -59,6 +59,15 @@ export class ScannerApiService {
     if (!response.ok || !result) throw new Error(result?.error || (response.status === 404 ? 'Uruchom ponownie backend, aby włączyć analizę AI.' : 'Nie udało się przeanalizować działań modelu.'));
     return result;
   }
+  async deleteToolClassification(sessionId: number, request: ToolClassificationRequest): Promise<void> {
+    const response = await fetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {
+      method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null) as {error?: string} | null;
+      throw new Error(result?.error || 'Nie udało się usunąć zapisanej analizy.');
+    }
+  }
   status(): Promise<ScannerStatus> { return this.get('/api/status'); }
   sessions(): Promise<Session[]> { return this.get('/api/sessions'); }
   session(id: number): Promise<SessionDetail> { return this.get(`/api/sessions/${id}`); }

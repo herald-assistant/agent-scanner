@@ -47,6 +47,7 @@ export class AiHubComponent {
   private readonly dialog = inject(MatDialog);
   private readonly selectedInteraction = signal<{sessionId: number; traceId: string} | undefined>(undefined);
   readonly restoring = signal(false);
+  readonly deletingAnalysis = signal(false);
   readonly historyLoading = signal(false);
   readonly chatOpening = signal(false);
   readonly conversations = signal<SessionChatSummary[]>([]);
@@ -102,6 +103,17 @@ export class AiHubComponent {
     catch (error) { this.notifications.error(error instanceof Error ? error.message : 'Nie udało się wykonać Quick Analysis.'); }
   }
 
+  async deleteAnalysis(): Promise<void> {
+    if (!confirm('Usunąć zapisaną Quick Analysis? Wynik zostanie trwale usunięty, ale dane sesji pozostaną bez zmian.')) return;
+    this.deletingAnalysis.set(true);
+    try {
+      await this.classification.delete(this.analysis().source.session.id, this.catalog());
+      this.notifications.success('Usunięto zapisaną Quick Analysis. Możesz wykonać nową analizę.');
+    } catch (error) {
+      this.notifications.error(error instanceof Error ? error.message : 'Nie udało się usunąć zapisanej analizy.');
+    } finally { this.deletingAnalysis.set(false); }
+  }
+
   async newChat(): Promise<void> { await this.openChat(); }
 
   async continueLast(): Promise<void> {
@@ -131,6 +143,7 @@ export class AiHubComponent {
   }
 
   openCategoryGuidance(item: AiQuickCategory, origin?: EventTarget | null): void {
+    if (item.id === 'INITIAL_MESSAGE') return;
     const label = this.categoryLabel(item), interaction = this.quickAnalysis();
     const evidence: OptimizationGuidanceEvidence[] = item.roundRefs.map(ref => ({kind: 'ROUND', id: ref,
       label: this.roundEvidenceLabel(ref), description: 'Otwórz faktyczny cykl M → A → M powiązany z kategorią.'}));
@@ -152,10 +165,14 @@ export class AiHubComponent {
   }
 
   categoryLabel(item: AiQuickCategory): string {
-    return item.action ? ROUND_CATEGORIES[item.action].label : 'Kompaktowanie kontekstu';
+    return item.id === 'INITIAL_MESSAGE' ? 'Inicjalna wiadomość' : item.action ? ROUND_CATEGORIES[item.action].label : 'Kompaktowanie kontekstu';
   }
-  categoryIcon(item: AiQuickCategory): string { return item.action ? ROUND_CATEGORIES[item.action].icon : 'compress'; }
-  categoryHint(item: AiQuickCategory): string { return HINTS[item.id]; }
+  categoryIcon(item: AiQuickCategory): string { return item.id === 'INITIAL_MESSAGE' ? 'chat' : item.action ? ROUND_CATEGORIES[item.action].icon : 'compress'; }
+  categoryHint(item: AiQuickCategory): string {
+    return item.id === 'INITIAL_MESSAGE'
+      ? 'Input pierwszego wywołania modelu: wiadomość użytkownika wraz z instrukcjami, definicjami narzędzi i kontekstem startowym.'
+      : HINTS[item.id];
+  }
   percent(value: number | null): string { return value == null ? '—' : `${this.numberFormat.format(value)}%`; }
   credits(value: number | null): string {
     if (value == null) return '—';
@@ -172,6 +189,11 @@ export class AiHubComponent {
     const view = this.quickAnalysis();
     return !view || view.assignedCredits == null || view.knownCredits == null || view.knownCredits <= 0
       ? '—' : `≈ ${this.percent(view.assignedCredits / view.knownCredits * 100)}`;
+  }
+  initialMessageShare(): string {
+    const view = this.quickAnalysis();
+    return !view || view.initialMessageCredits == null || view.knownCredits == null || view.knownCredits <= 0
+      ? '—' : `≈ ${this.percent(view.initialMessageCredits / view.knownCredits * 100)}`;
   }
   unattributedShare(): string {
     const view = this.quickAnalysis();

@@ -20,6 +20,7 @@ export interface ActionCreditCategoryEstimate {
 export interface ActionCreditAttribution {
   categories: ActionCreditCategoryEstimate[];
   knownCredits: number | null;
+  initialMessageCredits: number | null;
   assignedCredits: number | null;
   unattributedCredits: number | null;
   coveredCalls: number;
@@ -61,7 +62,9 @@ export function estimateActionCredits(analysis: WorkflowAnalysis, catalog: FlowT
   const totals = new Map<ActionCategory, MutableCategoryEstimate>(ACTIONS.map(action => [action, {
     requestCredits: 0, firstResultCredits: 0, retainedResultCredits: 0, primaryCredits: 0, subagentCredits: 0
   }]));
-  let knownCredits = 0, coveredCalls = 0, splitCalls = 0, linkedResultOccurrences = 0, unlinkedResultOccurrences = 0;
+  const initialRound = rounds.find(round => round.streamId === rootStreamId);
+  let knownCredits = 0, initialMessageCredits: number | null = null;
+  let coveredCalls = 0, splitCalls = 0, linkedResultOccurrences = 0, unlinkedResultOccurrences = 0;
 
   const add = (actions: readonly ActionCategory[], amount: number, kind: 'requestCredits' | 'firstResultCredits' | 'retainedResultCredits', round: RoundObservation): void => {
     const unique = orderedActions(actions);
@@ -85,6 +88,7 @@ export function estimateActionCredits(analysis: WorkflowAnalysis, catalog: FlowT
     splitCalls++;
     const inputCredits = credits * input / (input + output);
     const outputCredits = credits - inputCredits;
+    if (round === initialRound) initialMessageCredits = inputCredits;
     const roundUsages = usagesByRound.get(round.ref) ?? [];
     if (roundUsages.length && output > 0) {
       const response = modelResponse(capturedMessages(round.turn.model, streams.get(round.streamId)?.source ?? analysis.source, 'output', reader));
@@ -99,7 +103,7 @@ export function estimateActionCredits(analysis: WorkflowAnalysis, catalog: FlowT
       add(roundId ? roundClassifications.get(roundId)?.actions ?? [] : [], outputCredits, 'requestCredits', round);
     }
 
-    if (input <= 0) continue;
+    if (input <= 0 || round === initialRound) continue;
     const results = toolResults(capturedMessages(round.turn.model, streams.get(round.streamId)?.source ?? analysis.source, 'input', reader));
     const allocations: {actions: readonly ActionCategory[]; weight: number; first: boolean}[] = [];
     results.forEach(result => {
@@ -121,6 +125,7 @@ export function estimateActionCredits(analysis: WorkflowAnalysis, catalog: FlowT
   }
 
   const assignedCredits = [...totals.values()].reduce((sum, item) => sum + item.requestCredits + item.firstResultCredits + item.retainedResultCredits, 0);
+  const initialCredits = initialMessageCredits ?? 0;
   const categories = ACTIONS.map(action => {
     const total = totals.get(action)!;
     const categoryCredits = total.requestCredits + total.firstResultCredits + total.retainedResultCredits;
@@ -140,8 +145,9 @@ export function estimateActionCredits(analysis: WorkflowAnalysis, catalog: FlowT
   return {
     categories,
     knownCredits: coveredCalls ? knownCredits : null,
+    initialMessageCredits,
     assignedCredits: coveredCalls ? assignedCredits : null,
-    unattributedCredits: coveredCalls ? Math.max(0, knownCredits - assignedCredits) : null,
+    unattributedCredits: coveredCalls ? Math.max(0, knownCredits - assignedCredits - initialCredits) : null,
     coveredCalls,
     totalCalls: rounds.length,
     splitCalls,

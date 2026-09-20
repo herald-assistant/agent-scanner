@@ -21,6 +21,8 @@ describe('ai quick analysis', () => {
     }], interaction.traceId);
     expect(view.interactionIndex).toBe(interaction.interactionIndex);
     expect(view.categories.some(item => item.id === 'RESPOND')).toBe(true);
+    expect(view.categories[0]).toMatchObject({id: 'INITIAL_MESSAGE', estimated: true});
+    expect(view.initialMessageCredits).not.toBeNull();
     expect(view.categories.find(item => item.id === 'CONTEXT_COMPACTION')).toMatchObject({
       totalCredits: 0.25, estimated: false, compactionRefs: ['compaction-1']
     });

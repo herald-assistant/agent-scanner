@@ -32,6 +32,9 @@ public class ToolClassificationService {
     public Optional<Result> cached(long sessionId, Request request) throws Exception {
         return cached(sessionId, requestHash(requestData(request)));
     }
+    public void delete(long sessionId, Request request) throws Exception {
+        store.deleteToolClassification(sessionId, requestHash(requestData(request)));
+    }
     private Optional<Result> cached(long sessionId, String requestHash) throws Exception {
         Optional<String> stored = store.toolClassification(sessionId, requestHash);
         return stored.isPresent() ? Optional.of(mapper.readValue(stored.get(), Result.class)) : Optional.empty();

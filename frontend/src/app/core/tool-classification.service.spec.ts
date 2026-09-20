@@ -26,4 +26,18 @@ describe('ToolClassificationService', () => {
     expect(await service.restore(7, catalog)).toBe(false);
     expect(service.result(7, catalog)).toBeUndefined();
   });
+  it('deletes an existing persisted and in-memory classification', async () => {
+    const cached: ToolClassificationResult = {version: 'model-actions-v5', model: 'test-model', analyzedAt: '2026-01-01T00:00:00Z', tools: [], assessments: [], rounds: []};
+    const cachedToolClassification = vi.fn().mockResolvedValue(cached);
+    const deleteToolClassification = vi.fn().mockResolvedValue(undefined);
+    TestBed.configureTestingModule({providers: [{provide: ScannerApiService, useValue: {cachedToolClassification, deleteToolClassification}}]});
+    const service = TestBed.inject(ToolClassificationService);
+    const catalog: FlowToolCatalog = {key: 'request-key', request: {tools: [], agents: [], contexts: []}, usages: [], rounds: [], agents: [], definitionsSeen: 0, missing: 0};
+
+    await service.restore(7, catalog);
+    await service.delete(7, catalog);
+
+    expect(deleteToolClassification).toHaveBeenCalledWith(7, catalog.request);
+    expect(service.result(7, catalog)).toBeUndefined();
+  });
 });
