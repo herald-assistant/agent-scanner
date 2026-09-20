@@ -1,9 +1,21 @@
-# Standard stylowania Agent Scanner
+# Standard stylowania
+
+Status: obowiązujący kontrakt.
+
+[Dokumentacja](README.md)
 
 Obowiązuje dla całej aplikacji, w tym leniwie ładowanych widoków, dialogów Material,
 prawego panelu, tooltipów i treści Markdown. Punkt wejścia to
 `frontend/src/styles.css`. Nie dodajemy kolejnego frameworka CSS ani komponentów
 Angular, które tylko opakowują element HTML.
+
+## Spis treści
+
+- [Własność stylów](#własność-stylów)
+- [Paleta i dane](#paleta-i-dane)
+- [Typografia, rytm i geometria](#typografia-rytm-i-geometria)
+- [Wspólne elementy](#wspólne-elementy)
+- [Dostępność i weryfikacja](#dostępność-i-weryfikacja)
 
 ## Własność stylów
 
