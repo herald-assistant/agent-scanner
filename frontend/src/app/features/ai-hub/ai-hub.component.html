@@ -26,8 +26,8 @@
           <p>Definicje narzędzi, struktura agentów i rund, zlecenia, skrócone argumenty oraz krótkie fragmenty odpowiedzi modelu. Bez wyników narzędzi i pełnych requestów.</p></div></div>
         <dl><div><dt>Model</dt><dd>{{ modelLabel() }}</dd></div><div><dt>Szacowany input</dt><dd>≈ {{ compact(classificationEstimate().input) }} tokenów</dd></div>
           <div><dt>Szacowana odpowiedź</dt><dd>≈ {{ compact(classificationEstimate().output) }}–{{ compact(classificationEstimate().outputMax) }} tokenów</dd></div></dl>
-        <p class="usage-warning"><mat-icon>info</mat-icon>Uruchomienie użyje limitu konta GitHub Copilot. Samo otwarcie AI Hub nie uruchamia modelu.</p>
-        <button type="button" class="primary-action ui-button ui-button--primary" [disabled]="classifying() || !catalog().request.contexts.length || runtime()?.configured === false" (click)="classify()">
+          <div></div>
+          <button type="button" class="primary-action ui-button ui-button--primary" [disabled]="classifying() || !catalog().request.contexts.length || runtime()?.configured === false" (click)="classify()">
           @if (classifying()) { <mat-spinner diameter="18" />Analizowanie… } @else { <mat-icon>auto_awesome</mat-icon>Uruchom Quick Analysis }
         </button>
       </div>
@@ -69,11 +69,12 @@
       <p>Zapytaj o promptowanie, liczbę rund, credits, konfigurację albo konkretne oznaczenia, np. M3–M6.</p></div>
       <span class="conversation-count">{{ conversations().length }} {{ conversations().length === 1 ? 'rozmowa' : 'rozmów' }}</span></header>
     <div class="chat-actions">
-      <button type="button" class="primary-action ui-button ui-button--primary" [disabled]="chatOpening()" (click)="newChat()"><mat-icon>add_comment</mat-icon>Nowa rozmowa</button>
+      <div></div>
+      <button type="button" class="primary-action ui-button ui-button--primary" [disabled]="chatOpening()" (click)="newChat()"><mat-icon>auto_awesome</mat-icon>Nowa rozmowa</button>
       @if (lastConversation(); as last) {
         <button type="button" class="secondary-action ui-button" [disabled]="chatOpening()" (click)="continueLast()"><mat-icon>forum</mat-icon><span>Kontynuuj ostatnią<small>{{ last.model }} · {{ turnLabel(last.turnCount) }} · {{ date(last.updatedAt) }}</small></span></button>
       }
-      <button type="button" class="secondary-action ui-button" [disabled]="chatOpening() || historyLoading()" (click)="openHistory()"><mat-icon>history</mat-icon><span>Poprzednie rozmowy<small>Otwórz historię bez uruchamiania AI</small></span></button>
+      <button type="button" class="secondary-action ui-button" [disabled]="chatOpening() || historyLoading()" (click)="openHistory()"><mat-icon>history</mat-icon><span>Poprzednie rozmowy</span></button>
     </div>
     <p class="chat-boundary"><mat-icon>shield</mat-icon>Chat nie ma dostępu do repozytorium ani narzędzi analizowanej sesji. Korzysta wyłącznie z odczytowych narzędzi Scannera.</p>
   </section>

@@ -376,7 +376,6 @@ button:disabled {
 
 .chat-actions > button {
   width: 100%;
-  min-height: 58px;
 }
 
 .secondary-action {
