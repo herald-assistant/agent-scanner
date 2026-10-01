@@ -8,6 +8,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .aside-title {
@@ -42,8 +43,9 @@
 }
 
 .session-list {
-  flex: 1;
+  flex: none;
   overflow: auto;
+  max-height: 42vh;
   padding: 0 var(--space-4);
 }
 
@@ -176,7 +178,7 @@
 }
 
 .empty-mini {
-  flex: 1;
+  flex: none;
   padding: var(--space-12) var(--space-9);
   color: var(--color-text-muted);
   text-align: center;
@@ -192,24 +194,14 @@
   box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 4%, transparent);
 }
 
-.session-import {
-  padding: var(--space-4) var(--space-5) var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-.session-import input {
+.session-import-input {
   display: none;
-}
-
-.session-import mat-icon {
-  width: 18px;
-  height: 18px;
-  font-size: var(--icon-18);
 }
 
 .aside-footer {
   display: flex;
   justify-content: space-between;
+  margin-top: auto;
   padding: var(--space-5) var(--space-6);
   color: var(--color-text-muted);
   border-top: 1px solid var(--color-border);
@@ -228,6 +220,15 @@
   }
 }
 
-.session-import .ui-button {
-  width: 100%;
-}
+.repositories { border-top: 1px solid var(--color-border); }
+.repository-heading { align-items: end; }
+.repository-collapse { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding: 0; color: var(--color-text); background: none; border: 0; cursor: pointer; }
+.repository-collapse h2 { margin-bottom: 0; }
+.repository-collapse mat-icon { color: var(--color-text-muted); }
+.repository-list { padding: 0 var(--space-4) var(--space-5); }
+.repository-item { min-width: 0; }
+.repository-avatar { color: var(--color-info); border-color: var(--color-info-border); }
+.show-more { width: 100%; padding: var(--space-3) var(--space-5); color: var(--color-accent); text-align: left; background: transparent; border: 0; border-radius: var(--radius-md); cursor: pointer; }
+.show-more:hover { background: var(--color-surface); }
+.repository-empty, .repository-error { margin: var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
+.repository-error { color: var(--color-danger); }

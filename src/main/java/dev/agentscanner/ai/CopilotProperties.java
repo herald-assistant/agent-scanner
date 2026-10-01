@@ -9,7 +9,7 @@ public record CopilotProperties(String githubToken, String model, String cliPath
         model = model == null ? "" : model.trim();
         cliPath = cliPath == null || cliPath.isBlank() ? "copilot" : cliPath;
         dataDirectory = dataDirectory == null || dataDirectory.isBlank() ? "agent-scanner-data/copilot" : dataDirectory;
-        timeoutSeconds = timeoutSeconds <= 0 ? 120 : Math.min(timeoutSeconds, 300);
+       timeoutSeconds = timeoutSeconds <= 0 ? 120 : Math.min(timeoutSeconds, 1000);
     }
     public boolean credentialsConfigured() { return !githubToken.isBlank(); }
     public boolean configured() { return !githubToken.isBlank() && !model.isBlank(); }

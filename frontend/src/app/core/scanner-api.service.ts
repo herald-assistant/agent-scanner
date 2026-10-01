@@ -3,12 +3,14 @@ import {ImportSessionResult, ScannerStatus, Session, SessionAnalysisResponse, Se
 import {ToolClassificationRequest, ToolClassificationResult, ToolClassificationStatus} from '../models/tool-classification.models';
 import {OptimizationAdvicePreview, OptimizationAdviceResult, OptimizationAdviceRuntimeStatus, OptimizationTechniqueCatalog} from '../models/optimization-guidance.models';
 import {SessionChatModelsResponse, SessionChatSummary, SessionChatTurn, SessionChatView} from '../models/session-chat.models';
+import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, StandardPreview, StandardRepositorySummary, StandardResult} from '../models/standardization.models';
 
 @Injectable({providedIn: 'root'})
 export class ScannerApiService {
   private sessionChatModelsRequest?: Promise<SessionChatModelsResponse>;
 
-  sessionChatModels(): Promise<SessionChatModelsResponse> {
+  sessionChatModels(refresh = false): Promise<SessionChatModelsResponse> {
+    if (refresh) this.sessionChatModelsRequest = undefined;
     if (!this.sessionChatModelsRequest) {
       this.sessionChatModelsRequest = this.get<SessionChatModelsResponse>('/api/ai/session-chats/models')
         .catch(failure => {
@@ -17,6 +19,43 @@ export class ScannerApiService {
         });
     }
     return this.sessionChatModelsRequest;
+  }
+  standardizationCatalog(): Promise<StandardCatalog> { return this.get('/api/standardization/catalog'); }
+  prepareStandardization(request: StandardPrepareRequest): Promise<StandardPreview> {
+    return this.standardizationPost<StandardPreview>('prepare', request);
+  }
+  analyzeStandardization(previewId: string): Promise<StandardResult> {
+    return this.standardizationPost<StandardResult>('analyze', {previewId});
+  }
+  standardizationRepositories(): Promise<StandardRepositorySummary[]> {
+    return this.get('/api/standardization/repositories');
+  }
+  savedStandardization(repositoryId: string, analysisId: string): Promise<SavedStandardAnalysis> {
+    return this.get(`/api/standardization/repositories/${encodeURIComponent(repositoryId)}/analyses/${encodeURIComponent(analysisId)}`);
+  }
+  standardizationExportUrl(repositoryId: string, analysisId: string): string {
+    return `/api/standardization/repositories/${encodeURIComponent(repositoryId)}/analyses/${encodeURIComponent(analysisId)}/export`;
+  }
+  async deleteStandardization(repositoryId: string, analysisId: string): Promise<void> {
+    await this.request(`/api/standardization/repositories/${encodeURIComponent(repositoryId)}/analyses/${encodeURIComponent(analysisId)}`,
+      {method: 'DELETE'}, 'Nie udało się usunąć analizy repozytorium');
+  }
+  analyzeAndSaveStandardization(previewId: string, repositoryId: string | null, repositoryName: string): Promise<SavedStandardAnalysis> {
+    return this.standardizationPost<SavedStandardAnalysis>('analyze-and-save', {previewId, repositoryId, repositoryName});
+  }
+  async cancelStandardization(previewId: string): Promise<void> {
+    await this.standardizationPost('cancel', {previewId});
+  }
+  async discardStandardization(previewId: string): Promise<void> {
+    await fetch('/api/standardization/previews/' + encodeURIComponent(previewId), {method: 'DELETE'});
+  }
+  private async standardizationPost<T>(operation: string, body: unknown): Promise<T> {
+    const response = await fetch('/api/standardization/' + operation, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    const result = await response.json().catch(() => null) as (T & {error?: string}) | null;
+    if (!response.ok) throw new Error(result?.error || 'Nie udało się zakończyć operacji Standaryzacji.');
+    return result as T;
   }
   sessionChats(sessionId: number): Promise<SessionChatSummary[]> { return this.get(`/api/ai/session-chats?sessionId=${sessionId}`); }
   sessionChat(sessionId: number, id: string): Promise<SessionChatView> {

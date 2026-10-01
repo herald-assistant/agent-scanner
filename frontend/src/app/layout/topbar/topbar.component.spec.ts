@@ -15,6 +15,7 @@ describe('TopbarComponent', () => {
       contentCaptured: false,
       retentionDays: 30
     });
+    fixture.componentRef.setInput('sidebarOpen', true);
     const emitted = vi.fn();
     fixture.componentInstance.optimizationGuide.subscribe(emitted);
     fixture.detectChanges();
@@ -24,6 +25,30 @@ describe('TopbarComponent', () => {
     expect(button).toBeDefined();
     button!.click();
     expect(emitted).toHaveBeenCalledOnce();
+    fixture.destroy();
+  });
+
+  it('toggles the sidebar from the brand mark with an accessible state label', () => {
+    const fixture = TestBed.createComponent(TopbarComponent);
+    fixture.componentRef.setInput('status', {
+      paused: false, connected: false, lastSignalAt: null, traces: 0, metrics: 0, logs: 0,
+      contentCaptured: false, retentionDays: 30
+    });
+    fixture.componentRef.setInput('sidebarOpen', true);
+    const emitted = vi.fn();
+    fixture.componentInstance.sidebarToggle.subscribe(emitted);
+    fixture.detectChanges();
+
+    const toggle: HTMLButtonElement = fixture.nativeElement.querySelector('.mark-toggle');
+    expect(toggle.getAttribute('aria-label')).toBe('Zwiń panel sesji');
+    expect(toggle.querySelector('mat-icon')?.textContent?.trim()).toBe('left_panel_close');
+    toggle.click();
+    expect(emitted).toHaveBeenCalledOnce();
+
+    fixture.componentRef.setInput('sidebarOpen', false);
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-label')).toBe('Pokaż panel sesji');
+    expect(toggle.querySelector('mat-icon')?.textContent?.trim()).toBe('left_panel_open');
     fixture.destroy();
   });
 });

@@ -34,6 +34,11 @@ public class CopilotCompletion {
     }
 
     public String complete(String prompt) throws Exception {
+        return complete(properties.model(), null, prompt);
+    }
+
+    /** Isolated, non-persisted analysis using an explicitly selected account model. */
+    public String complete(String model, String systemMessage, String prompt) throws Exception {
         Path work = workDirectory("work");
         var client = new CopilotClient(clientOptions());
         String stage = "start";
@@ -44,9 +49,13 @@ public class CopilotCompletion {
             stage = "auth";
             requireAuthenticated(client);
             stage = "models";
-            requireModel(client, properties.model());
+            requireModel(client, model);
             stage = "session";
-            try (var session = client.createSession(sessionConfig(properties.model(), work)).get(30, TimeUnit.SECONDS)) {
+            var config = sessionConfig(model, work);
+            if (systemMessage != null) {
+                config.setSystemMessage(new SystemMessageConfig().setMode(SystemMessageMode.REPLACE).setContent(systemMessage));
+            }
+            try (var session = client.createSession(config).get(30, TimeUnit.SECONDS)) {
                 try {
                     stage = "inference";
                     var answer = session.sendAndWait(new MessageOptions().setPrompt(prompt), properties.timeoutSeconds() * 1000L)

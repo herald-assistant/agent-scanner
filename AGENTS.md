@@ -15,14 +15,15 @@ i testy. [Indeks dokumentacji](docs/README.md) opisuje obecną aplikację.
 - **Dowód przed wnioskiem:** zachowuj raw i nieznane atrybuty; oddzielaj fakty,
   deterministyczne wyliczenia, estymacje i AI. Brak pomiaru nie jest zerem.
 - Nie odtwarzaj brakującej treści ani ukrytego reasoning. Nie przypisuj providerowi
-  zachowania, którego payload nie dowodzi. Scanner nie jest proxy, skanerem
-  repozytorium, żywym połączeniem z IDE, źródłem rozliczeń ani dokładnym tokenizerem.
+  zachowania, którego payload nie dowodzi. Scanner nie jest proxy, żywym
+  połączeniem z IDE, źródłem rozliczeń ani dokładnym tokenizerem. Standaryzacja
+  odczytuje wybrane konfiguracje repozytorium, nie audytuje całego kodu.
 - Credits oznaczają GitHub Copilot AI credits, bez waluty i etykiet `cost`/`cr`.
   Nie sumuj dwukrotnie powiązanych poddrzew.
 - Zmiany korelacji i formuł wymagają fixture'u. Nie rozszerzaj zmiany UI na
   telemetrię, retencję, import lub publiczne API bez wyraźnego zamiaru użytkownika.
   Rozbieżność dokumentu i kodu najpierw wyjaśnij.
-- Mapa pracy jest faktograficzna; jawne AI należy do AI Hub. Nie uruchamiaj
+- Mapa pracy jest faktograficzna; jawne AI należy do AI Hub i Standaryzacji. Nie uruchamiaj
   inferencji przy starcie, w pollingu ani zwykłych testach.
 - Nie dodawaj prawdziwej telemetrii, tokenów, bazy ani outputu buildu do repozytorium
   i nie drukuj ich w testach. Dodatkowa wysyłka, analytics lub zdalny storage
@@ -39,6 +40,7 @@ i testy. [Indeks dokumentacji](docs/README.md) opisuje obecną aplikację.
 | Angular, komponenty i zachowanie ekranów | [Frontend](docs/frontend.md) |
 | CSS, Material i dostępność | [Stylowanie](docs/stylowanie.md) |
 | Klasyfikacja, doradztwo, rozmowy i Copilot | [AI](docs/ai.md) |
+| Konfiguracje repozytorium i ich ocena AI | [Standaryzacja](docs/standaryzacja.md), [AI](docs/ai.md) |
 | Ustawienia uruchomienia | [Konfiguracja](docs/konfiguracja.md) |
 | Testy, prywatność, dokumentacja i zakończenie | [Rozwój](docs/rozwoj.md) |
 

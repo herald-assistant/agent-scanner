@@ -196,6 +196,23 @@ CREATE TABLE IF NOT EXISTS session_chat_evidence (
     FOREIGN KEY (first_turn_id) REFERENCES session_chat_turn(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS standardization_repository (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS standardization_analysis (
+    id VARCHAR(36) PRIMARY KEY,
+    repository_id VARCHAR(36) NOT NULL,
+    analyzed_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    model VARCHAR(512) NOT NULL,
+    file_count INT NOT NULL,
+    preview_json CLOB NOT NULL,
+    result_json CLOB NOT NULL,
+    FOREIGN KEY (repository_id) REFERENCES standardization_repository(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_signal_received ON telemetry_signal(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_last_seen ON agent_session(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_span_session ON span_record(session_id, started_at);
@@ -208,3 +225,4 @@ CREATE INDEX IF NOT EXISTS idx_advice_result_session ON optimization_advice_resu
 CREATE INDEX IF NOT EXISTS idx_session_chat_session ON session_chat(session_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_chat_turns ON session_chat_turn(chat_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_session_chat_tools ON session_chat_tool_call(turn_id, sequence_no);
+CREATE INDEX IF NOT EXISTS idx_standardization_analysis_repository ON standardization_analysis(repository_id, analyzed_at DESC);

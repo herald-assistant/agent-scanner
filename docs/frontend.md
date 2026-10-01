@@ -42,8 +42,8 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 
 | Komponent | Odpowiedzialność |
 |---|---|
-| `TopbarComponent` | Status odbiornika, konfiguracja, poradnik technik i pauza. |
-| `SessionSidebarComponent` | Wybór sesji, import i wejścia do usuwania danych. |
+| `TopbarComponent` | Zwijanie/rozwijanie panelu sesji w miejscu znaku aplikacji, status odbiornika, konfiguracja, poradnik technik i pauza. |
+| `SessionSidebarComponent` | Wybór sesji, ikonowy import JSON w nagłówku oraz zwijana lista repozytoriów i zapisanych analiz. |
 | `CostDashboardComponent` | Bilans sesji i porównywalne rozliczenie wywołań. |
 | `ToolOptimizationOverviewComponent` | Globalne zestawienie narzędzi bez AI. |
 | `ToolDefinitionDialogComponent` | Wersje definicji i dowody potencjalnych powtórzeń. |
@@ -55,6 +55,7 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 | `SessionChatDialogComponent` | Nowa lub wznowiona rozmowa, historia, narzędzia i dowody. |
 | `OptimizationGuidanceComponent` | Katalog technik, filtrowanie, szczegóły i kopiowanie planu próby. |
 | `TechnicalViewComponent` | Filtrowalne drzewo spanów i raw signals. |
+| `StandardizationComponent` / `StandardizationFileDialogComponent` | Wybór folderu, plików i modelu, podgląd wysyłki oraz zgodności i zalecenia przy pliku. |
 
 Właścicieli analiz `core`, routingu i ładowania opisuje [architektura](architektura.md).
 
@@ -68,6 +69,8 @@ dialogów. Testy tras i dialogów sprawdzają rozwiązaną klasę font set.
 Oko otwiera powierzchnię inspekcji, chevron rozwija treść w miejscu bez dodatkowego
 „Pokaż”. Przyciski ikonowe mają `aria-label` i pomocny tooltip Material.
 Informacyjne ikony korzystają ze wspólnej `.info-tip`.
+Znak aplikacji w topbarze odsłania ikonę zwijania lub rozwijania panelu sesji po
+najechaniu i przy fokusie klawiatury; na urządzeniach bez hover ikona jest widoczna.
 
 UI jest po polsku. Zachowuj etykiety `Nowy input`, `Input z cache` / `Cache read`,
 `Input łącznie`, `Output`, `Credits`, `Okno przy wysłaniu`,
@@ -103,6 +106,16 @@ Zakładki mają kolejność: `Podsumowanie`, `Koszt i przebieg`, `Mapa pracy`,
 `AI Hub`, `Dane techniczne`. KPI pozostają w widoku kosztu, bez kopii w danych
 technicznych. Wiersz `Cała sesja` jest rozłączną sumą głównego agenta,
 jednoznacznie powiązanych subagentów i kompaktowań.
+
+Standaryzacja działa niezależnie od telemetrii wybranej sesji. Pod nagłówkiem
+`Repozytoria`, ułożonym jak nagłówek `Sesje`, są bezpośrednio klikalne karty
+zapisanych analiz. Lista pokazuje 5 najnowszych analiz i odsłania kolejne po 5;
+same karty nie są zwijane. Nagłówek można zwinąć, a przycisk dodawania otwiera
+nową analizę. Zakończone analizy są zapisywane lokalnie w H2.
+Odczytywalne pliki są domyślnie zaznaczone. Kliknięcie `Uruchom analizę`
+przygotowuje zamrożony pakiet i rozpoczyna jawne wywołanie AI bez osobnej karty
+podglądu. Przed kliknięciem dostępna jest lista i treść wybranych plików.
+Szczegóły i ograniczenia opisuje [kontrakt Standaryzacji](standaryzacja.md).
 
 Zwijane rozliczenie pokazuje agenta głównego, potem subagentów chronologicznie,
 a następnie kompaktowania chronologicznie. Wspólne kolumny to nowy input,

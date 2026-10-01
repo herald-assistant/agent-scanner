@@ -1,0 +1,162 @@
+<section class="standardization" aria-label="Standaryzacja konfiguracji GitHub Copilot">
+  <header class="feature-heading">
+    <div>
+      <span class="ui-eyebrow">GITHUB COPILOT · STANDARDY KONFIGURACJI</span>
+      <h2>Sprawdź jakość konfiguracji Copilot</h2>
+      <p>Oceń podział odpowiedzialności plików, zakres reguł, metadane, nagłówki, nadmiarowe treści i łatwość utrzymania.</p>
+      <p>Zasady wspólne powinny być uniwersalne względem technologii i architektury; szczegóły powinny mieć wyraźnie określony zakres.</p>
+    </div>
+    <span class="ui-badge"><mat-icon>{{ state.saved() ? 'history' : 'folder_open' }}</mat-icon>{{ state.saved() ? 'Zapisana analiza' : 'Odczyt plików' }}</span>
+  </header>
+
+  <section class="ui-card setup-card">
+    <div class="folder-picker">
+      <div class="folder-icon"><mat-icon>folder_open</mat-icon></div>
+      <div class="folder-copy">
+        <h3>{{ state.folder()?.name || 'Wybierz lokalne repozytorium' }}</h3>
+        <p>{{ state.saved() ? 'Zapisana migawka · ' + state.files().length + ' ocenianych plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
+      </div>
+      @if (!state.saved()) {
+        <input #folderInput type="file" webkitdirectory multiple hidden (change)="filesChosen($event)" aria-label="Folder repozytorium">
+        <button class="ui-button" [disabled]="state.busy()" (click)="chooseFolder(folderInput)">
+          <mat-icon>create_new_folder</mat-icon>{{ state.folder() ? 'Zmień folder' : 'Wybierz folder' }}
+        </button>
+      }
+    </div>
+    @if (!state.saved()) { <div class="settings-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Model oceniający</mat-label>
+        <mat-select [value]="state.model()" [disabled]="state.saved() || state.busy() || state.loadingModels()" (selectionChange)="state.setModel($event.value)">
+          @for (model of state.models(); track model.id) { <mat-option [value]="model.id">{{ model.name }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+    </div>
+    @if (state.loadingModels()) { <p class="inline-status" role="status"><mat-spinner diameter="16" />Pobieranie modeli dostępnych na koncie…</p> }
+    @if (state.modelError() || state.catalogError()) {
+      <div class="notice warning" role="alert">
+        <mat-icon>info</mat-icon>
+        <span>{{ state.catalogError() || state.modelError() }} Pliki można przeglądać bez AI.</span>
+        <button class="ui-button ui-button--small" [disabled]="state.loadingModels() || state.busy()" (click)="state.initialize(true)">Ponów</button>
+      </div>
+    } }
+  </section>
+
+  @if (state.error()) { <div class="notice error" role="alert"><mat-icon>error_outline</mat-icon>{{ state.error() }}</div> }
+  @if (state.reading() || state.choosingFolder()) {
+    <div class="loading-state" role="status"><mat-spinner diameter="28" /><span>Odczytywanie konfiguracji i powiązanych materiałów…</span></div>
+  } @else if (state.folder()) {
+    @if (!state.inventoryComplete()) { <p class="notice warning"><mat-icon>info</mat-icon>Odczyt jest częściowy: pominięto niedostępne katalogi albo osiągnięto limit. Raport uwzględni tę lukę.</p> }
+    @if (!state.folder()?.gitDetected) { <p class="scope-note">Nie potwierdzono katalogu Git. Ocena obejmie wyłącznie pliki widoczne w wybranym folderze.</p> }
+
+    @if (state.result(); as result) {
+      <section class="ui-card report-summary" aria-label="Podsumowanie oceny AI" aria-live="polite">
+        <div class="summary-title"><mat-icon>fact_check</mat-icon><div><h3>Wynik analizy AI</h3><p>{{ result.model }} · {{ result.assessments.length }} ocen kryteriów · {{ result.analyzedAt | date:'dd.MM.yyyy, HH:mm' }}</p></div></div>
+        <div class="summary-counts">
+          <div class="positive"><strong>{{ totals().supported }}</strong><span>Zgodne w materiale</span></div>
+          <div class="warning-text"><strong>{{ totals().concern }}</strong><span>Do dopracowania</span></div>
+          <div><strong>{{ totals().gaps }}</strong><span>Brak rozstrzygnięcia</span></div>
+          <div><strong>{{ totals().skipped }}</strong><span>Nie dotyczy</span></div>
+        </div>
+        @if (result.unreviewedTargetIds.length || result.rejectedRecords) {
+          <p class="notice warning">Wynik częściowy. Nieocenione kryteria: {{ result.unreviewedTargetIds.length }}. Odrzucone odpowiedzi: {{ result.rejectedRecords }}.</p>
+        }
+        <p class="scope-note">To ocena treści przez AI. Otwórz plik, aby sprawdzić argumenty, dowody i źródła.</p>
+      </section>
+    }
+
+    @if (crossFile().length) {
+      <section class="ui-card cross-file">
+        <h3>Powiązania między plikami</h3>
+        @for (assessment of crossFile(); track assessment.assessmentId) {
+          <button class="cross-row" (click)="openAssessment(assessment.assessmentId)">
+            <mat-icon>account_tree</mat-icon><span>{{ assessment.rationale }}</span><mat-icon>chevron_right</mat-icon>
+          </button>
+        }
+      </section>
+    }
+
+    <section class="ui-card files-card">
+      <header class="ui-panel-header">
+        <div><h3>{{ state.saved() ? 'Ocenione pliki' : 'Pliki do analizy' }}</h3><p>{{ state.saved() ? state.files().length + ' plików w zapisanej migawce' : state.selected().length + ' z ' + readableCount() + ' zaznaczonych · ' + size(state.bytes()) }}</p></div>
+        @if (!state.saved()) {
+          <div class="selection-actions">
+            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="state.selectAll(true)">Zaznacz wszystkie</button>
+            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="state.selectAll(false)">Odznacz wszystkie</button>
+          </div>
+        }
+      </header>
+      @if (state.files().length) {
+        <div class="file-filters">
+          <mat-form-field appearance="outline"><mat-label>Szukaj pliku</mat-label>
+            <input #searchInput matInput [value]="search()" (input)="search.set(searchInput.value)">
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          <div class="ui-segmented" aria-label="Kategorie plików">
+            <button [class.active]="category() === 'ALL'" [attr.aria-pressed]="category() === 'ALL'" (click)="category.set('ALL')">Wszystkie</button>
+            @for (item of categoryOptions(); track item.id) {
+              <button [class.active]="category() === item.id" [attr.aria-pressed]="category() === item.id" (click)="category.set(item.id)">{{ item.label }} · {{ item.count }}</button>
+            }
+          </div>
+        </div>
+        <div class="file-list">
+          @for (file of filtered(); track file.path) {
+            <div class="file-row" [class.excluded]="!file.selected">
+              <mat-checkbox [checked]="file.selected" [disabled]="state.saved() || state.busy() || !!file.error"
+                [aria-label]="'Przekaż do analizy: ' + file.path" (change)="state.toggle(file.path, $event.checked)" />
+              <button class="file-identity" (click)="openFile(file)">
+                <mat-icon>{{ file.category === 'CONTEXT' ? 'description' : 'code' }}</mat-icon>
+                <span><strong>{{ file.path }}</strong><small>{{ categories[file.category] }} · {{ size(file.bytes) }}
+                  @if (file.redacted) { · zamaskowane wartości }
+                  @if (file.error) { · {{ file.error }} }
+                </small></span>
+              </button>
+              <div class="file-verdicts">
+                @if (summaries().get(file.path); as summary) {
+                  @if (file.category === 'CONTEXT') { <span class="ui-badge">Materiał konfiguracji</span> }
+                  @else {
+                    @if (summary.supported) { <span class="ui-badge positive"><mat-icon>check_circle</mat-icon>{{ summary.supported }} zgodnych</span> }
+                    @if (summary.concern) { <span class="ui-badge warning-text">{{ summary.concern }} do dopracowania</span> }
+                    @if (summary.gaps || summary.missing) { <span class="ui-badge">{{ summary.gaps + summary.missing }} bez oceny</span> }
+                    @if (summary.skipped) { <span class="ui-badge">{{ summary.skipped }} nie dotyczy</span> }
+                  }
+                } @else if (file.error) { <span class="ui-badge warning-text">Pominięty</span> }
+                @else { <span class="ui-badge">{{ file.selected ? 'Do analizy' : 'Wykluczony' }}</span> }
+              </div>
+              <button class="ui-icon-button" [attr.aria-label]="'Podejrzyj ' + file.path" matTooltip="Treść pliku i uzasadnienie oceny" (click)="openFile(file)"><mat-icon>visibility</mat-icon></button>
+            </div>
+          } @empty { <p class="empty-list">Brak plików pasujących do filtra.</p> }
+        </div>
+      } @else {
+        <div class="empty-list"><mat-icon>folder_off</mat-icon><p>Nie znaleziono obsługiwanych konfiguracji Copilot.</p><p>Sprawdź, czy wybrano korzeń repozytorium zawierający np. folder <code>.github</code>.</p></div>
+      }
+    </section>
+
+    @if (!state.saved()) { <div class="analysis-actions">
+      <div>
+        <p>Analiza obejmie zaznaczone pliki oraz właściwe wymagania GitHub Copilot.</p>
+        <small>Uruchomienie prześle ich zamaskowaną treść do backendu i GitHub Copilot. Może zużyć AI credits; maskowanie może nie wykryć wszystkich sekretów. Przed startem sprawdź wybrane pliki.</small>
+        @if (state.catalog(); as catalog) {
+          @if (state.selected().length > catalog.limits.maxFiles || state.bytes() > catalog.limits.maxTotalBytes) {
+            <p class="warning-text">Zmniejsz zakres: maksymalnie {{ catalog.limits.maxFiles }} plików i {{ size(catalog.limits.maxTotalBytes) }}.</p>
+          }
+        }
+      </div>
+      <div class="analysis-buttons">
+        @if (state.sending()) {
+          <button class="ui-button" [disabled]="state.cancelRequested()" (click)="state.cancel()">{{ state.cancelRequested() ? 'Anulowanie…' : 'Anuluj analizę' }}</button>
+        }
+        <button class="ui-button ui-button--primary" [disabled]="!state.canPrepare()" (click)="runAnalysis()">
+          @if (state.preparing() || state.sending()) { <mat-spinner diameter="16" /> } @else { <mat-icon>auto_awesome</mat-icon> }
+          {{ state.preparing() ? 'Przygotowywanie…' : state.sending() ? 'Analizowanie…' : 'Uruchom analizę' }}
+        </button>
+      </div>
+    </div> }
+  } @else {
+    <div class="empty-state">
+      <mat-icon>rule_folder</mat-icon><h3>Od plików do konkretnych wskazówek</h3>
+      <p>Po wyborze folderu zobaczysz listę plików. Wszystkie odczytane materiały będą zaznaczone; możesz je wykluczyć i sprawdzić ich treść przed analizą.</p>
+      <div><span><mat-icon>check_circle</mat-icon>Co jest zgodne i dlaczego</span><span><mat-icon>edit_note</mat-icon>Co wymaga dopracowania</span><span><mat-icon>format_quote</mat-icon>Dowody z plików</span></div>
+    </div>
+  }
+
+</section>

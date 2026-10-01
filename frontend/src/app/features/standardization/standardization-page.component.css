@@ -1,0 +1,13 @@
+:host { display: block; min-width: 0; }
+.page { padding: var(--space-9) var(--page-padding) var(--space-12); }
+.analysis-title { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-8); margin-bottom: var(--space-8); }
+.analysis-title > div:first-child { min-width: 0; }
+.analysis-title h1 { margin: var(--space-4) 0; font-size: var(--text-5xl); letter-spacing: var(--tracking-heading); overflow-wrap: anywhere; }
+.analysis-actions { display: flex; flex: 0 0 auto; gap: var(--space-4); }
+.page-error { color: var(--color-danger); }
+
+@media (max-width: 700px) {
+  .page { padding-block: var(--space-8) var(--space-11); }
+  .analysis-title { flex-direction: column; gap: var(--space-5); }
+  .analysis-title h1 { font-size: var(--text-4xl); }
+}

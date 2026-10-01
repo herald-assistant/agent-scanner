@@ -3,7 +3,11 @@
     <div><span class="eyebrow ui-eyebrow">HISTORIA</span><h2>Sesje</h2></div>
     <div class="aside-title-actions">
       <span class="count">{{ sessions().length }}</span>
-      <button class="sidebar-toggle ui-icon-button" matTooltip="Zwiń panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Zwiń panel sesji" (click)="collapse.emit()"><mat-icon>left_panel_close</mat-icon></button>
+      <input #sessionImportInput class="session-import-input" type="file" accept=".json,application/json" (change)="onFileSelected($event)">
+      <button class="ui-icon-button" type="button" [disabled]="importing()" matTooltip="Importuj sesję JSON"
+        matTooltipClass="scanner-info-tooltip" aria-label="Importuj sesję JSON" (click)="sessionImportInput.click()">
+        <mat-icon aria-hidden="true">upload_file</mat-icon>
+      </button>
     </div>
   </div>
   @if (sessions().length) {
@@ -27,11 +31,39 @@
   } @else {
     <div class="empty-mini"><div class="pulse"></div><p>Czekam na pierwszą sesję agenta.</p></div>
   }
-  <div class="session-import">
-    <input #sessionImportInput type="file" accept=".json,application/json" (change)="onFileSelected($event)">
-    <button class="ui-button" type="button" (click)="sessionImportInput.click()" [disabled]="importing()">
-      <mat-icon aria-hidden="true">upload_file</mat-icon>{{ importing() ? 'Importowanie…' : 'Importuj sesję JSON' }}
-    </button>
-  </div>
+  <section class="repositories" aria-label="Repozytoria">
+    <div class="aside-title repository-heading">
+      <div><span class="eyebrow ui-eyebrow">HISTORIA</span>
+        <button class="repository-collapse" type="button" [attr.aria-expanded]="repositoriesExpanded()" aria-controls="repository-list" (click)="repositoriesExpanded.update(value => !value)">
+          <h2>Repozytoria</h2><mat-icon aria-hidden="true">{{ repositoriesExpanded() ? 'expand_more' : 'chevron_right' }}</mat-icon>
+        </button>
+      </div>
+      <div class="aside-title-actions">
+        <span class="count" [attr.aria-label]="'Zapisane analizy: ' + analyses().length">{{ analyses().length }}</span>
+        <button class="ui-icon-button" type="button" aria-label="Nowa analiza repozytorium" matTooltip="Nowa analiza repozytorium" (click)="newRepositoryAnalysis.emit()"><mat-icon aria-hidden="true">add_circle</mat-icon></button>
+      </div>
+    </div>
+    @if (repositoriesExpanded()) {
+      <div id="repository-list" class="repository-list">
+        @if (repositoryError()) {
+          <div class="repository-error" role="alert">{{ repositoryError() }} <button class="ui-button ui-button--small" (click)="refreshRepositories.emit()">Ponów</button></div>
+        }
+        @for (entry of visibleAnalyses(); track entry.analysis.id) {
+          <button class="session-card repository-item" type="button" [class.active]="isAnalysisActive(entry)"
+            [attr.aria-label]="'Otwórz analizę repozytorium ' + entry.repositoryName + ' z ' + time(entry.analysis.analyzedAt)"
+            (click)="analysisSelected.emit({repositoryId: entry.repositoryId, analysisId: entry.analysis.id})">
+            <div class="session-head">
+              <span class="source-avatar repository-avatar"><mat-icon aria-hidden="true">fact_check</mat-icon></span>
+              <div><strong>{{ entry.repositoryName }}</strong><small class="source-line">Analiza konfiguracji Copilot</small></div>
+            </div>
+            <div class="session-meta"><span>{{ time(entry.analysis.analyzedAt) }}</span><span>{{ entry.analysis.model }}</span><span>{{ files(entry.analysis.fileCount) }}</span></div>
+          </button>
+        } @empty { <p class="repository-empty">Brak zapisanych analiz repozytoriów.</p> }
+        @if (analyses().length > analysisLimit()) {
+          <button class="show-more" type="button" (click)="analysisLimit.update(value => value + 5)">Pokaż więcej</button>
+        }
+      </div>
+    }
+  </section>
   <div class="aside-footer"><span>Retencja {{ retentionDays() }} dni</span><button class="ui-button ui-button--ghost ui-button--danger" (click)="clearAll.emit()" [disabled]="!canClear()">Wyczyść</button></div>
 </div>

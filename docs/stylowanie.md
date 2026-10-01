@@ -128,7 +128,7 @@ kompilatora CSS, testów zachowania ani kontroli wizualnej. Sprawdza również
 kontrast co najmniej 4,5:1 dla 17 bazowych par tekst–tło wyliczany z aktualnej
 palety. Nie jest to deklaracja pełnej zgodności wszystkich stanów aplikacji z WCAG.
 
-Przy zmianie wspólnej warstwy obejrzyj: onboarding, pięć zakładek sesji, rozwiniętą
+Przy zmianie wspólnej warstwy obejrzyj: onboarding, sześć zakładek sesji, rozwiniętą
 tabelę narzędzi, definicję narzędzia, szczegóły rundy, techniki optymalizacji oraz
 dialog i historię czatu. Sprawdź desktop, węższy viewport, klawiaturę, przewijanie
 i zamykanie paneli. Nie uruchamiaj płatnej inferencji do sprawdzania CSS.

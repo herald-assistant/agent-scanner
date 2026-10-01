@@ -34,4 +34,5 @@
   </div>
   <div class="code-wrap onboarding-code"><pre>{{ configText }}</pre><button class="copy ui-button ui-button--primary" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj konfigurację' }}</button></div>
   <button class="link-button ui-button ui-button--ghost" (click)="setConfigVisible(true)">Bezpieczeństwo i priorytet ustawień →</button>
+  <a class="ui-button" routerLink="/repositories/new"><mat-icon>rule_folder</mat-icon>Standaryzacja repozytorium</a>
 </section>

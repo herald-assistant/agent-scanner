@@ -41,6 +41,63 @@ Eksport nie obejmuje wyników AI ani rozmów. Format i zgodność opisuje
 [kontrakt backendu](backend.md), a skutki dla danych —
 [poradnik prywatności](uzytkowanie.md).
 
+## Standaryzacja repozytorium
+
+| Metoda i ścieżka | Znaczenie |
+|---|---|
+| `GET /api/standardization/catalog` | Wersjonowane wymagania, źródła i limity; bez AI. |
+| `POST /api/standardization/prepare` | Tryb `AUTO`, model, wybrane pliki i pominięcia → niezmienny podgląd, hash, termin ważności i dokładny prompt; bez AI. |
+| `POST /api/standardization/analyze` | `{"previewId":"…"}` → jawne wykonanie i zwalidowane oceny. |
+| `POST /api/standardization/analyze-and-save` | `{"previewId":"…","repositoryId":null,"repositoryName":"…"}` tworzy repozytorium albo używa wskazanego ID, wykonuje analizę i zapisuje wynik z migawką. Zwraca `repositoryId`, `analysisId`, `preview` i `result`. |
+| `GET /api/standardization/repositories` | Repozytoria z metadanymi analiz; bez odczytu zawartości plików i bez AI. |
+| `GET /api/standardization/repositories/{id}/analyses/{analysisId}` | Zapisany wynik i zamaskowany pakiet dowodowy; bez AI. |
+| `GET /api/standardization/repositories/{id}/analyses/{analysisId}/export` | Pobranie zapisanej analizy i jej zamaskowanej migawki jako załącznika JSON; bez AI. |
+| `DELETE /api/standardization/repositories/{id}/analyses/{analysisId}` | Usunięcie wybranej analizy i migawki; po ostatniej analizie także pustego wpisu repozytorium. Sukces: 204, brak analizy w tym repozytorium: 404. |
+| `POST /api/standardization/cancel` | `{"previewId":"…"}` → przerwanie tego wykonania. |
+| `DELETE /api/standardization/previews/{id}` | Usunięcie nieaktywnego podglądu z pamięci. |
+
+Funkcja nie wymaga identyfikatora sesji. Nowy widok używa `analyze-and-save`;
+zapisane analizy pozostają w lokalnej bazie H2 także po odświeżeniu strony.
+Eksport ma format `agent-scanner-standardization-analysis` v1 i pole `analysis`
+z zapisanym wynikiem oraz podglądem. Nie jest formatem importu sesji.
+Usuwanie jest ograniczone do wskazanej pary repozytorium–analiza, kończy się
+`CHECKPOINT` i nie dotyczy sesji telemetrii ani analiz pozostałych repozytoriów.
+Modele pochodzą z istniejącego `GET /api/ai/session-chats/models`.
+Wymagane są skonfigurowane poświadczenia Copilot; model wybiera użytkownik,
+nie musi być ustawiony domyślny model w konfiguracji.
+Interfejs wysyła `profile: "AUTO"` i pustą `clientVersion`. Pola pozostają w DTO
+dla zgodności kontraktu; backend oznacza wersję klienta jako nieznaną i ocenia
+różnice zależne od klienta warunkowo. Model dostaje treść odczytaną przez aplikację,
+bez narzędzia do samodzielnego odczytu lokalnego folderu.
+
+`prepare` przyjmuje konfiguracje Copilot oraz pomocnicze `.md`/`.txt` z ich
+dedykowanych katalogów. Manifesty, kod, workflow i dokumentacja projektu są
+odrzucane jako zakres spoza analizy, również gdy przesłano je obok konfiguracji.
+Dokładne reguły doboru materiałów opisuje [Standaryzacja](standaryzacja.md).
+
+DTO i wersje definiuje [Standardization.java](../src/main/java/dev/agentscanner/standardization/Standardization.java).
+Pakiet `standardization-evidence-v1` zawiera pliki z identyfikatorami, hashami
+i numerami linii, kontrole lokalne, reguły, źródła, pełne dokumenty standardów
+oraz pary plik–reguła wymagające oceny. Odpowiedź modelu
+`standardization-answer-v1` zawiera `assessments`. Każda ocena odwołuje się do
+`assessmentId` z pakietu oraz zawiera `verdict`, `rationale`, `evidence`,
+`sourceIds`, `limitations` i `recommendation`.
+
+Dozwolone werdykty to `SUPPORTED`, `CONCERN`, `INSUFFICIENT_EVIDENCE`,
+`NOT_APPLICABLE` i `UNRESOLVED`. Dowód określa plik, zakres linii i cytat
+albo jawne stwierdzenie braku. Backend weryfikuje identyfikatory i cytaty;
+nie gwarantuje trafności uzasadnienia AI. Wynik API dodaje m.in.
+`unreviewedTargetIds` i `rejectedRecords`, aby częściowa odpowiedź była jawna.
+Kryteria z podstawą `AS-W` wymagają oceny uniwersalności względem technologii
+i architektury; `NOT_APPLICABLE` jest dla nich odrzucane. Przy rzeczywistym
+braku dowodów dopuszczalne jest `INSUFFICIENT_EVIDENCE` z ograniczeniem.
+
+Niepoprawny zakres lub body daje `400`; body ponad 8 MiB — `413`.
+Zajęty slot, zużyty/wygasły podgląd
+albo przerwanie analizy — `409`; brak konfiguracji AI — `503`; timeout — `504`;
+błąd wykonania lub nieakceptowalny kontrakt — `502`. Szczegółowe limity,
+prywatność i retencję opisuje [Standaryzacja](standaryzacja.md).
+
 ## Celowane odczyty analityczne
 
 Wszystkie poniższe ścieżki mają prefiks

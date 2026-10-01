@@ -1,0 +1,73 @@
+<header class="dialog-header">
+  <div><span class="ui-eyebrow">{{ data.file.category === 'CONTEXT' ? 'MATERIAŁ KONFIGURACJI' : 'KONFIGURACJA COPILOT' }}</span><h2 mat-dialog-title>{{ data.file.path }}</h2>
+    @if (data.packetFile?.redacted || data.file.redacted) { <p>Rozpoznane wartości poufne są zamaskowane.</p> }
+  </div>
+  <button class="ui-icon-button" mat-dialog-close aria-label="Zamknij podgląd pliku"><mat-icon>close</mat-icon></button>
+</header>
+<nav class="ui-tabs" aria-label="Szczegóły pliku">
+  <button [class.active]="tab() === 'AI'" [attr.aria-current]="tab() === 'AI' ? 'page' : null" (click)="tab.set('AI')">Ocena AI <span>{{ assessments.length }}</span></button>
+  <button [class.active]="tab() === 'CONTENT'" [attr.aria-current]="tab() === 'CONTENT' ? 'page' : null" (click)="tab.set('CONTENT')">Treść pliku</button>
+  <button [class.active]="tab() === 'LOCAL'" [attr.aria-current]="tab() === 'LOCAL' ? 'page' : null" (click)="tab.set('LOCAL')">Kontrola lokalna</button>
+</nav>
+<mat-dialog-content>
+  @if (tab() === 'CONTENT') {
+    @if (data.file.error) { <p role="alert">{{ data.file.error }}</p> }
+    @else {
+      <p class="note">{{ data.packetFile ? 'Dokładna treść z przygotowanego pakietu.' : 'Lokalny podgląd po maskowaniu. Plik nie został wysłany do AI.' }}</p>
+      <div class="source-code ui-code" tabindex="0" aria-label="Treść pliku z numerami linii">
+        @for (line of lines; track line.number) { <div class="source-line"><span class="line-number" aria-hidden="true">{{ line.number }}</span><code>{{ line.text || ' ' }}</code></div> }
+      </div>
+    }
+  }
+  @if (tab() === 'LOCAL') {
+    @for (check of checks; track $index) {
+      <div class="local-check" [class.warning]="check.state === 'ERROR' || check.state === 'WARNING'">
+        <mat-icon>{{ check.state === 'PASS' ? 'check_circle' : check.state === 'ERROR' ? 'error_outline' : 'info' }}</mat-icon><p>{{ check.message }}</p>
+      </div>
+    } @empty { <p class="note">{{ data.file.category === 'CONTEXT' ? 'Materiał podlinkowany z konfiguracji. Pomaga ocenić podział treści i ich utrzymanie.' : 'Kontrola lokalna zostanie wykonana po uruchomieniu analizy.' }}</p> }
+  }
+  @if (tab() === 'AI') {
+    @if (!data.result || !data.packetFile) {
+      <div class="empty"><mat-icon>rate_review</mat-icon><h3>Ten plik nie ma jeszcze oceny AI</h3><p>Zaznacz go na liście i uruchom analizę.</p></div>
+    } @else {
+      <p class="note">Ocena AI · {{ data.result.model }}. Sprawdź uzasadnienie i cytaty; zgodność treści nie potwierdza działania konfiguracji w środowisku.</p>
+      @if (missing) { <p class="notice">Nie uzyskano poprawnej oceny dla {{ missing }} kryteriów tego pliku. Nie zostały zaliczone.</p> }
+      @if (data.file.category === 'CONTEXT') { <p class="note">Materiał konfiguracji wspiera ocenę podziału odpowiedzialności, zakresu i odsyłania do szczegółów. Poniżej znajdują się oceny plików konfiguracji, które powołują się na jego treść.</p> }
+      @for (group of grouped; track group.label) {
+        @if (group.assessments.length) {
+          <section class="assessment-group" [class]="group.tone">
+            <h3><mat-icon>{{ group.icon }}</mat-icon>{{ group.label }} <span>{{ group.assessments.length }}</span></h3>
+            @for (assessment of group.assessments; track assessment.assessmentId) {
+              <article class="assessment">
+                @if (packetTargets.get(assessment.assessmentId); as target) {
+                  <span class="rule-id">{{ target.ruleId }} · {{ files.get(target.fileId)?.path }}</span>
+                  <h4>{{ rules.get(target.ruleId)?.criterion }}</h4>
+                  <p class="note">Podstawa kryterium: {{ rules.get(target.ruleId)?.basis }}</p>
+                }
+                <p>{{ assessment.rationale }}</p>
+                @if (assessment.recommendation) { <div class="recommendation"><strong>Proponowana poprawka</strong><p>{{ assessment.recommendation }}</p></div> }
+                @for (limitation of assessment.limitations; track limitation) { <p class="limitation"><mat-icon>info</mat-icon>{{ limitation }}</p> }
+                @if (assessment.evidence.length) {
+                  <details><summary>Dowody z plików · {{ assessment.evidence.length }}</summary>
+                    @for (evidence of assessment.evidence; track $index) {
+                      <div class="evidence"><strong>{{ files.get(evidence.fileId)?.path }} · linie {{ evidence.startLine }}–{{ evidence.endLine }}</strong>
+                        @if (evidence.kind === 'ABSENCE') { <p>Wniosek o braku elementu na podstawie całej przekazanej treści pliku.</p> }
+                        @else { <pre class="ui-code">{{ evidence.quote }}</pre> }
+                      </div>
+                    }
+                  </details>
+                }
+                <div class="sources"><span>Podstawa oceny:</span>
+                  @for (id of assessment.sourceIds; track id) {
+                    @if (sources.get(id); as source) { <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}<mat-icon>open_in_new</mat-icon></a> }
+                  }
+                </div>
+              </article>
+            }
+          </section>
+        }
+      }
+      @if (!assessments.length && !missing) { <p class="note">Model nie przywołał tego pliku w ocenach. Nie oznacza to jego zgodności.</p> }
+    }
+  }
+</mat-dialog-content>

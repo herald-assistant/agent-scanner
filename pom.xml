@@ -26,6 +26,8 @@
         <npm.version>10.8.2</npm.version>
         <skip.frontend>false</skip.frontend>
         <copilot-sdk.version>1.0.11</copilot-sdk.version>
+        <!-- Override Boot 3.4.5's 2.3: fix Unicode buffer boundaries in YAML frontmatter (SnakeYAML #1098). -->
+        <snakeyaml.version>2.7</snakeyaml.version>
     </properties>
 
     <dependencies>
@@ -45,6 +47,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
@@ -71,6 +77,16 @@
 
     <build>
         <finalName>agent-scanner</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>docs</directory>
+                <targetPath>standardization</targetPath>
+                <includes><include>standaryzacja-*.md</include></includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

@@ -23,7 +23,10 @@ describe('application routes', () => {
     const source = workflowFixture()[0];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [source.session] : source;
+      const body = url.endsWith('/api/status') ? status : url.endsWith('/api/sessions') ? [source.session]
+        : url.endsWith('/api/standardization/repositories') ? []
+        : url.endsWith('/api/ai/session-chats/models') ? {models: [], defaultModel: ''}
+        : url.endsWith('/api/standardization/catalog') ? {limits: {maxFiles: 80, maxTotalBytes: 1048576}} : source;
       return new Response(JSON.stringify(body), {status: 200, headers: {'Content-Type': 'application/json'}});
     }));
     TestBed.configureTestingModule({providers: appConfig.providers});
@@ -83,6 +86,11 @@ describe('application routes', () => {
       .toBe('Dane techniczne');
   });
 
+  it('redirects a bookmarked Standard session tab to repository analysis', async () => {
+    await RouterTestingHarness.create('/sessions/42/standardization');
+    expect(TestBed.inject(Router).url).toBe('/repositories/new');
+  });
+
   it('opens sessions over the content on narrow screens and closes the drawer after selection', async () => {
     TestBed.overrideProvider(BreakpointObserver, {useValue: {
       isMatched: () => true,
@@ -96,7 +104,7 @@ describe('application routes', () => {
     expect(drawer.classList.contains('mat-drawer-over')).toBe(true);
     expect(drawer.classList.contains('mat-drawer-opened')).toBe(false);
 
-    (harness.routeNativeElement!.querySelector('.sidebar-open') as HTMLButtonElement).click();
+    (harness.routeNativeElement!.querySelector('.mark-toggle') as HTMLButtonElement).click();
     harness.detectChanges();
     await vi.waitFor(() => expect(drawer.classList.contains('mat-drawer-opened')).toBe(true));
     (harness.routeNativeElement!.querySelector('.session-card') as HTMLButtonElement).click();
@@ -106,6 +114,6 @@ describe('application routes', () => {
       harness.detectChanges();
       expect(drawer.classList.contains('mat-drawer-opened')).toBe(false);
     });
-    expect(harness.routeNativeElement!.querySelector('.sidebar-open')).not.toBeNull();
+    expect(harness.routeNativeElement!.querySelector('.mark-toggle')?.getAttribute('aria-label')).toBe('Pokaż panel sesji');
   });
 });

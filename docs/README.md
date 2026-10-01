@@ -21,6 +21,15 @@ Zacznij od [obsługi](uzytkowanie.md). Przy zmianie kodu przeczytaj
 Każdy temat ma jedno miejsce utrzymania. Poradnik objaśnia działanie, a kontrakty
 podają dokładne reguły. Kod i testy potwierdzają implementację.
 
+## Standaryzacja repozytorium
+
+[Standaryzacja środowiska GitHub Copilot](standaryzacja.md) opisuje widok
+repozytoriów, historię analiz, prywatność, limity i granice implementacji. Prowadzi do
+wymagań dla instrukcji, skills, agentów, MCP i promptów. Ich kryteria
+merytoryczne oraz pełne dokumenty kategorii są przekazywane do analizy AI.
+[Walidacja AI](standaryzacja-ai.md) opisuje wymagania referencyjne oceny;
+aktualny kontrakt HTTP dokumentuje [API](api.md#standaryzacja-repozytorium).
+
 Po zmianie dokumentacji, z katalogu repozytorium:
 
 ```powershell

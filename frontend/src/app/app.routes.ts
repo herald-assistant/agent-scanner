@@ -10,6 +10,12 @@ export const appRoutes: Routes = [
     loadComponent: scannerShell,
     children: [
       {path: '', pathMatch: 'full', loadComponent: homePage, title: 'Agent Scanner'},
+      {path: 'standardization', pathMatch: 'full', redirectTo: 'repositories/new'},
+      {path: 'sessions/:sessionId/standardization', pathMatch: 'full', redirectTo: 'repositories/new'},
+      {path: 'repositories/new', loadComponent: () => import('./features/standardization/standardization-page.component').then(module => module.StandardizationPageComponent), title: 'Nowa analiza · Agent Scanner'},
+      {path: 'repositories/:repositoryId/new', loadComponent: () => import('./features/standardization/standardization-page.component').then(module => module.StandardizationPageComponent), title: 'Nowa analiza · Agent Scanner'},
+      {path: 'repositories/:repositoryId/analyses/:analysisId', loadComponent: () => import('./features/standardization/standardization-page.component').then(module => module.StandardizationPageComponent), title: 'Analiza repozytorium · Agent Scanner'},
+      {path: 'repositories/:repositoryId', loadComponent: () => import('./features/standardization/standardization-page.component').then(module => module.StandardizationPageComponent), title: 'Repozytorium · Agent Scanner'},
       {path: 'sessions/:sessionId', pathMatch: 'full', redirectTo: 'sessions/:sessionId/overview'},
       {path: 'sessions/:sessionId/:tab', loadComponent: sessionPage, title: 'Sesja · Agent Scanner'}
     ]

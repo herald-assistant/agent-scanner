@@ -1,7 +1,8 @@
-import {ChangeDetectionStrategy, Component, input, output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, effect, input, output, signal} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {Session} from '../../models/scanner.models';
+import {StandardAnalysisSummary, StandardRepositorySummary} from '../../models/standardization.models';
 import {sessionEmitterLabel, sessionRepositoryName, sessionSourceIcon, sessionSourceLabel} from '../../core/session-presentation';
 
 @Component({
@@ -18,13 +19,45 @@ export class SessionSidebarComponent {
   readonly retentionDays = input.required<number>();
   readonly importing = input(false);
   readonly canClear = input(false);
+  readonly repositories = input<StandardRepositorySummary[]>([]);
+  readonly repositoryError = input('');
+  readonly selectedRepositoryId = input<string | null>(null);
+  readonly selectedAnalysisId = input<string | null>(null);
 
   readonly sessionSelected = output<Session>();
-  readonly collapse = output<void>();
   readonly fileSelected = output<File>();
   readonly clearAll = output<void>();
+  readonly newRepositoryAnalysis = output<void>();
+  readonly analysisSelected = output<{repositoryId: string; analysisId: string}>();
+  readonly refreshRepositories = output<void>();
+
+  readonly repositoriesExpanded = signal(true);
+  readonly analysisLimit = signal(5);
+  readonly analyses = computed(() => this.repositories()
+    .flatMap(repository => repository.analyses.map(analysis => ({repositoryId: repository.id,
+      repositoryName: repository.name, analysis})))
+    .sort((left, right) => right.analysis.analyzedAt.localeCompare(left.analysis.analyzedAt)
+      || left.repositoryName.localeCompare(right.repositoryName) || left.analysis.id.localeCompare(right.analysis.id)));
+  readonly visibleAnalyses = computed(() => this.analyses().slice(0, this.analysisLimit()));
+
+  constructor() {
+    effect(() => {
+      const selected = this.selectedAnalysisId();
+      const repository = this.selectedRepositoryId();
+      const index = this.analyses().findIndex(item => selected ? item.analysis.id === selected
+        : item.repositoryId === repository);
+      if (index >= this.analysisLimit()) this.analysisLimit.set(Math.ceil((index + 1) / 5) * 5);
+    });
+  }
+
+  isAnalysisActive(entry: {repositoryId: string; analysis: StandardAnalysisSummary}): boolean {
+    const selected = this.selectedAnalysisId();
+    return selected === entry.analysis.id || (!selected && this.selectedRepositoryId() === entry.repositoryId
+      && this.repositories().find(repository => repository.id === entry.repositoryId)?.analyses[0]?.id === entry.analysis.id);
+  }
 
   private readonly compactNumber = new Intl.NumberFormat('pl-PL', {notation: 'compact'});
+  private readonly pluralRules = new Intl.PluralRules('pl-PL');
   private readonly timeFormat = new Intl.DateTimeFormat('pl-PL', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
 
   onFileSelected(event: Event): void {
@@ -46,5 +79,9 @@ export class SessionSidebarComponent {
   sourceIcon(session: Session): string { return sessionSourceIcon(session); }
   model(session: Session): string { return session.responseModel || session.requestedModel || 'model —'; }
   tokens(session: Session): string { return this.compactNumber.format(session.inputTokens + session.outputTokens); }
+  files(count: number): string {
+    const form = this.pluralRules.select(count);
+    return `${count} ${form === 'one' ? 'plik' : form === 'few' ? 'pliki' : 'plików'}`;
+  }
   time(value?: string): string { return value ? this.timeFormat.format(new Date(value)) : '—'; }
 }

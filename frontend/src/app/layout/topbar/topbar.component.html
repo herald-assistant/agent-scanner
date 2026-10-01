@@ -1,6 +1,12 @@
 <header class="topbar">
   <div class="brand">
-    <div class="mark"><span></span><span></span><span></span></div>
+    <button class="mark-toggle" type="button"
+      [attr.aria-label]="sidebarOpen() ? 'Zwiń panel sesji' : 'Pokaż panel sesji'"
+      [matTooltip]="sidebarOpen() ? 'Zwiń panel sesji' : 'Pokaż panel sesji'"
+      matTooltipClass="scanner-info-tooltip" (click)="sidebarToggle.emit()">
+      <span class="mark-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      <mat-icon aria-hidden="true">{{ sidebarOpen() ? 'left_panel_close' : 'left_panel_open' }}</mat-icon>
+    </button>
     <div><strong>Agent Scanner</strong><small>LOCAL OBSERVABILITY</small></div>
   </div>
   <div class="top-actions">

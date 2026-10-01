@@ -26,18 +26,6 @@
   overflow: visible;
 }
 
-.sidebar-open {
-  position: sticky;
-  z-index: 12;
-  top: 18px;
-  left: 18px;
-  margin: var(--space-6) 0 0 var(--space-6);
-}
-
-.sidebar-open mat-icon {
-  position: static;
-}
-
 @media (max-width: 700px) {
   .sessions {
     width: min(90vw, var(--sidebar-width));

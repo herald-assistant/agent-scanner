@@ -2,6 +2,26 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {OptimizationAdvicePreview} from '../models/optimization-guidance.models';
 import {ScannerApiService} from './scanner-api.service';
 
+describe('ScannerApiService saved repository analyses', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('deletes the selected analysis within its repository', async () => {
+    const fetchMock = vi.fn(async () => new Response(null, {status: 204}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new ScannerApiService().deleteStandardization('repo-a', 'analysis-a');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/standardization/repositories/repo-a/analyses/analysis-a', {method: 'DELETE'});
+  });
+
+  it('rejects unsuccessful deletion so the screen can keep the saved result', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, {status: 500})));
+
+    await expect(new ScannerApiService().deleteStandardization('repo-a', 'analysis-a'))
+      .rejects.toThrow('Nie udało się usunąć analizy repozytorium');
+  });
+});
+
 describe('ScannerApiService tool classification', () => {
   afterEach(() => vi.unstubAllGlobals());
 

@@ -41,35 +41,67 @@
   letter-spacing: var(--tracking-label);
 }
 
-.mark {
+.mark-toggle {
   width: 30px;
   height: 30px;
-  display: flex;
-  gap: var(--space-1);
-  align-items: flex-end;
-  padding: var(--space-3);
+  flex: 0 0 30px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--color-text);
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  cursor: pointer;
 }
 
-.mark span {
+.mark-bars {
+  position: absolute;
+  inset: var(--space-3);
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.mark-bars span {
   flex: 1;
   background: var(--color-accent);
   border-radius: var(--radius-xs);
   opacity: .85;
 }
 
-.mark span:nth-child(1) {
+.mark-bars span:nth-child(1) {
   height: 48%;
 }
 
-.mark span:nth-child(2) {
+.mark-bars span:nth-child(2) {
   height: 100%;
 }
 
-.mark span:nth-child(3) {
+.mark-bars span:nth-child(3) {
   height: 72%;
+}
+
+.mark-toggle mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: var(--icon-18);
+  line-height: 18px;
+  opacity: 0;
+}
+
+.mark-toggle:is(:hover, :focus-visible) .mark-bars {
+  opacity: 0;
+}
+
+.mark-toggle:is(:hover, :focus-visible) mat-icon {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .mark-toggle .mark-bars { opacity: 0; }
+  .mark-toggle mat-icon { opacity: 1; }
 }
 
 .top-actions {

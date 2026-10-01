@@ -10,4 +10,11 @@ public class SpaRoutingController {
     String sessionRoute() {
         return "forward:/index.html";
     }
+
+    @GetMapping({"/standardization", "/sessions/{sessionId}/standardization", "/repositories/new", "/repositories/{repositoryId}",
+            "/repositories/{repositoryId}/new", "/repositories/{repositoryId}/analyses/{analysisId}",
+            "/sessions/{sessionId}/{tab:overview|cost|workflow|ai-hub|technical}"})
+    String featureRoute() {
+        return "forward:/index.html";
+    }
 }

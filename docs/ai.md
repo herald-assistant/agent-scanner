@@ -5,7 +5,7 @@ Status: obowiązujący kontrakt.
 [Dokumentacja](README.md)
 
 Wiążąca część [AGENTS.md](../AGENTS.md). Ten dokument opisuje istniejące funkcje
-AI: klasyfikację, doradztwo i rozmowę. Ustawienia są w [konfiguracji](konfiguracja.md),
+AI: klasyfikację, doradztwo, rozmowę i Standaryzację. Ustawienia są w [konfiguracji](konfiguracja.md),
 a ścieżki HTTP w [API](api.md).
 
 ## Spis treści
@@ -21,15 +21,21 @@ a ścieżki HTTP w [API](api.md).
 AI uruchamia się wyłącznie po jawnej akcji użytkownika. Otwarcie AI Hub,
 odczyt cache, historii albo przygotowanie podglądu nie wywołują modelu.
 Katalog modeli korzysta z runtime/usługi bez inferencji. Klasyfikacja, doradztwo
-i rozmowa współdzielą `AiExecutionCoordinator`: jeden worker, bez kolejki
+i rozmowa oraz Standaryzacja współdzielą `AiExecutionCoordinator`: jeden worker, bez kolejki
 płatnych zadań. Zajętość jest jawna. Nie ponawiaj automatycznie płatnych żądań.
 
 `CopilotCompletion` korzysta z GitHub Copilot Java SDK i kontrolowanego procesu
-CLI. Klasyfikacja i doradztwo są izolowanymi sesjami tekstowymi: tryb `EMPTY`,
+CLI. Klasyfikacja, doradztwo i Standaryzacja są izolowanymi sesjami tekstowymi: tryb `EMPTY`,
 pusta allowlista, odmowa tool hook/permissions oraz wyłączone skille, MCP,
 instrukcje repozytorium, discovery, pamięć i Git. Zapis stanu służący wznowieniu
 dotyczy wyłącznie rozmowy. Test izolacji sprawdza rzeczywisty `CreateSessionRequest`,
 nie tylko konfigurację pośrednią. Runtime używa osobnego katalogu danych.
+
+Standaryzacja korzysta z modelu wybranego przez użytkownika z katalogu runtime.
+Przekazuje wybrane pliki jako niezaufany materiał i dokumenty wymagań jako
+kryteria oceny; nie aktywuje ocenianych instrukcji ani narzędzi.
+[Kontrakt funkcji](standaryzacja.md) określa podgląd, retencję w pamięci,
+walidację cytatów, częściowe odpowiedzi i granice wnioskowania.
 
 Token jest backendowy, nie trafia do odpowiedzi ani logów. Dane z telemetrii
 są niezaufane; prompt nie zastępuje wyłączenia uprawnień. Rozmowa może używać

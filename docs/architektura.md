@@ -25,6 +25,8 @@ Jawne funkcje AI:
 AI Hub / poradnik → kontroler AI → AiExecutionCoordinator
   → CopilotCompletion / Copilot CLI → walidacja → zapis H2
 Rozmowa → SessionAnalysisQueryService → tylko odczytowe narzędzia scanner_*
+Standaryzacja → wybór folderu w przeglądarce → podgląd w pamięci backendu
+  → AiExecutionCoordinator / CopilotCompletion → walidacja → wynik i zamaskowany pakiet w H2
 ```
 
 Normalizacja stabilnych pól odbywa się przy odbiorze. Pełny raw payload pozostaje
@@ -43,6 +45,7 @@ diagramy oraz lokalne estymacje na podstawie danych i ich jawnej obecności.
 | Odczyty analityczne | `analysis/SessionAnalysisQueryService` | Wspólna logika REST i odczytów rozmowy w zamrożonym zakresie. |
 | HTTP | `api/ApiView`, kontrolery | DTO, parametry, odpowiedzi i błędy operacji. |
 | AI | `ai/`, `ai/advisory/`, `ai/sessionchat/` | Prompt, izolowany runtime, walidacja, cache i lifecycle rozmowy. |
+| Standaryzacja | `standardization/` | Katalog wymagań z dokumentacji, podgląd wybranych plików, kontrole lokalne i kontrakt odpowiedzi AI. |
 
 Kod backendu znajduje się w [src/main/java/dev/agentscanner](../src/main/java/dev/agentscanner).
 Parsowanie zależne od emitera nie należy do szablonów Angulara. SQL należy do
@@ -58,6 +61,7 @@ polskich etykiet prezentacyjnych; błędy operacji użytkownika są po polsku.
 | `tool_classification_result` | Zwalidowane klasyfikacje dla dokładnego request hash. |
 | `optimization_advice_preview`, `optimization_advice_result` | Zweryfikowane migawki i wyniki doradztwa. |
 | `session_chat`, `session_chat_turn`, `session_chat_tool_call`, `session_chat_evidence` | Zakres rozmowy, historia, audyt i referencje udostępnione modelowi. |
+| `standardization_repository`, `standardization_analysis` | Repozytoria wybrane do oceny oraz historia wyników i zamaskowanych migawek. |
 
 [Schema SQL](../src/main/resources/schema.sql) zachowuje kaskadowe usuwanie.
 `IF NOT EXISTS` nie zastępuje migracji istniejących kolumn. Wygasłe podglądy
@@ -70,6 +74,8 @@ doradztwa są sprzątane przy zapisaniu następnej migawki.
 wybór sesji i wspólny panel. `SessionPageComponent` ładuje dane sesji i koordynuje
 zakładki. Routing jest lazy-loaded: `/sessions/:sessionId/:tab` obejmuje
 `overview`, `cost`, `workflow`, `ai-hub` i `technical`.
+Repozytoria mają trasy `/repositories/new`, `/repositories/:id` i
+`/repositories/:id/analyses/:analysisId`, niezależne od sesji.
 Źródła workflow są pobierane dopiero dla Mapy pracy lub AI Hub.
 
 | Moduł w `frontend/src/app/core` | Odpowiedzialność |
@@ -87,6 +93,7 @@ zakładki. Routing jest lazy-loaded: `/sessions/:sessionId/:tab` obejmuje
 | `optimization/guidance-evidence.ts` | Pakiet dowodowy, redakcja i fingerprint doradztwa. |
 | `optimization-technique-matcher.ts` | Deterministyczny wybór technik i deduplikacja. |
 | `round-details-panel.service.ts` | Stan, fokus i nawigacja wspólnego panelu. |
+| `standardization-files.ts`, `standardization-state.service.ts`, `standardization-history.service.ts` | Odczyt folderu, selekcja, redakcja, podgląd oraz lista i otwieranie zapisanych analiz. |
 
 Interpretacja nie należy do template ani rosnącego komponentu głównego.
 Właścicieli ekranów i reguły UI opisuje [frontend](frontend.md).

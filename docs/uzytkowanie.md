@@ -56,6 +56,11 @@ sprawdzić także przez `GET /api/status`.
 | AI Hub | Jawna analiza kategorii i rozmowy o całej zamrożonej sesji. |
 | Dane techniczne | Drzewo spanów oraz surowe dane do audytu. |
 
+Standaryzację otwiera ikona przy nagłówku **Repozytoria** w lewym panelu.
+Pod repozytorium można ponownie otworzyć zapisane analizy konfiguracji Copilot;
+każda lista pokazuje 5 pozycji i przycisk do wyświetlenia kolejnych.
+[Przebieg i prywatność](standaryzacja.md).
+
 Sesja może zawierać wiele interakcji użytkownika. Runda to jedno wywołanie modelu.
 Cykl `M → A → M` pokazuje odpowiedź modelu, wykonanie narzędzi przez agenta i dane
 wracające do kolejnego requestu. Kliknięcie rundy otwiera wspólny panel szczegółów;

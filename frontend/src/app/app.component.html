@@ -1,6 +1,8 @@
 <div class="shell">
   <as-topbar
     [status]="state.status()"
+    [sidebarOpen]="sidebarOpen()"
+    (sidebarToggle)="toggleSidebar()"
     (optimizationGuide)="openOptimizationGuide(optimizationGuideTemplate, $event.currentTarget)"
     (configure)="openConfiguration()"
     (pauseToggle)="state.togglePause()" />
@@ -14,16 +16,19 @@
         [retentionDays]="state.status().retentionDays"
         [importing]="state.importing()"
         [canClear]="state.sessions().length > 0"
+        [repositories]="standardizationHistory.repositories()"
+        [repositoryError]="standardizationHistory.error()"
+        [selectedRepositoryId]="selectedRepositoryId()"
+        [selectedAnalysisId]="selectedAnalysisId()"
         (sessionSelected)="selectSession($event)"
-        (collapse)="toggleSidebar()"
+        (newRepositoryAnalysis)="openNewRepositoryAnalysis()"
+        (analysisSelected)="openSavedAnalysis($event)"
+        (refreshRepositories)="standardizationHistory.refresh()"
         (fileSelected)="importSessionFile($event)"
         (clearAll)="deleteAll()" />
     </mat-drawer>
 
     <mat-drawer-content class="workspace-content">
-      @if (!sidebarOpen()) {
-        <button class="sidebar-open ui-icon-button" matTooltip="Pokaż panel sesji" matTooltipClass="scanner-info-tooltip" aria-label="Pokaż panel sesji" (click)="toggleSidebar()"><mat-icon>left_panel_open</mat-icon></button>
-      }
       <router-outlet />
     </mat-drawer-content>
   </mat-drawer-container>
