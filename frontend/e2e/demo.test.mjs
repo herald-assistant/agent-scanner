@@ -182,9 +182,9 @@ test('repository input persists masked configuration and selection, reopens with
 test('repository report expands mechanisms and IDE settings, persists Git metadata and downloads a local PDF', async () => run(async (page, context) => {
   const folder = resolve(report, 'synthetic-report-repository');
   const files = {
-    'AGENTS.md': '# Shared rules\nVerify changes.',
-    '.github/skills/review/SKILL.md': '---\nname: review\ndescription: Przegląd zmian i testów\ndisable-model-invocation: true\n---\nReview procedure.',
-    '.github/agents/reviewer.agent.md': '---\nname: Reviewer\ndescription: Przegląd implementacji\ntools: [read, search]\nagents: [Evidence Researcher]\nhandoffs:\n  - label: Review evidence\n    agent: Evidence Researcher\n    prompt: Review the collected evidence and separate availability from actual use.\n    send: false\n---\nReview changes.',
+    'AGENTS.md': '# Zasady współpracy\nPrzed zmianą przeczytaj **instrukcje projektu** i zachowaj istniejące modyfikacje.\n\n- Sprawdź zakres zadania.\n- Uruchom właściwe testy.\n- Opisz wynik i ograniczenia.\n\n> Oddzielaj obserwacje od przypuszczeń.',
+    '.github/skills/review/SKILL.md': '---\nname: review\ndescription: Przegląd zmian i testów\ndisable-model-invocation: true\n---\n## Procedura przeglądu\n1. Przeczytaj zmiany oraz związane z nimi testy.\n2. Zapisz ustalenia z odniesieniem do plików.\n\nWeryfikacja lokalna:\n```sh\nnpm test -- --watch=false\n```',
+    '.github/agents/reviewer.agent.md': '---\nname: Reviewer\ndescription: Przegląd implementacji\ntools: [read, search]\nagents: [Evidence Researcher]\nhandoffs:\n  - label: Review evidence\n    agent: Evidence Researcher\n    prompt: Review the collected evidence and separate availability from actual use.\n    send: false\n---\n# Zakres przeglądu\nAnalizuj **zmienione pliki** oraz testy związane z zadaniem. Wskazuj konkretne problemy i ich skutki dla użytkownika.\n\n## Sposób pracy\n- Zacznij od `git diff` i instrukcji projektu.\n- Oddzielaj potwierdzone błędy od przypuszczeń.\n- Do ustaleń dodawaj ścieżki oraz odnośniki do odpowiednich miejsc.\n\nNie modyfikuj plików podczas przeglądu. Jeśli do oceny brakuje danych, zapisz pytanie i wskaż potrzebny materiał. Zakończ krótką listą ustaleń, wykonanych sprawdzeń oraz ograniczeń.\n\nDalsze instrukcje opisują przykłady raportowania i przypadki wymagające dodatkowej weryfikacji. END-OMITTED-PREVIEW',
     '.github/prompts/release.prompt.md': '---\nname: Release\ndescription: Przygotuj wydanie\nagent: reviewer\n---\nPrepare release.',
     '.vscode/mcp.json': '{"servers":{"local":{"command":"node","args":["server.js"],"env":{"API_KEY":"synthetic-secret-value"}}}}',
     '.vscode/settings.json': '{"github.copilot.enable":{"*":true},"chat.includeApplyingInstructions":true,"unknown":{"preserved":true}}',
@@ -193,7 +193,7 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
     '.aiignore': 'target/\n.env\n',
     '.noai': '',
     '.idea/workspace.xml': '<project><component name="Unrelated">unrelated-private-data</component><component name="GitHubCopilotSettings"><option name="apiKey" value="synthetic-secret-value"/></component></project>',
-    '.git/config': '[remote "origin"]\n url = https://user:synthetic-password@example.invalid/team/repo.git?token=synthetic-secret-value',
+    '.git/config': '[remote "origin"]\n url = https://user:synthetic-password@github.com/example/synthetic-repository.git?token=synthetic-secret-value',
     '.git/HEAD': 'ref: refs/heads/main\n',
     '.git/packed-refs': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/heads/main\n'
   };
@@ -205,7 +205,7 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   await page.waitForURL(/#\/repositories\/[a-f0-9-]+\/inputs\/[a-f0-9-]+$/);
   const inventory = page.getByRole('region', {name: 'Raport konfiguracji repozytorium'});
   await inventory.waitFor();
-  assert.match(await inventory.innerText(), /https:\/\/example.invalid\/team\/repo.git/);
+  assert.match(await inventory.innerText(), /https:\/\/github.com\/example\/synthetic-repository.git/);
   assert.doesNotMatch(await inventory.innerText(), /synthetic-password/);
   await page.locator('[data-report-mechanism="SKILLS"] > summary').click();
   await page.locator('[data-report-mechanism="SKILLS"] .report-entry > summary').click();

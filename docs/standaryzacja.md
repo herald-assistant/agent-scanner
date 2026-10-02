@@ -142,24 +142,59 @@ Stare migawki bez nowych pól nadal się otwierają; braków nie uzupełniamy do
 
 Przycisk **Pobierz raport PDF** tworzy dokument z tego samego modelu raportu,
 z pełnymi szczegółami także zwiniętych sekcji, klikalnym podsumowaniem,
-zakładkami i numeracją stron. Pierwsza strona podsumowuje osobno każdą kategorię
-mechanizmów i konfiguracji IDE, z ikonami oraz kolorami powtarzanymi w szczegółach.
-Cały obszar karty znalezionej kategorii prowadzi do jej szczegółów; zawartość kart
-jest wyśrodkowana w pionie. Nagłówek podaje datę wygenerowania raportu, a dane
+zakładkami i numeracją stron. PDF ma kompozycję wydawniczą: zieloną geometrię
+wektorową przy krawędziach, limonkowy akcent aplikacji i otwarte układy tekstowe.
+Pierwsza strona podsumowuje osobno każdą kategorię mechanizmów i konfiguracji IDE
+w dwukolumnowym indeksie z ikonami, bez wypełnionych kart. Cały obszar pozycji
+znalezionej kategorii prowadzi do szczegółów, również ikona i odstępy wokół tekstu.
+Sekcje szczegółów mają kolejną numerację, a pola prezentowane są jako etykiety
+i wartości bez siatki tabel; krótkie pola są zestawiane parami, dłuższe zajmują
+pełną szerokość i mogą przechodzić na kolejne strony. Nagłówek podaje datę
+wygenerowania raportu, a dane
 `ORIGIN`, `COMMIT` i `BRANCH` są prezentowane w kolejnych wierszach.
-Logo i nazwa Agent Scanner występują tylko na pierwszej stronie. Kolejne mają
+Logo i nazwa Agent Scanner są częścią kompozycji pierwszej strony. Kolejne mają
 dyskretny nagłówek po prawej: `RAPORT REPOZYTORIUM · nazwa repozytorium`.
 Stopka zawiera wyłącznie numerację stron; stałe marginesy oddzielają nagłówek
 i stopkę od treści, bez dodatkowej linii nad stopką.
-Kolory identyfikują kategorie, nie stanowią oceny jakości ani poziomu adopcji.
+Podział stron jest sprawdzany lokalnie przed eksportem. Kategoria zaczynająca się
+w dolnej części strony i przechodząca na następną zostaje przeniesiona na nową
+stronę; dłuższe sekcje mogą swobodnie przechodzić dalej. Strony kontynuacji mają
+dyskretne przypomnienie `nazwa kategorii · ciąg dalszy` nad treścią. Pozycje są
+odczytywane z układu PDF, a dodatkowy pomiar nie wykonuje żadnych żądań sieciowych.
+Zieleń buduje identyfikację raportu, nie stanowi oceny jakości ani poziomu adopcji.
 Raport na stronie i PDF nie eksponują ogólnych liczników plików; pominięcia pozostają
 przy źródłach. Nie ma osobnego bloku zakresu odczytu. Wartości tablic i obiektów
 są prezentowane jako zwarty JSON, z odstępami po przecinkach i dwukropkach;
 nie zmienia to źródła, treści łańcuchów ani precyzji liczb JSON.
-`pdfmake` oraz fonty Roboto z polskimi znakami
+`pdfmake` oraz fonty Roboto i Source Code Pro z polskimi znakami
 są pakowane w aplikacji i ładowane dopiero po kliknięciu. Generowanie nie wykonuje
 żądań API, nie używa CDN, usług AI ani serwera PDF; dane nie opuszczają przeglądarki.
-PDF zawiera opis konfiguracji i deklarowane metadane, nie pełne treści instrukcji.
+PDF pod metadanymi pokazuje początek zapisanej treści każdego pliku na stonowanym
+zielonym tle. Fragment ma do 500 widocznych znaków Unicode i 12 logicznych wierszy
+lub bloków. Skrót kończy się na pełnym zdaniu, punkcie listy lub linii kodu;
+nie pozostawia samotnego nagłówka ani początku następnego akapitu. Jeżeli już
+pierwsze zdanie lub linia przekracza limit, pozostaje fragment na granicy słowa.
+O skróceniu informuje etykieta `FRAGMENT TREŚCI · SKRÓCONO`, bez osobnego wiersza
+z wielokropkiem. Rozpoznany, poprawny frontmatter jest
+pomijany tylko w podglądzie, a źródło pozostaje bez zmian. Markdown zachowuje
+akapity, listy, pogrubienia, kursywę, cytaty i kod. Nagłówki źródła są mniejsze
+od nazwy pliku; kod używa lokalnie dołączonej czcionki monospace. Tabele mają
+zwartą prezentację tekstową, obrazy i HTML są pomijane z informacją w podglądzie.
+JSON, XML i pliki tekstowe zachowują treść oraz precyzję liczb. Dla kilku deklaracji
+MCP z jednego pliku fragment źródła występuje raz. Surowe deklaracje XML i wzorce
+`.aiignore` nie są powtarzane jako pola nad podglądem tej samej treści. Plik pusty
+lub zawierający tylko metadane otrzymuje krótką informację bez pustego bloku tła.
+
+Pod fragmentem znajduje się link **Szczegóły w repozytorium**, gdy adres `origin`
+wskazuje rozpoznany GitHub.com lub GitLab.com i znany jest commit lub branch.
+Obsługiwane są adresy HTTPS oraz Git/SSH; link HTTPS wskazuje najpierw commit,
+a przy jego braku znany branch. Ścieżki plików są kodowane jako segmenty URL.
+Dla innych hostingów lub brakujących metadanych pozostaje ścieżka bez zgadywanego
+linku. Generowanie nie sprawdza dostępności sieciowej pliku. Uwaga na pierwszej
+stronie wyjaśnia, że lokalne zmiany i nieopublikowane pliki mogą być niedostępne
+pod adresem repozytorium. Budowa odnośnika opiera się na formacie
+[permalinków GitHub](https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files)
+i [odnośników GitLab](https://docs.gitlab.com/user/project/repository/files/#create-permalinks).
 Podgląd pełnego źródła pozostaje dostępny na stronie. Rozpoznane sekrety są
 maskowane przed zapisem, w raporcie i eksporcie. Nie ma osobnego eksportu HTML.
 

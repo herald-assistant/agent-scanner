@@ -19,6 +19,11 @@
             "assets": [
               "src/favicon.svg",
               {
+                "glob": "LICENSE-SourceCodePro.txt",
+                "input": "src/app/core/fonts",
+                "output": "assets/licenses"
+              },
+              {
                 "glob": "techniques-v1.json",
                 "input": "src/generated-assets/optimization",
                 "output": "assets/optimization"
