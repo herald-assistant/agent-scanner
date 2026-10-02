@@ -30,7 +30,7 @@ późniejszymi etapami; nie blokują dostarczenia demo.
 | Telemetria | Import pliku Copilot OTel JSONL i wybór jednej lub kilku rozmów | Import JSONL oraz odbiornik OTLP w Spring Boot |
 | Silnik interpretacji | Wspólny `scanner-core` w Web Workerze | Ten sam `scanner-core` przez GraalJS osadzony w JVM |
 | Przechowywanie | IndexedDB w przeglądarce; pamięć dla podglądu i obliczeń | Baza danych na infrastrukturze klienta, obsługiwana przez Spring |
-| Repozytorium | Import wybranych konfiguracji i kontrole deterministyczne | Te same kontrole oraz jawna ocena AI |
+| Repozytorium | Rozszerzenie po pierwszym demo: import wybranych konfiguracji i kontrole deterministyczne | Te same kontrole oraz jawna ocena AI |
 | AI | Niedostępne | Usługi Spring i narzędzia MCP odczytujące dane klienta |
 | Dostarczenie | Build Angular do publikacji na GitHub Pages | Obraz kontenerowy lub kod źródłowy z procesem budowania |
 
@@ -227,6 +227,9 @@ Przy zewnętrznym modelu treść zwracana przez narzędzia trafia do jego dostaw
 lokalna baza sama w sobie nie oznacza lokalnej inferencji.
 
 ## Migracja i warunki wdrożenia
+
+Etapy 1–4 są wdrożone w demo. Etapy 5–7 pozostają pracą nad pełną instalacją;
+szczegółowy odbiór demo dokumentuje [plan realizacji](plan-demo.md).
 
 1. Oddzielić operacje odczytu i importu od transportu HTTP w UI. Zachować adapter
    obecnego API i przygotować kontrakty dla lokalnego adaptera demo.

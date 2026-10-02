@@ -115,6 +115,7 @@ test('static startup, onboarding, unsupported features and idle time never call 
   await fullVersion(page,()=>page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click());
   for (const route of ['repositories/new','repositories/example/analyses/example','standardization']) {
     await fullVersion(page,()=>page.goto(url+'#/'+route));
+    await page.waitForURL(/#\/$/);
     assert.equal(new URL(page.url()).hash,'#/');
   }
   await page.waitForTimeout(2500);
@@ -168,6 +169,7 @@ test('one main conversation, persisted scope, every local tab, panels, export an
   assert.match(page.url(),/\/technical$/);
   const sessionId=new URL(page.url()).hash.split('/')[2];
   await fullVersion(page,()=>page.goto(url+`#/sessions/${sessionId}/ai-hub`));
+  await page.waitForURL(/\/overview$/);
   assert.match(page.url(),/\/overview$/);
   await page.getByRole('button',{name:'Techniki optymalizacji',exact:true}).click();
   const guide=page.getByRole('dialog'); await guide.waitFor();

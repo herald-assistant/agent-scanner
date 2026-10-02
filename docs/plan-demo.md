@@ -1,6 +1,6 @@
 # Plan realizacji demo na GitHub Pages
 
-Status: E0–E6 wdrożone i odebrane lokalnie. Artefakt, workflow i testy E7–E8 gotowe; publikacja i odbiór URL są ostatnim krokiem wydania.
+Status: E0–E8 wdrożone i odebrane. Demo opublikowane na GitHub Pages i sprawdzone testami przeglądarkowymi na publicznym adresie.
 
 [Dokumentacja](README.md) · [Architektura docelowa](architektura-docelowa.md)
 
@@ -343,7 +343,7 @@ własny stan UI. Ogląd desktopowy i wąski potwierdza modal, import oraz panele
 - [x] Oddzielić walidację zmian/PR od publikacji; PR przechodzi testy i build,
   publikacja działa dla uzgodnionej gałęzi wydania i ręcznego uruchomienia.
   Ustalić rzeczywisty URL i gałąź na podstawie repozytorium, bez zgadywania ownera.
-- [ ] Workflow pakuje wyłącznie wyjście Angular. Fixture'y testowe, lokalne pliki
+- [x] Workflow pakuje wyłącznie wyjście Angular. Fixture'y testowe, lokalne pliki
   telemetryczne, baza oraz sekrety nie trafiają do publikowanego artefaktu.
   Włączyć GitHub Pages ze źródłem GitHub Actions w ustawieniach repozytorium.
 
@@ -376,7 +376,7 @@ pozostają przypisane do originu; publikacja nowego buildu nie czyści IndexedDB
   telemetrię dla uzasadnionej zmiany reguł, konfigurację dla trybów, poradnik
   dla importu/IndexedDB i rozwój dla nowych komend testowych. Status architektury
   docelowej powinien wskazywać, które elementy zostały wdrożone.
-- [ ] Zweryfikować opublikowany URL, działanie po odświeżeniu i informacje
+- [x] Zweryfikować opublikowany URL, działanie po odświeżeniu i informacje
   o prywatności. Zamknąć checklistę wydania dopiero po tym sprawdzeniu.
 
 | Scenariusz | Oczekiwany dowód |
@@ -423,8 +423,15 @@ utrzymywania w dokumentacji chwilowych liczników testów czy rozmiarów bundla.
 - [x] E4 — kompletny import z wielokrotnym wyborem i pierwszy widok po reload.
 - [x] E5 — wszystkie lokalne zakładki, poradnik, eksport i usuwanie.
 - [x] E6 — kompletna dostępność funkcji oraz onboarding plikowy.
-- [ ] E7 — artefakt i workflow GitHub Pages.
-- [ ] E8 — odbiór przeglądarkowy, dokumentacja i sprawdzony URL demo.
+- [x] E7 — artefakt i workflow GitHub Pages.
+- [x] E8 — odbiór przeglądarkowy, dokumentacja i sprawdzony URL demo.
+
+[Demo na GitHub Pages](https://herald-assistant.github.io/agent-scanner/) zostało
+odebrane po [pomyślnym wdrożeniu](https://github.com/herald-assistant/agent-scanner/actions/runs/36950384170).
+Ten sam scenariusz [testów przeglądarkowych](../frontend/e2e/demo.test.mjs)
+potwierdził na publicznym adresie import, trwałość danych po odświeżeniu,
+lokalne zakładki i brak wywołań backendu. Workflow publikuje wyłącznie sprawdzony
+artefakt Angular; dane testowe i dane użytkownika nie są częścią publikacji.
 
 Po wydaniu demo kolejny plan obejmie dobór wersji Java/Spring/GraalJS, prototyp
 uruchomienia tego samego rdzenia w JVM, adapter bazy klienta i OTLP oraz odczytowe
