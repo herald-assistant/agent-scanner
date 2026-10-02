@@ -51,7 +51,9 @@
           </section>
         }
         @if (activeTab === 'technical') {
-          <as-technical-view [detail]="detail" [status]="status" />
+          @if (technicalDetail(); as technical) {
+            <as-technical-view [detail]="technical" [status]="status" />
+          }
         }
         @if (activeTab === 'workflow') {
           @if (workflowState(); as workflow) {

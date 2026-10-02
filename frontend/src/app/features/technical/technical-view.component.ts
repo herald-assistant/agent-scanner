@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, computed, inject, input, signal} fro
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {FeatureAvailability} from '../../core/feature-availability.service';
+import {parseLosslessJson} from '../../../scanner-core/lossless-json';
 import {ScannerStatus, SessionDetail, SpanRecord, TechnicalMode} from '../../models/scanner.models';
 
 @Component({
@@ -62,6 +63,8 @@ export class TechnicalViewComponent {
 
   pretty(json?: string): string {
     if (!json) return '—';
-    try { return JSON.stringify(JSON.parse(json), null, 2); } catch { return json; }
+    // JSON.stringify rejects BigInt: retain the exact original when pretty printing
+    // would round an integer outside JavaScript's safe range.
+    try { return JSON.stringify(parseLosslessJson(json), null, 2); } catch { return json; }
   }
 }

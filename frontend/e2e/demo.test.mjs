@@ -18,7 +18,13 @@ before(async () => {
   const index = await readFile(resolve(root, 'index.html'), 'utf8');
   basePath = index.match(/<base href="([^"]+)"/)[1];
   assert.ok(basePath.startsWith('/') && basePath.endsWith('/'));
-  server = createServer(async (request, response) => {
+  if (process.env.DEMO_URL) {
+    const published=new URL(process.env.DEMO_URL);
+    assert.equal(published.protocol,'https:');
+    assert.equal(published.pathname,basePath);
+    url=published.href;
+  } else {
+    server = createServer(async (request, response) => {
     try {
       const path = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
       if (!['GET','HEAD'].includes(request.method) || !path.startsWith(basePath)) throw Error('unavailable');
@@ -27,13 +33,14 @@ before(async () => {
       response.writeHead(200, {'Content-Type': types[extname(file)] || 'application/octet-stream'});
       response.end(request.method === 'HEAD' ? undefined : await readFile(file));
     } catch { response.writeHead(404); response.end(); }
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  url = `http://127.0.0.1:${server.address().port}${basePath}`;
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    url = `http://127.0.0.1:${server.address().port}${basePath}`;
+  }
   browser = await chromium.launch({headless: true});
   await mkdir(report, {recursive:true});
 });
-after(async () => {await browser?.close(); await new Promise(resolve => server?.close(resolve));});
+after(async () => {await browser?.close(); if(server) await new Promise(resolve => server.close(resolve));});
 
 async function run(action, {init, viewport = {width:1440,height:1000}} = {}) {
   const context = await browser.newContext({viewport, reducedMotion:'reduce'});
@@ -114,7 +121,10 @@ test('static startup, onboarding, unsupported features and idle time never call 
 }));
 
 test('one main conversation, persisted scope, every local tab, panels, export and catalogue', async () => run(async page => {
-  const dialog=await preview(page);
+  const sourceText=await readFile(resolve(fixtures,'copilot-file-detached-v1.jsonl'),'utf8');
+  const exactInteger=sourceText.replace('"preserved":true','"preserved":true,"large":9007199254740993');
+  assert.ok(exactInteger.includes('9007199254740993'));
+  const dialog=await preview(page,'copilot-file-detached-v1.jsonl',Buffer.from(exactInteger));
   assert.equal(await dialog.getByRole('checkbox').count(),1);
   assert.match(await dialog.innerText(),/rundy głównego agenta: 2/);
   assert.match(await dialog.innerText(),/rundy subagentów: 2/);
@@ -147,6 +157,13 @@ test('one main conversation, persisted scope, every local tab, panels, export an
   await page.getByRole('button',{name:'Dane techniczne',exact:true}).click();
   await page.locator('as-technical-view').waitFor();
   assert.match(await page.locator('as-technical-view').innerText(),/Spany/);
+  assert.equal(await page.locator('as-technical-view .span-row').count(),10);
+  await page.getByRole('button',{name:/chat title/}).click();
+  await page.locator('.technical-inspector h3').filter({hasText:'chat title'}).waitFor();
+  assert.match(await page.locator('.technical-payload pre').innerText(),/9007199254740993/);
+  await page.getByRole('button',{name:/^Surowe payloady OTLP/}).click();
+  await page.locator('as-technical-view .signal-row').first().waitFor();
+  assert.equal(await page.locator('as-technical-view .signal-row').count(),3);
   await fullVersion(page,()=>page.getByRole('button',{name:'AI Hub',exact:true}).click());
   assert.match(page.url(),/\/technical$/);
   const sessionId=new URL(page.url()).hash.split('/')[2];
@@ -306,7 +323,7 @@ test('v1 migration preserves previous records and assigns noncolliding IDs', asy
   assert.equal(await page.locator('.session-list .session-card').count(),2);
 }, {init: () => {
   // Open v1 before Angular's first transaction. This synthetic schema has no query indexes.
-  if (location.protocol !== 'http:') return;
+  if (!/^https?:$/.test(location.protocol)) return;
   const request=indexedDB.open('agent-scanner-demo',1);
   request.onupgradeneeded=()=>{
     const db=request.result;
@@ -324,7 +341,7 @@ test('blocked schema upgrade asks to close another tab and can be retried withou
   await page.waitForTimeout(200);
   await importFile(page);assert.equal((await counts(page)).spans,10);
 },{init:()=>{
-  if (location.protocol !== 'http:') return;
+  if (!/^https?:$/.test(location.protocol)) return;
   const request=indexedDB.open('agent-scanner-demo',1);
   request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('metadata',{keyPath:'key'});};
   request.onsuccess=()=>{globalThis.syntheticBlockingDb=request.result;};

@@ -77,6 +77,9 @@ artefaktu, bez Spring i atrap API. Rejestruje sieć, blokuje wysyłkę oraz każ
 `/api` i `/v1`, sprawdza rzeczywiste IndexedDB, Workera, multi import, rollback,
 konflikt między kartami, migrację, anulowanie, lokalne widoki, eksport i usuwanie.
 Ten sam test odczytuje base href z buildu i działa w root oraz podkatalogu.
+Ustawienie `DEMO_URL` na adres HTTPS opublikowanego demo uruchamia ten sam odbiór
+na hostingu zamiast lokalnego serwera; dane testowe nadal pozostają w izolowanym
+kontekście przeglądarki.
 Screeny i syntetyczne pliki robocze zapisują się w ignorowanym `frontend/test-results`.
 Nie zawierają pliku użytkownika. Wspólne JSONL i oczekiwania normalizacji pozostają
 w `src/test/resources/fixtures`; skrypt pretest generuje ignorowany moduł TypeScript.

@@ -74,6 +74,17 @@ export class SessionPageComponent {
   private readonly router = inject(Router);
   private readonly detailState = signal<SessionDetail | undefined>(undefined);
   private readonly relatedDetailsState = signal<SessionDetail[]>([]);
+  readonly technicalDetail = computed(() => {
+    const source = this.detailState();
+    if (!source || !this.features.demo) return source;
+    const scope = [source, ...this.relatedDetailsState()];
+    return {...source,
+      session: {...source.session, contentCaptured: scope.some(item => item.session.contentCaptured)},
+      spans: this.analysis.withDepth(scope.flatMap(item => item.spans)),
+      messages: scope.flatMap(item => item.messages),
+      signals: scope.flatMap(item => item.signals)
+    };
+  });
   private readonly serverViewState = signal<SessionView | undefined>(undefined);
   private readonly workflowSourcesState = signal<SessionDetail[]>([]);
   private readonly workflowSourcesLoadedState = signal(false);

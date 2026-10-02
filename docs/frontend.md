@@ -75,6 +75,9 @@ backdrop i Anuluj zwalniają podgląd bez zapisu. Długi odczyt można przerwać
 kolejny import; sukces następuje dopiero po zatwierdzeniu całej transakcji.
 Otwiera się Podsumowanie pierwszej wybranej rozmowy według kolejności podglądu.
 Pozostałe lokalne zakładki i wspólne panele działają po odświeżeniu strony.
+W Danych technicznych demo dostępny jest cały wybrany scope: rozmowa, subagenci
+i potwierdzone dane pomocnicze. Podgląd raw zachowuje duże liczby; gdy formatowanie
+wcięć wymagałoby ich zaokrąglenia, pokazuje oryginalny JSON.
 
 `FeatureAvailability` otwiera jeden modal Material „Dostępne w pełnej wersji”
 z treścią „Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz

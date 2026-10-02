@@ -5,6 +5,7 @@ import {MessageRecord, ModelTurn, SpanRecord} from '../../models/scanner.models'
 
 import {capturedMessages, modelResponse} from '../../core/model-response';
 import {TelemetryReader} from '../../core/workflow/telemetry';
+import {parseLosslessJson} from '../../../scanner-core/lossless-json';
 
 interface RequestParameter { label: string; value: string; }
 interface ResponseToolCall { id: string; name: string; arguments: string; }
@@ -271,7 +272,7 @@ export class RoundDetailsDialogComponent {
   percent(value: number): string { return this.percentFormat.format(value); }
   duration(value?: number): string { if (value == null) return '—'; return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)} s` : `${Math.round(value)} ms`; }
   excerpt(value: string, size = 4000): string { const normalized = value.replace(/\s+/g, ' ').trim(); return normalized.length > size ? normalized.slice(0, size).trimEnd() + '…' : normalized; }
-  pretty(json?: string): string { if (!json) return '—'; try { return JSON.stringify(JSON.parse(json), null, 2); } catch { return json; } }
+  pretty(json?: string): string { if (!json) return '—'; try { return JSON.stringify(parseLosslessJson(json), null, 2); } catch { return json; } }
 
   private capturedChars(span: SpanRecord): number {
     const messages = this.messages().filter(message => message.spanId === span.id);
