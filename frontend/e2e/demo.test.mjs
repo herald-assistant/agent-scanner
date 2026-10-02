@@ -109,9 +109,9 @@ async function fullVersion(page, trigger) {
 
 test('static startup, onboarding, unsupported features and idle time never call the backend', async () => run(async page => {
   assert.match(await page.locator('.onboarding-code').innerText(), /"github.copilot.chat.otel.exporterType": "file"/);
+  assert.equal(await page.locator('as-topbar .top-actions').count(),0);
+  assert.equal(await page.locator('as-topbar button').count(),1);
   await page.screenshot({path:resolve(report,'demo-home-desktop.png'),fullPage:true});
-  await fullVersion(page,()=>page.getByRole('button',{name:'Pauza',exact:true}).click());
-  await fullVersion(page,()=>page.getByRole('button',{name:'Konfiguracja połączenia',exact:true}).click());
   await fullVersion(page,()=>page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click());
   for (const route of ['repositories/new','repositories/example/analyses/example','standardization']) {
     await fullVersion(page,()=>page.goto(url+'#/'+route));
@@ -121,7 +121,7 @@ test('static startup, onboarding, unsupported features and idle time never call 
   await page.waitForTimeout(2500);
 }));
 
-test('one main conversation, persisted scope, every local tab, panels, export and catalogue', async () => run(async page => {
+test('one main conversation, persisted scope, every local tab, panels and export', async () => run(async page => {
   const sourceText=await readFile(resolve(fixtures,'copilot-file-detached-v1.jsonl'),'utf8');
   const exactInteger=sourceText.replace('"preserved":true','"preserved":true,"large":9007199254740993');
   assert.ok(exactInteger.includes('9007199254740993'));
@@ -171,11 +171,6 @@ test('one main conversation, persisted scope, every local tab, panels, export an
   await fullVersion(page,()=>page.goto(url+`#/sessions/${sessionId}/ai-hub`));
   await page.waitForURL(/\/overview$/);
   assert.match(page.url(),/\/overview$/);
-  await page.getByRole('button',{name:'Techniki optymalizacji',exact:true}).click();
-  const guide=page.getByRole('dialog'); await guide.waitFor();
-  await page.locator('as-optimization-guidance').waitFor();
-  await page.locator('.technique-list button').first().waitFor();
-  await page.keyboard.press('Escape'); await guide.waitFor({state:'hidden'});
   const downloadPromise=page.waitForEvent('download');
   await page.getByRole('button',{name:'Eksportuj sesję do JSON',exact:true}).click();
   const download=await downloadPromise, exported=JSON.parse(await readFile(await download.path(),'utf8'));

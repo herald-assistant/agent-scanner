@@ -65,8 +65,10 @@ zostać usunięte przez przeglądarkę. Eksportuj potrzebny materiał jako kopi�
 Eksport JSON Scanner zawiera sesję i jej powiązane dane; nie można go wczytać
 wejściem Copilot JSONL. Usuwanie sesji i całej bazy wymaga potwierdzenia.
 
-Podsumowanie, Koszt i przebieg, Mapa pracy, Dane techniczne i katalog technik
-działają lokalnie. Wejścia do AI, Standaryzacji i odbiornika pokazują modal
+Podsumowanie, Koszt i przebieg, Mapa pracy i Dane techniczne działają lokalnie.
+Górny pasek demo zawiera nazwę aplikacji i przycisk panelu sesji; nie pokazuje
+statusu, poradnika technik, konfiguracji ani pauzy. Wejścia do AI i Standaryzacji
+pokazują modal
 „Dostępne w pełnej wersji”. Brak pomiaru lub przechwyconej treści jest pokazany
 jako brak danych. Instrukcje budowania są w [konfiguracji](konfiguracja.md#statyczne-demo).
 
@@ -123,7 +125,8 @@ nazwę i kanoniczne argumenty w całej sesji. Modal pokazuje argumenty, rundy i 
 wyników. Powtórzenie jest powodem do sprawdzenia przebiegu, nie dowodem zbędnej pracy.
 [Dokładne reguły zestawienia](frontend.md#narzędzia).
 
-Przycisk **Techniki optymalizacji** w górnym pasku otwiera lokalny katalog T01–T16.
+Przycisk **Techniki optymalizacji** w górnym pasku pełnej wersji otwiera lokalny
+katalog T01–T16.
 Nie wymaga sesji ani konfiguracji AI. Można filtrować techniki, czytać przykłady
 i skopiować plan próby. Katalog przedstawia warunki, nakład, utrzymanie i kontrolę
 jakości, nie obiecuje oszczędności. **Poznaj techniki** w AI Hub otwiera ten sam

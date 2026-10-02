@@ -64,8 +64,10 @@ Właścicieli analiz `core`, routingu i ładowania opisuje [architektura](archit
 ## Tryb demo
 
 Build `demo` wybiera lokalny gateway, IndexedDB i routing hash. Strona startowa
-pokazuje konfigurację eksportera `file`; status opisuje lokalny zapis. Demo nie
-odczytuje `/api` ani `/v1`, historii Standaryzacji, cache AI ani katalogu modeli.
+pokazuje konfigurację eksportera `file`. Topbar zawiera markę i przycisk panelu
+sesji; cała grupa `top-actions` (status, poradnik technik, konfiguracja i pauza)
+nie jest renderowana w demo. Demo nie odczytuje `/api` ani `/v1`, historii
+Standaryzacji, cache AI ani katalogu modeli.
 Nie pokazuje globalnych liczników logów/metryk ani retencji jako lokalnych pomiarów.
 
 Modal importu wymaga jawnego wyboru checkboxami i pokazuje osobno rundy główne,
@@ -91,7 +93,8 @@ Eksport pobiera `agent-scanner-session` v1 z zakresem głównym i `relatedDetail
 object URL zostaje zwolniony. To kopia materiału źródłowego, nie wejście importu
 JSONL. Usunięcie sesji lub całości wymaga potwierdzenia i obejmuje lokalny raw.
 Poradnik pobiera statyczny katalog z jednego źródła backendowego, kopiowanego
-w przygotowaniu buildu. Nie inicjuje doradztwa AI.
+w przygotowaniu buildu. Nie inicjuje doradztwa AI. Wejście do poradnika w topbarze
+jest dostępne w pełnej wersji.
 
 ## Material, język i dostępność
 
@@ -240,8 +243,8 @@ ma własną skalę pionową i wartości przy pomiarach.
 
 ## Poradnik i AI Hub
 
-Katalog `techniques-v1` zawiera T01–T16. Jest dostępny z topbara bez sesji
-i konfiguracji AI; otwieranie, filtrowanie i kopiowanie planu próby są lokalne.
+Katalog `techniques-v1` zawiera T01–T16. Jest dostępny z topbara pełnej wersji
+bez sesji i konfiguracji AI; otwieranie, filtrowanie i kopiowanie planu próby są lokalne.
 Treść redakcyjna pozostaje w zasobie JSON, nie w template. Technika zaczyna od
 konkretnego problemu, spodziewanego obserwowalnego rezultatu i metody sprawdzenia
 przed/po. Praktyczny przykład, warunki, nakład, utrzymanie i jakość są częścią
