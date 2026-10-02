@@ -1,0 +1,4 @@
+:host { display: block; min-width: 0; }
+mat-form-field { width: 100%; margin-top: var(--space-5); }
+p { color: var(--color-text-secondary); line-height: var(--leading-relaxed); }
+.loading { display: flex; align-items: center; gap: var(--space-4); }

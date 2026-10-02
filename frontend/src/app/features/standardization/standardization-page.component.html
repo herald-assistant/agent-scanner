@@ -2,12 +2,12 @@
   <header class="analysis-title">
     <div><span class="ui-eyebrow">REPOZYTORIA</span><h1>{{ title() }}</h1></div>
     <div class="analysis-actions">
-      @if (savedAnalysis()) {
-        <button class="icon-button ui-icon-button" type="button" matTooltip="Eksportuj analizę do JSON"
-          matTooltipClass="scanner-info-tooltip" aria-label="Eksportuj analizę do JSON" [disabled]="deleting()"
+      @if (savedAnalysis() || state.snapshot()) {
+        <button class="icon-button ui-icon-button" type="button" [matTooltip]="savedAnalysis() ? 'Eksportuj analizę do JSON' : 'Eksportuj pliki repozytorium do JSON'"
+          matTooltipClass="scanner-info-tooltip" [attr.aria-label]="savedAnalysis() ? 'Eksportuj analizę do JSON' : 'Eksportuj pliki repozytorium do JSON'" [disabled]="deleting() || state.busy()"
           (click)="exportAnalysis()"><mat-icon aria-hidden="true">download</mat-icon></button>
-        <button class="icon-button danger ui-icon-button ui-button--danger" type="button" matTooltip="Usuń analizę"
-          matTooltipClass="scanner-info-tooltip" aria-label="Usuń analizę" [disabled]="deleting()"
+        <button class="icon-button danger ui-icon-button ui-button--danger" type="button" [matTooltip]="savedAnalysis() ? 'Usuń analizę' : 'Usuń pliki repozytorium'"
+          matTooltipClass="scanner-info-tooltip" [attr.aria-label]="savedAnalysis() ? 'Usuń analizę' : 'Usuń pliki repozytorium'" [disabled]="deleting() || state.busy()"
           (click)="deleteAnalysis()"><mat-icon aria-hidden="true">delete</mat-icon></button>
       }
       <button class="icon-button ui-icon-button" type="button" matTooltip="Zamknij analizę"

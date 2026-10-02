@@ -57,8 +57,10 @@ OTLP pozostają wejściami do modalu. Demo nie inicjuje historii AI, odczytu mod
 ani pollingu odbiornika. W komunikatach nie wspominamy o opłatach. Brak treści
 lub pomiaru w pliku jest stanem danych, a nie blokadą funkcji.
 
-Lokalny przegląd konfiguracji folderu repozytorium jest osobnym rozszerzeniem
-po pierwszym wydaniu telemetrii. Integracja GraalJS, aktualizacja Java/Spring,
+Lokalny przegląd konfiguracji folderu repozytorium jest wdrożonym rozszerzeniem
+po pierwszym wydaniu telemetrii: zapisuje wejście w IndexedDB i blokuje wyłącznie
+uruchomienie AI. Pełna wersja zapisuje wejście w H2 przed wyborem modelu.
+Szczegóły utrzymuje [Standaryzacja](standaryzacja.md). Integracja GraalJS, aktualizacja Java/Spring,
 baza klienta, MCP i dostarczenie instalacji klienta należą do etapu backendowego.
 Backend pełnej wersji pozostaje w Spring Boot.
 
@@ -140,7 +142,8 @@ Poniższe nazwy są proponowanymi elementami implementacji. Wydzielić kontrakt
 | Eksport | Dane do pobrania jako plik w przeglądarce | Dane lub pobranie obsługiwane przez adapter HTTP |
 | Usuwanie | Transakcja IndexedDB | Obecny REST |
 | Katalog technik | Zasób buildu | Obecny transport do tego samego źródła treści |
-| Status odbiornika, AI, Standaryzacja | Kontrola dostępności przed uruchomieniem | Osobne usługi backendowe |
+| Podgląd repozytorium | IndexedDB i lokalna lista wejść | Zapis wejścia w H2 |
+| Status odbiornika i AI | Kontrola dostępności przed uruchomieniem AI | Osobne usługi backendowe |
 
 - [x] Przenieść zależność komponentów od transportu na kontrakt operacji.
   DTO wspólne pozostają typowane; status lokalnego magazynu nie udaje statusu
@@ -152,7 +155,7 @@ Poniższe nazwy są proponowanymi elementami implementacji. Wydzielić kontrakt
   sekwencji pojedynczych zapisów HTTP przedstawianej jako transakcja.
 - [x] Wprowadzić typowane błędy operacji, np. błędny plik, konflikt, brak miejsca,
   niedostępny magazyn, niezgodny schemat i anulowanie. Tekst po polsku należy do UI.
-- [x] Już teraz wyłączyć w demo start pollingu, odczyt historii Standaryzacji,
+- [x] Już teraz wyłączyć w demo start pollingu, odczyt backendowej historii Standaryzacji,
   inicjalizację AI i backendowe fallbacki ładowania. Niedostępne funkcje blokować
   przed utworzeniem komponentów uruchamiających te efekty.
 - [x] Dodać konfigurację uruchomienia demo bez proxy i stronę startową niewymagającą
@@ -297,14 +300,14 @@ narusza danych pozostałych sesji. Brak metryki nadal różni się od wyemitowan
 
 - [x] Utrzymywać jedną macierz możliwości i wspólny modal Material. Tytuł:
   „Dostępne w pełnej wersji”. Treść: „Ta funkcja jest dostępna w pełnej wersji
-  Agent Scanner. W demo możesz importować i przeglądać sesje lokalnie.”
+  Agent Scanner. W demo możesz importować sesje i przeglądać pliki repozytoriów lokalnie.”
 - [x] Objąć kontrolą zakładkę AI Hub, przyciski rozmowy/klasyfikacji/doradztwa,
-  dodawanie repozytorium, zapisane trasy Standaryzacji, ustawienia odbiornika
+  uruchomienie AI dla repozytorium, ustawienia odbiornika
   oraz pauzę. Sprawdzić również wejścia z paneli rund, mapy i poradnika.
 - [x] Chronić bezpośrednie trasy przed montowaniem backendowych komponentów.
   Kliknięcie AI Hub pozostawia aktualny lokalny widok i otwiera modal; bezpośredni
-  URL niedostępnej zakładki wraca do podsumowania sesji, a trasy repozytoriów
-  do strony startowej. Modal pojawia się raz dla danej nawigacji.
+  URL niedostępnej zakładki wraca do podsumowania sesji. Trasy repozytoriów otwierają
+  lokalne wejście bez żądań do backendu; modal pojawia się po kliknięciu uruchomienia AI.
 - [x] W topbarze pokazać status lokalnego zapisu/importu zamiast statusu odbiornika.
   Nie ustawiać fikcyjnych liczników logów/metryk ani retencji serwerowej.
 - [x] Na stronie startowej umieścić konfigurację eksportera plikowego, kroki
@@ -392,7 +395,8 @@ pozostają przypisane do originu; publikacja nowego buildu nie czyści IndexedDB
 | Reload i bezpośredni URL lokalnej zakładki | Odczyt IndexedDB i poprawny widok z trasy hash. |
 | Brak pomiaru/treści versus wyemitowane zero | Jawne braki, brak fałszywych metryk i brak modalu dostępności. |
 | Koszty, mapa i panele | Zgodne relacje i sumy, brak podwójnego liczenia poddrzew. |
-| AI/OTLP/Standaryzacja przez przycisk i URL | Jeden modal, brak utworzenia backendowego komponentu i żądań. |
+| AI/OTLP przez przycisk i URL | Jeden modal, brak utworzenia backendowego komponentu i żądań. |
+| Podgląd repozytorium i uruchomienie AI | Trwałe lokalne wejście i zaznaczenia; modal dopiero dla AI, bez żądań do backendu. |
 | Eksport i usunięcie jednej/całości | Właściwy zakres dowodu, pozostałe sesje działają, usunięte dane nie wracają po reload. |
 | Publikacja w podkatalogu | Działają zasoby, Worker, lazy loading, poradnik i odświeżenie widoku. |
 

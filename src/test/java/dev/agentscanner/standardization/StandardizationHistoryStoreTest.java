@@ -13,6 +13,62 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StandardizationHistoryStoreTest {
     @Test
+    void persistsInputBeforeAiAndKeepsTheLinkedInputImmutableAndOwnedByItsRepository() {
+        var database = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2).addScript("schema.sql").build();
+        try {
+            var jdbc = new JdbcTemplate(database);
+            var store = new StandardizationHistoryStore(jdbc, new ObjectMapper());
+            var snapshot = store.saveSnapshot(new SnapshotRequest(null, null, "synthetic-project", true, false,
+                    List.of(new SnapshotInputFile("AGENTS.md", "token=synthetic-secret-value", true, null),
+                            new SnapshotInputFile(".github/copilot-instructions.md", "Excluded instructions", false, null))));
+            assertEquals("token=[UKRYTO]", snapshot.files().get(0).content());
+            assertTrue(snapshot.files().get(0).redacted());
+            assertFalse(snapshot.files().get(1).selected());
+            assertEquals(snapshot, new StandardizationHistoryStore(jdbc, new ObjectMapper()).snapshot(snapshot.repositoryId(), snapshot.id()));
+            assertTrue(store.repositories().get(0).analyses().isEmpty());
+            assertEquals(snapshot.id(), store.repositories().get(0).snapshots().get(0).id());
+
+            String analysisId = "11111111-1111-4111-8111-111111111111";
+            store.attachInput(snapshot, analysisId);
+            var edited = store.saveSnapshot(new SnapshotRequest(snapshot.id(), snapshot.repositoryId(), "synthetic-project",
+                    true, false, List.of(new SnapshotInputFile("AGENTS.md", "Changed input", true, null))));
+            assertNotEquals(snapshot.id(), edited.id());
+            assertEquals(snapshot, store.snapshot(snapshot.repositoryId(), snapshot.id()));
+            assertThrows(IllegalArgumentException.class, () -> store.validateInputRepository(analysisId, "other-repository"));
+            store.validateInputRepository(analysisId, snapshot.repositoryId());
+            var saved = store.saveWithInput(preview(analysisId), result(analysisId), snapshot.repositoryId(), null, snapshot.id());
+            assertEquals(snapshot.repositoryId(), saved.repositoryId());
+            assertEquals(snapshot.id(), saved.snapshotId());
+            assertEquals(snapshot.id(), store.get(saved.repositoryId(), saved.analysisId()).snapshotId());
+            assertEquals(List.of(edited.id()), store.repositories().get(0).snapshots().stream().map(SnapshotSummary::id).toList());
+            assertThrows(IllegalArgumentException.class, () -> store.deleteSnapshot(snapshot.repositoryId(), snapshot.id()));
+            assertTrue(store.deleteAnalysis(snapshot.repositoryId(), analysisId));
+            assertEquals(edited, store.snapshot(snapshot.repositoryId(), edited.id()));
+            assertTrue(store.deleteSnapshot(snapshot.repositoryId(), edited.id()));
+            assertFalse(store.hasRepository(snapshot.repositoryId()));
+            assertThrows(IllegalArgumentException.class, () -> store.saveWithInput(preview(analysisId), result(analysisId),
+                    snapshot.repositoryId(), null, snapshot.id()));
+        } finally { database.shutdown(); }
+    }
+
+    @Test
+    void rejectsInvalidInputAndDetectsChangesBeforeFreezingTheSnapshot() {
+        var database = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2).addScript("schema.sql").build();
+        try {
+            var store = new StandardizationHistoryStore(new JdbcTemplate(database), new ObjectMapper());
+            assertThrows(IllegalArgumentException.class, () -> store.saveSnapshot(new SnapshotRequest(null, null,
+                    "synthetic-project", true, true, List.of(new SnapshotInputFile("package.json", "{}", true, null)))));
+            assertTrue(store.repositories().isEmpty());
+            var snapshot = store.saveSnapshot(new SnapshotRequest(null, null, "synthetic-project", false, true,
+                    List.of(new SnapshotInputFile("AGENTS.md", "Original input", true, null))));
+            var updated = store.saveSnapshot(new SnapshotRequest(snapshot.id(), snapshot.repositoryId(), "synthetic-project", false, true,
+                    List.of(new SnapshotInputFile("AGENTS.md", "New input", false, null))));
+            assertThrows(IllegalArgumentException.class, () -> store.attachInput(snapshot, "11111111-1111-4111-8111-111111111111"));
+            assertEquals(updated, store.snapshot(snapshot.repositoryId(), snapshot.id()));
+        } finally { database.shutdown(); }
+    }
+
+    @Test
     void savesMultipleAnalysesForOneRepositoryAndReopensTheirEvidenceWithoutInference() {
         var database = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2).addScript("schema.sql").build();
         try {

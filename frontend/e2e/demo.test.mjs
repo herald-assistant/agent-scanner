@@ -112,13 +112,71 @@ test('static startup, onboarding, unsupported features and idle time never call 
   assert.equal(await page.locator('as-topbar .top-actions').count(),0);
   assert.equal(await page.locator('as-topbar button').count(),1);
   await page.screenshot({path:resolve(report,'demo-home-desktop.png'),fullPage:true});
-  await fullVersion(page,()=>page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click());
-  for (const route of ['repositories/new','repositories/example/analyses/example','standardization']) {
-    await fullVersion(page,()=>page.goto(url+'#/'+route));
-    await page.waitForURL(/#\/$/);
-    assert.equal(new URL(page.url()).hash,'#/');
+  await page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click();
+  await page.getByRole('heading',{name:'Nowa analiza repozytorium',exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(await page.getByText('Model oceniający',{exact:true}).count(),0);
+  for (const route of ['repositories/new','standardization']) {
+    await page.goto(url+'#/'+route);
+    await page.getByRole('heading',{name:'Nowa analiza repozytorium',exact:true}).waitFor();
   }
   await page.waitForTimeout(2500);
+}));
+
+test('repository input persists masked configuration and selection, reopens without the folder and blocks only AI', async () => run(async (page, context) => {
+  const folder = resolve(report, 'synthetic-repository');
+  await mkdir(resolve(folder,'.github'),{recursive:true});
+  await writeFile(resolve(folder,'AGENTS.md'),'Shared instructions. token=synthetic-secret-value');
+  await writeFile(resolve(folder,'.github','copilot-instructions.md'),'Copilot configuration.');
+  await writeFile(resolve(folder,'package.json'),'{}');
+  await page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click();
+  await page.locator('input[webkitdirectory]').setInputFiles(folder);
+  await page.waitForURL(/#\/repositories\/[a-f0-9-]+\/inputs\/[a-f0-9-]+$/);
+  await page.locator('.file-row').first().waitFor();
+  assert.equal(await page.locator('.file-row').count(),2);
+  assert.equal(await page.getByText('Model oceniający',{exact:true}).count(),0);
+  await page.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).uncheck();
+  await page.getByRole('button',{name:'Uruchom analizę',exact:true}).waitFor();
+  await page.waitForFunction(()=>!document.querySelector('.analysis-buttons button')?.disabled);
+  await page.reload();
+  await page.locator('.file-row').first().waitFor();
+  assert.equal(await page.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).isChecked(),false);
+  await page.getByRole('button',{name:'Podejrzyj AGENTS.md',exact:true}).click();
+  const dialog = page.getByRole('dialog');
+  assert.match(await dialog.innerText(),/token=\[UKRYTO\]/);
+  assert.doesNotMatch(await dialog.innerText(),/synthetic-secret-value/);
+  await page.screenshot({path:resolve(report,'demo-repository-file-desktop.png'),fullPage:true});
+  await page.getByRole('button',{name:'Zamknij podgląd pliku'}).click();
+  await fullVersion(page,()=>page.getByRole('button',{name:'Uruchom analizę',exact:true}).click());
+  await page.screenshot({path:resolve(report,'demo-repository-desktop.png'),fullPage:true});
+  const stored = await page.evaluate(async () => {
+    const db=await new Promise(resolve=>{const request=indexedDB.open('agent-scanner-demo-repositories');request.onsuccess=()=>resolve(request.result);});
+    const snapshots=await new Promise(resolve=>{const request=db.transaction('snapshots').objectStore('snapshots').getAll();request.onsuccess=()=>resolve(request.result);});
+    db.close();return snapshots;
+  });
+  assert.equal(stored.length,1);
+  assert.equal(stored[0].files.find(file=>file.path==='AGENTS.md').selected,false);
+  assert.doesNotMatch(JSON.stringify(stored),/synthetic-secret-value|package.json/);
+  const other = await context.newPage();
+  await other.goto(page.url()); await other.locator('.file-row').first().waitFor();
+  assert.equal(await other.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).isChecked(),false);
+  await other.close();
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Zwiń panel sesji',exact:true}).click();
+  await page.locator('mat-drawer').waitFor({state:'hidden'});
+  await page.screenshot({path:resolve(report,'demo-repository-mobile.png'),fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  const download = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Eksportuj pliki repozytorium do JSON',exact:true}).click();
+  const exported=await download;
+  const content=JSON.parse(await readFile(await exported.path(),'utf8'));
+  assert.equal(content.format,'agent-scanner-repository-input');
+  assert.equal(content.snapshot.id,stored[0].id);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Usuń pliki repozytorium',exact:true}).click();
+  await page.getByRole('heading',{name:'Wczytaj sesje GitHub Copilot z pliku'}).waitFor();
+  await page.reload();
+  assert.equal(await page.locator('.repository-item').count(),0);
 }));
 
 test('one main conversation, persisted scope, every local tab, panels and export', async () => run(async page => {

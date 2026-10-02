@@ -26,25 +26,35 @@ wykonywania analizy przycisk jest nieaktywny.
 1. Użytkownik wskazuje katalog. Przeglądarka odnajduje konfiguracje pięciu
    kategorii i bezpośrednio podlinkowane materiały tekstowe w ich katalogach.
    Odczytywalne pliki są domyślnie zaznaczone; każdy można odznaczyć i podejrzeć.
-2. Użytkownik wybiera model z rzeczywistego katalogu Copilot. Tryb oceny `AUTO`
+2. Zamaskowane pliki i zaznaczenia są zapisywane jako wejście do analizy:
+   w IndexedDB w demo, w bazie H2 w pełnej wersji. Podgląd można ponownie otworzyć
+   z listy repozytoriów, także po odświeżeniu i bez dostępu do folderu.
+   Nie zawiera wyniku AI. W demo dopiero przycisk **Uruchom analizę** otwiera
+   komunikat „Dostępne w pełnej wersji”; podgląd, filtry i wybór plików działają lokalnie.
+3. W pełnej wersji **Uruchom analizę** otwiera modal. Dopiero ten modal pobiera
+   rzeczywisty katalog modeli Copilot i wymagania oraz pozwala wybrać model.
+   Zamknięcie modalu nie przygotowuje pakietu ani nie uruchamia AI. Tryb oceny `AUTO`
    rozpoznaje rodzaj konfiguracji z lokalizacji i treści; nie wymaga wskazania
    środowiska ani wersji klienta. Model nie jest wywoływany przy otwarciu zakładki.
-3. **Uruchom analizę** to jedna jawna akcja: przesyła zaznaczone treści do
-   backendu aplikacji, który sprawdza limity, maskuje rozpoznane sekrety,
-   wykonuje podstawowe kontrole struktury i tworzy niezmienny pakiet, po czym
-   uruchamia wskazany model. Nie ma osobnej karty podglądu pakietu.
-4. Pakiet zawiera pełne
+4. Potwierdzenie **Uruchom analizę** w modalu przygotowuje pakiet z zaznaczonych
+   plików zapisanej migawki. Backend sprawdza limity, wykonuje podstawowe kontrole
+   struktury, zamraża powiązanie wejścia i uruchamia wybrany model. Wynik jest
+   przypisany do tego samego repozytorium oraz konkretnej migawki wejściowej.
+   Zmiana wejścia użytego już do przygotowania AI tworzy nową migawkę;
+   wcześniejsze wejście pozostaje niezmienne. Nie ma osobnej karty podglądu pakietu.
+5. Pakiet zawiera pełne
    dokumenty odpowiednich kategorii oraz 6 kryteriów merytorycznych na kategorię
    — łącznie katalog ma 30 kryteriów. Pomocnicze materiały konfiguracji pomagają
    ocenić jej organizację; nie otrzymują własnej oceny zgodności.
-5. Podsumowanie pokazuje liczby ocen i braki odpowiedzi. Przy pliku dostępne są
+6. Podsumowanie pokazuje liczby ocen i braki odpowiedzi. Przy pliku dostępne są
    zgodności, obszary do dopracowania, braki dowodów i reguły nieadekwatne,
    razem z uzasadnieniami, propozycją poprawy, cytatami i źródłami GitHub.
    Osobna lista wyróżnia problemy odnoszące się do kilku plików.
 
 Po wskazaniu folderu aplikacja automatycznie odczytuje rozpoznane konfiguracje,
-domyślnie zaznacza je i dołącza wybrane treści do pakietu po kliknięciu
-**Uruchom analizę**. Model nie ma samodzielnego dostępu do lokalnego dysku
+domyślnie zaznacza je i zapisuje zamaskowaną migawkę. Model używa zapisanych treści
+po potwierdzeniu **Uruchom analizę** w modalu; nie odczytuje plików ponownie z dysku.
+Model nie ma samodzielnego dostępu do lokalnego dysku
 użytkownika. Przed kliknięciem można odznaczyć i obejrzeć każdy plik.
 Automatyczne wykrycie przez Scanner nie potwierdza aktywacji pliku w Copilot.
 
@@ -104,9 +114,8 @@ czytania. Przeglądarki bez tej funkcji używają wyboru katalogu przez
 Backend przyjmuje treści z przeglądarki, nie dowolną ścieżkę lokalnego dysku.
 Pakiet zawiera wyłącznie ścieżki względne. Przeglądarkowe API nie pozwala
 niezależnie udowodnić `realpath` każdego dowiązania; nie deklarujemy takiej kontroli.
-Wariant z uchwytami ponownie czyta zaznaczone pliki przed podglądem i wysłaniem;
-wykryta zmiana unieważnia pakiet. Wariant `webkitdirectory` zawiera migawkę
-wyboru — po zmianie plików na dysku należy wybrać katalog ponownie.
+Oba warianty zapisują migawkę wybranego folderu. Po zmianie plików na dysku
+należy ponownie wybrać katalog; AI zawsze analizuje zapisane wejście.
 
 Odczyt pomija m.in. `.git`, zależności, katalogi buildów, wykryte zagnieżdżone
 repozytoria, pliki `.env` i odnośniki sieciowe. **Poza zakresem są manifesty
@@ -132,18 +141,27 @@ i pominięte pliki są zaznaczone w pakiecie.
 Rozpoznane tokeny, klucze prywatne i typowe przypisania sekretów są maskowane
 w przeglądarce i ponownie w backendzie. Maskowanie wzorcami nie wykrywa każdego
 możliwego sekretu; treść każdego wybranego pliku można sprawdzić przed wysłaniem.
-Po zakończeniu analizy backend zapisuje wynik AI i zamaskowaną migawkę wybranych
-plików w lokalnej bazie H2. Pozwala to później sprawdzić ocenę i cytowane
+Pliki konfiguracji, odczytywalne materiały i informacje o pominięciach są zapisywane
+przed AI. Zapis obejmuje do 300 kandydatów po 128 KiB; w pełnej wersji body zapisu
+ma limit 8 MiB. Osobne limity 80 plików i 1 MiB dotyczą zaznaczonego wejścia AI.
+Demo używa bazy IndexedDB `agent-scanner-demo-repositories`, schematu 1,
+store `snapshots`; nie zapisuje uchwytów dysku ani nie wysyła danych do serwera.
+Pełna wersja używa tabel `standardization_input_snapshot` i
+`standardization_analysis_input` w H2, zachowując wcześniejsze analizy.
+Zapis nie wymaga modelu ani poświadczeń Copilot. Po zakończeniu analizy backend
+zapisuje wynik AI i powiązanie z wejściem. Pozwala to później sprawdzić ocenę i cytowane
 fragmenty bez ponownego dostępu do katalogu. Nie zapisuje całego repozytorium
-ani nie podłącza go na stałe; nowa analiza wymaga ponownego wyboru folderu.
+ani nie podłącza go na stałe; zapisanego wejścia można użyć bez ponownego wyboru folderu.
 Maskowanie wzorcami nie gwarantuje usunięcia wszystkich sekretów, więc wybrane
 treści należy sprawdzić przed uruchomieniem. Niezakończony pakiet pozostaje tylko
 w pamięci backendu: najwyżej 8 podglądów przez 15 minut, z czyszczeniem przy
 operacjach i co minutę. Frontend nie używa localStorage.
 
-Kliknięcie `Uruchom analizę` najpierw wysyła dane do serwera Agent Scanner, a po
-sprawdzeniu pakietu do Copilot. Jeśli serwer działa zdalnie, dane opuszczają
-komputer już podczas przygotowania pakietu. Analiza współdzieli pojedynczy slot wykonania AI, pozwala
+W pełnej wersji wybór folderu i zmiana zaznaczeń wysyłają zamaskowaną migawkę
+do serwera Agent Scanner. Jeśli serwer działa zdalnie, dane opuszczają komputer
+już podczas zapisu wejścia; komunikat przy wyborze folderu podaje miejsce zapisu.
+Dopiero potwierdzenie w modalu wysyła zaznaczone treści do Copilot.
+Analiza współdzieli pojedynczy slot wykonania AI, pozwala
 anulować żądanie i nie ponawia płatnego wywołania automatycznie. Powtórny odczyt
 udanego wyniku tego samego podglądu korzysta z pamięci bez następnej inferencji.
 Izolowany model nie wykonuje instrukcji, skryptów ani serwerów MCP ocenianego repo.

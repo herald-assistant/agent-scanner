@@ -65,13 +65,13 @@ wyłącznie w przeglądarce, bez wysyłania telemetrii do serwera.
 | Dane techniczne | Drzewo spanów, zachowane atrybuty, wiadomości i raw wybranego zakresu importu. |
 | AI Hub | Widoczne wejście otwiera modal informacyjny; komponent nie inicjuje odczytów backendowych. |
 | Poradnik technik | Statyczny katalog dostępny jako zasób aplikacji; doradztwo AI otwiera modal. |
-| Standaryzacja wymagająca usług backendu | Modal informacyjny; lokalny przegląd folderu można dodać jako osobny etap. |
+| Standaryzacja | Lokalny podgląd i zapis wejścia w IndexedDB; modal informacyjny dopiero przy uruchomieniu AI. |
 | Odbiornik OTLP, jego ustawienia i pauza | Modal informacyjny; onboarding demo prowadzi do eksportu plikowego. |
 | Eksport i usuwanie sesji | Operacje lokalne na IndexedDB i plikach pobieranych przez przeglądarkę. |
 
 Dostępność jest oceniana dla operacji, nie na podstawie błędu HTTP. Wspólny modal
 Material ma tytuł „Dostępne w pełnej wersji” i opis „Ta funkcja jest dostępna
-w pełnej wersji Agent Scanner. W demo możesz importować i przeglądać sesje lokalnie.”
+w pełnej wersji Agent Scanner. W demo możesz importować sesje i przeglądać pliki repozytoriów lokalnie.”
 Komunikaty demo nie wspominają o opłatach. Bezpośrednie wejście na trasę wymagającą
 backendu również respektuje tę regułę. Brak pomiaru lub treści w telemetrii pozostaje
 brakiem danych i nie uruchamia modalu o dostępności funkcji.
@@ -242,8 +242,8 @@ szczegółowy odbiór demo dokumentuje [plan realizacji](plan-demo.md).
    źródła dla obecnych zakładek i statyczne katalogi dla poradnika.
 4. Dodać wspólną obsługę dostępności funkcji, modal pełnej wersji i onboarding
    eksportu plikowego. Przygotować build i workflow GitHub Pages oraz zweryfikować
-   działanie przy wyłączonym backendzie. Lokalny import konfiguracji repozytorium
-   pozostawić jako osobny etap, który nie blokuje pierwszego demo telemetrii.
+   działanie przy wyłączonym backendzie. Osobne rozszerzenie lokalnego podglądu
+   repozytoriów i zapisu wejścia jest wdrożone; opisuje je [Standaryzacja](standaryzacja.md).
 5. W etapie backendowym dobrać wspierane wersje Java, Spring Boot i GraalJS oraz
    uruchomić prototyp przeglądarka–JVM na tych samych fixture'ach. Sprawdzić pakowanie
    Spring Boot, precyzję danych, pamięć, czas wykonania i równoległe żądania.

@@ -14,7 +14,7 @@
       <div class="folder-icon"><mat-icon>folder_open</mat-icon></div>
       <div class="folder-copy">
         <h3>{{ state.folder()?.name || 'Wybierz lokalne repozytorium' }}</h3>
-        <p>{{ state.saved() ? 'Zapisana migawka · ' + state.files().length + ' ocenianych plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
+        <p>{{ state.saved() ? 'Zapisana migawka · ' + state.files().length + ' ocenianych plików' : state.snapshot() ? 'Zapisane wejście · ' + state.files().length + ' plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
       </div>
       @if (!state.saved()) {
         <input #folderInput type="file" webkitdirectory multiple hidden (change)="filesChosen($event)" aria-label="Folder repozytorium">
@@ -23,25 +23,15 @@
         </button>
       }
     </div>
-    @if (!state.saved()) { <div class="settings-grid">
-      <mat-form-field appearance="outline">
-        <mat-label>Model oceniający</mat-label>
-        <mat-select [value]="state.model()" [disabled]="state.saved() || state.busy() || state.loadingModels()" (selectionChange)="state.setModel($event.value)">
-          @for (model of state.models(); track model.id) { <mat-option [value]="model.id">{{ model.name }}</mat-option> }
-        </mat-select>
-      </mat-form-field>
-    </div>
-    @if (state.loadingModels()) { <p class="inline-status" role="status"><mat-spinner diameter="16" />Pobieranie modeli dostępnych na koncie…</p> }
-    @if (state.modelError() || state.catalogError()) {
-      <div class="notice warning" role="alert">
-        <mat-icon>info</mat-icon>
-        <span>{{ state.catalogError() || state.modelError() }} Pliki można przeglądać bez AI.</span>
-        <button class="ui-button ui-button--small" [disabled]="state.loadingModels() || state.busy()" (click)="state.initialize(true)">Ponów</button>
-      </div>
-    } }
+    @if (!state.saved()) {
+      <p class="scope-note storage-note">{{ features.demo ? 'Zamaskowane pliki i zaznaczenia są zapisywane w IndexedDB tej przeglądarki.' : 'Zamaskowane pliki i zaznaczenia są zapisywane w bazie serwera Agent Scanner jako wejście do analizy AI.' }}</p>
+      @if (state.savingFiles()) { <p class="inline-status storage-note" role="status"><mat-spinner diameter="16" />Zapisywanie plików…</p> }
+    }
   </section>
 
-  @if (state.error()) { <div class="notice error" role="alert"><mat-icon>error_outline</mat-icon>{{ state.error() }}</div> }
+  @if (state.error()) { <div class="notice error" role="alert"><mat-icon>error_outline</mat-icon><span>{{ state.error() }}</span>
+    @if (state.folder() && !state.filesSaved() && !state.saved()) { <button class="ui-button ui-button--small" [disabled]="state.busy()" (click)="retrySave()">Ponów zapis</button> }
+  </div> }
   @if (state.reading() || state.choosingFolder()) {
     <div class="loading-state" role="status"><mat-spinner diameter="28" /><span>Odczytywanie konfiguracji i powiązanych materiałów…</span></div>
   } @else if (state.folder()) {
@@ -80,8 +70,8 @@
         <div><h3>{{ state.saved() ? 'Ocenione pliki' : 'Pliki do analizy' }}</h3><p>{{ state.saved() ? state.files().length + ' plików w zapisanej migawce' : state.selected().length + ' z ' + readableCount() + ' zaznaczonych · ' + size(state.bytes()) }}</p></div>
         @if (!state.saved()) {
           <div class="selection-actions">
-            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="state.selectAll(true)">Zaznacz wszystkie</button>
-            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="state.selectAll(false)">Odznacz wszystkie</button>
+            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="selectFiles(true)">Zaznacz wszystkie</button>
+            <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="selectFiles(false)">Odznacz wszystkie</button>
           </div>
         }
       </header>
@@ -102,7 +92,7 @@
           @for (file of filtered(); track file.path) {
             <div class="file-row" [class.excluded]="!file.selected">
               <mat-checkbox [checked]="file.selected" [disabled]="state.saved() || state.busy() || !!file.error"
-                [aria-label]="'Przekaż do analizy: ' + file.path" (change)="state.toggle(file.path, $event.checked)" />
+                [aria-label]="'Przekaż do analizy: ' + file.path" (change)="toggleFile(file.path, $event.checked)" />
               <button class="file-identity" (click)="openFile(file)">
                 <mat-icon>{{ file.category === 'CONTEXT' ? 'description' : 'code' }}</mat-icon>
                 <span><strong>{{ file.path }}</strong><small>{{ categories[file.category] }} · {{ size(file.bytes) }}
@@ -134,18 +124,16 @@
     @if (!state.saved()) { <div class="analysis-actions">
       <div>
         <p>Analiza obejmie zaznaczone pliki oraz właściwe wymagania GitHub Copilot.</p>
-        <small>Uruchomienie prześle ich zamaskowaną treść do backendu i GitHub Copilot. Może zużyć AI credits; maskowanie może nie wykryć wszystkich sekretów. Przed startem sprawdź wybrane pliki.</small>
-        @if (state.catalog(); as catalog) {
-          @if (state.selected().length > catalog.limits.maxFiles || state.bytes() > catalog.limits.maxTotalBytes) {
-            <p class="warning-text">Zmniejsz zakres: maksymalnie {{ catalog.limits.maxFiles }} plików i {{ size(catalog.limits.maxTotalBytes) }}.</p>
-          }
+        <small>{{ features.demo ? 'Podgląd działa lokalnie. Uruchomienie analizy AI jest dostępne w pełnej wersji.' : 'Po kliknięciu wybierzesz model w oknie analizy. AI użyje zaznaczonych plików z zapisanej migawki.' }}</small>
+        @if (state.selected().length > state.limits().maxFiles || state.bytes() > state.limits().maxTotalBytes) {
+          <p class="warning-text">Zmniejsz zakres: maksymalnie {{ state.limits().maxFiles }} plików i {{ size(state.limits().maxTotalBytes) }}.</p>
         }
       </div>
       <div class="analysis-buttons">
         @if (state.sending()) {
           <button class="ui-button" [disabled]="state.cancelRequested()" (click)="state.cancel()">{{ state.cancelRequested() ? 'Anulowanie…' : 'Anuluj analizę' }}</button>
         }
-        <button class="ui-button ui-button--primary" [disabled]="!state.canPrepare()" (click)="runAnalysis()">
+        <button class="ui-button ui-button--primary" [disabled]="!state.canRun() || choosingModel()" (click)="runAnalysis()">
           @if (state.preparing() || state.sending()) { <mat-spinner diameter="16" /> } @else { <mat-icon>auto_awesome</mat-icon> }
           {{ state.preparing() ? 'Przygotowywanie…' : state.sending() ? 'Analizowanie…' : 'Uruchom analizę' }}
         </button>

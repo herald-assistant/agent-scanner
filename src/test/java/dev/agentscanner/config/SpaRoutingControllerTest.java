@@ -22,5 +22,6 @@ class SpaRoutingControllerTest {
         mvc.perform(get("/sessions/42/standardization")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/repositories/new")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/repositories/123/analyses/456")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
+        mvc.perform(get("/repositories/123/inputs/456")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
     }
 }

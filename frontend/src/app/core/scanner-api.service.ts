@@ -5,7 +5,7 @@ import {ImportSessionResult, ScannerStatus, Session, SessionAnalysisResponse, Se
 import {ToolClassificationRequest, ToolClassificationResult, ToolClassificationStatus} from '../models/tool-classification.models';
 import {OptimizationAdvicePreview, OptimizationAdviceResult, OptimizationAdviceRuntimeStatus, OptimizationTechniqueCatalog} from '../models/optimization-guidance.models';
 import {SessionChatModelsResponse, SessionChatSummary, SessionChatTurn, SessionChatView} from '../models/session-chat.models';
-import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, StandardPreview, StandardRepositorySummary, StandardResult} from '../models/standardization.models';
+import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, StandardPreview, StandardRepositorySnapshot, StandardRepositorySummary, StandardResult, StandardSnapshotRequest} from '../models/standardization.models';
 
 @Injectable({providedIn: 'root'})
 export class ScannerApiService {
@@ -24,6 +24,20 @@ export class ScannerApiService {
     return this.sessionChatModelsRequest;
   }
   standardizationCatalog(): Promise<StandardCatalog> { return this.get('/api/standardization/catalog'); }
+  saveRepositorySnapshot(request: StandardSnapshotRequest): Promise<StandardRepositorySnapshot> {
+    return this.standardizationPost('snapshots', request);
+  }
+  repositorySnapshot(repositoryId: string, snapshotId: string): Promise<StandardRepositorySnapshot> {
+    return this.get(`/api/standardization/repositories/${encodeURIComponent(repositoryId)}/inputs/${encodeURIComponent(snapshotId)}`);
+  }
+  async deleteRepositorySnapshot(repositoryId: string, snapshotId: string): Promise<void> {
+    await this.backendFetch(`/api/standardization/repositories/${encodeURIComponent(repositoryId)}/inputs/${encodeURIComponent(snapshotId)}`, {method: 'DELETE'}).then(response => {
+      if (!response.ok) throw new Error('Nie udało się usunąć zapisanych plików repozytorium.');
+    });
+  }
+  prepareRepositorySnapshot(repositoryId: string, snapshotId: string, model: string): Promise<StandardPreview> {
+    return this.standardizationPost(`repositories/${encodeURIComponent(repositoryId)}/inputs/${encodeURIComponent(snapshotId)}/prepare`, {model});
+  }
   prepareStandardization(request: StandardPrepareRequest): Promise<StandardPreview> {
     return this.standardizationPost<StandardPreview>('prepare', request);
   }

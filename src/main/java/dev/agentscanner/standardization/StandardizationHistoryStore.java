@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSet;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +42,16 @@ public class StandardizationHistoryStore {
             if (rs.getString("analysis_id") != null) repository.analyses().add(new AnalysisSummary(
                     rs.getString("analysis_id"), time(rs, "analyzed_at"), rs.getString("model"), rs.getInt("file_count")));
         });
+        jdbc.query("""
+                SELECT s.repository_id, s.id, s.saved_at, s.file_count FROM standardization_input_snapshot s
+                WHERE NOT EXISTS (SELECT 1 FROM standardization_analysis_input i
+                    JOIN standardization_analysis a ON a.id = i.analysis_id WHERE i.snapshot_id = s.id)
+                ORDER BY s.saved_at DESC
+                """, rs -> {
+            var repository = grouped.get(rs.getString("repository_id"));
+            if (repository != null) repository.snapshots().add(new SnapshotSummary(rs.getString("id"),
+                    time(rs, "saved_at"), rs.getInt("file_count")));
+        });
         return List.copyOf(grouped.values());
     }
 
@@ -57,18 +70,48 @@ public class StandardizationHistoryStore {
 
     @Transactional
     public boolean deleteAnalysis(String repositoryId, String analysisId) {
+        List<String> inputs = jdbc.query("SELECT snapshot_id FROM standardization_analysis_input WHERE analysis_id = ?",
+                (rs, row) -> rs.getString(1), analysisId);
         int deleted = jdbc.update("DELETE FROM standardization_analysis WHERE repository_id = ? AND id = ?",
                 repositoryId, analysisId);
         if (deleted == 0) return false;
-        jdbc.update("""
-                DELETE FROM standardization_repository WHERE id = ?
-                AND NOT EXISTS (SELECT 1 FROM standardization_analysis WHERE repository_id = ?)
-                """, repositoryId, repositoryId);
+        jdbc.update("DELETE FROM standardization_analysis_input WHERE analysis_id = ?", analysisId);
+        for (String input : inputs) jdbc.update("""
+                DELETE FROM standardization_input_snapshot WHERE id = ?
+                AND NOT EXISTS (SELECT 1 FROM standardization_analysis_input WHERE snapshot_id = ?)
+                """, input, input);
+        removeEmptyRepository(repositoryId);
         return true;
     }
 
     public void checkpoint() {
         jdbc.execute("CHECKPOINT");
+    }
+
+    public void validateInputRepository(String previewId, String repositoryId) {
+        var repositories = jdbc.query("""
+                SELECT s.repository_id FROM standardization_analysis_input i
+                JOIN standardization_input_snapshot s ON s.id = i.snapshot_id WHERE i.analysis_id = ?
+                """, (rs, row) -> rs.getString(1), previewId);
+        if (!repositories.isEmpty() && !repositories.get(0).equals(repositoryId)) {
+            throw new IllegalArgumentException("Analiza musi zostać zapisana przy repozytorium swojego pakietu wejściowego.");
+        }
+    }
+
+    public String inputSnapshotId(String previewId) {
+        var inputs = jdbc.query("SELECT snapshot_id FROM standardization_analysis_input WHERE analysis_id = ?",
+                (rs, row) -> rs.getString(1), previewId);
+        return inputs.isEmpty() ? null : inputs.get(0);
+    }
+
+    @Transactional
+    public SavedAnalysis saveWithInput(Preview preview, Result result, String repositoryId, String repositoryName, String snapshotId) {
+        var owner = jdbc.query("SELECT repository_id FROM standardization_input_snapshot WHERE id = ? FOR UPDATE",
+                (rs, row) -> rs.getString(1), snapshotId);
+        if (owner.isEmpty() || !snapshotId.equals(inputSnapshotId(preview.id()))) {
+            throw new IllegalArgumentException("Wejście tej analizy zostało usunięte. Wynik nie został przypisany do innego repozytorium.");
+        }
+        return save(preview, result, repositoryId, repositoryName);
     }
 
     @Transactional
@@ -88,23 +131,123 @@ public class StandardizationHistoryStore {
         } else if (!hasRepository(target)) {
             throw new IllegalArgumentException("Wybrane repozytorium nie istnieje.");
         }
+        validateInputRepository(preview.id(), target);
         try {
             jdbc.update("""
                     INSERT INTO standardization_analysis(id, repository_id, analyzed_at, model, file_count, preview_json, result_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """, preview.id(), target, java.sql.Timestamp.from(Instant.parse(result.analyzedAt())),
                     result.model(), preview.packet().files().size(), mapper.writeValueAsString(preview), mapper.writeValueAsString(result));
-            return new SavedAnalysis(target, preview.id(), preview, result);
+            return new SavedAnalysis(target, preview.id(), preview, result, inputSnapshotId(preview.id()));
         } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
             throw new IllegalStateException("Nie udało się zapisać wyniku analizy.", failure);
         }
+    }
+
+    public RepositorySnapshot snapshot(String repositoryId, String snapshotId) {
+        var rows = jdbc.query("SELECT snapshot_json FROM standardization_input_snapshot WHERE repository_id = ? AND id = ?",
+                (rs, row) -> readSnapshot(rs.getString(1)), repositoryId, snapshotId);
+        if (rows.isEmpty()) throw new IllegalArgumentException("Nie znaleziono zapisanych plików repozytorium.");
+        return rows.get(0);
+    }
+
+    @Transactional
+    public RepositorySnapshot saveSnapshot(SnapshotRequest request) {
+        if (request == null || request.repositoryName() == null || request.repositoryName().isBlank()
+                || request.repositoryName().length() > 200 || request.repositoryName().chars().anyMatch(Character::isISOControl)
+                || request.files() == null || request.files().size() > 300) {
+            throw new IllegalArgumentException("Niepoprawna nazwa repozytorium lub zakres plików.");
+        }
+        var paths = new HashSet<String>();
+        var files = new ArrayList<SnapshotFile>();
+        int total = 0;
+        for (SnapshotInputFile file : request.files()) {
+            if (file == null || !StandardizationText.analysisPath(file.path()) || !paths.add(file.path())
+                    || file.content() == null || file.content().contains("\u0000")
+                    || (file.omissionReason() != null && !Set.of("UNREADABLE", "TOO_LARGE", "LIMIT", "UNSUPPORTED_ENCODING", "EXCLUDED").contains(file.omissionReason()))) {
+                throw new IllegalArgumentException("Niepoprawny plik konfiguracji lub powtórzona ścieżka.");
+            }
+            int bytes = file.content().getBytes(StandardCharsets.UTF_8).length;
+            total += bytes;
+            if (bytes > MAX_FILE_BYTES || total > MAX_BODY_BYTES) throw new IllegalArgumentException("Migawka przekracza limit zapisu plików. Zmniejsz zakres repozytorium.");
+            String text = file.content().replace("\r\n", "\n").replace("\r", "\n").replaceFirst("^\uFEFF", "");
+            String content = StandardizationText.redact(text);
+            if (file.omissionReason() != null && !file.omissionReason().equals("EXCLUDED")
+                    && (file.selected() || !content.isEmpty())) throw new IllegalArgumentException("Nieodczytany plik nie może zawierać treści ani być zaznaczony.");
+            files.add(new SnapshotFile(file.path(), StandardizationText.category(file.path()), content,
+                    content.getBytes(StandardCharsets.UTF_8).length, !content.equals(text) || content.contains("[UKRYTO]"),
+                    file.selected(), file.omissionReason()));
+        }
+        String repositoryId = request.repositoryId();
+        if (repositoryId == null || repositoryId.isBlank()) {
+            repositoryId = UUID.randomUUID().toString();
+            jdbc.update("INSERT INTO standardization_repository(id, name, created_at) VALUES (?, ?, ?)",
+                    repositoryId, request.repositoryName().trim(), java.sql.Timestamp.from(Instant.now()));
+        } else {
+            var names = jdbc.query("SELECT name FROM standardization_repository WHERE id = ?", (rs, row) -> rs.getString(1), repositoryId);
+            if (names.isEmpty() || !names.get(0).equals(request.repositoryName().trim())) throw new IllegalArgumentException("Wybrane repozytorium nie istnieje lub ma inną nazwę.");
+        }
+        String snapshotId = request.snapshotId();
+        if (snapshotId != null) {
+            var existing = jdbc.query("SELECT repository_id FROM standardization_input_snapshot WHERE id = ? FOR UPDATE",
+                    (rs, row) -> rs.getString(1), snapshotId);
+            if (existing.isEmpty() || !existing.get(0).equals(repositoryId)) throw new IllegalArgumentException("Nie znaleziono wejścia tego repozytorium.");
+            if (jdbc.queryForObject("SELECT COUNT(*) FROM standardization_analysis_input WHERE snapshot_id = ?", Integer.class, snapshotId) > 0) snapshotId = null;
+        }
+        var snapshot = new RepositorySnapshot(snapshotId == null ? UUID.randomUUID().toString() : snapshotId,
+                repositoryId, request.repositoryName().trim(), Instant.now().toString(), request.inventoryComplete(), request.gitDetected(), List.copyOf(files));
+        try {
+            jdbc.update("""
+                    MERGE INTO standardization_input_snapshot(id, repository_id, saved_at, file_count, snapshot_json) KEY(id)
+                    VALUES (?, ?, ?, ?, ?)
+                    """, snapshot.id(), snapshot.repositoryId(), java.sql.Timestamp.from(Instant.parse(snapshot.savedAt())),
+                    files.size(), mapper.writeValueAsString(snapshot));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+            throw new IllegalStateException("Nie udało się zapisać plików repozytorium.", failure);
+        }
+        return snapshot;
+    }
+
+    @Transactional
+    public void attachInput(RepositorySnapshot snapshot, String previewId) {
+        var current = jdbc.query("SELECT snapshot_json FROM standardization_input_snapshot WHERE id = ? FOR UPDATE",
+                (rs, row) -> readSnapshot(rs.getString(1)), snapshot.id());
+        if (current.isEmpty() || !current.get(0).equals(snapshot)) throw new IllegalArgumentException("Wejście zmieniło się podczas przygotowania. Otwórz zapisane pliki ponownie.");
+        jdbc.update("INSERT INTO standardization_analysis_input(analysis_id, snapshot_id) VALUES (?, ?)", previewId, snapshot.id());
+    }
+
+    @Transactional
+    public boolean deleteSnapshot(String repositoryId, String snapshotId) {
+        var owner = jdbc.query("SELECT repository_id FROM standardization_input_snapshot WHERE id = ? AND repository_id = ? FOR UPDATE",
+                (rs, row) -> rs.getString(1), snapshotId, repositoryId);
+        if (owner.isEmpty()) return false;
+        if (jdbc.queryForObject("""
+                SELECT COUNT(*) FROM standardization_analysis_input i JOIN standardization_analysis a ON a.id = i.analysis_id
+                WHERE i.snapshot_id = ?
+                """, Integer.class, snapshotId) > 0) throw new IllegalArgumentException("Te pliki są powiązane z wynikiem AI. Usuń właściwą analizę.");
+        int deleted = jdbc.update("DELETE FROM standardization_input_snapshot WHERE repository_id = ? AND id = ?", repositoryId, snapshotId);
+        if (deleted > 0) removeEmptyRepository(repositoryId);
+        return deleted > 0;
+    }
+
+    private void removeEmptyRepository(String repositoryId) {
+        jdbc.update("""
+                DELETE FROM standardization_repository WHERE id = ?
+                AND NOT EXISTS (SELECT 1 FROM standardization_analysis WHERE repository_id = ?)
+                AND NOT EXISTS (SELECT 1 FROM standardization_input_snapshot WHERE repository_id = ?)
+                """, repositoryId, repositoryId, repositoryId);
+    }
+
+    private RepositorySnapshot readSnapshot(String json) {
+        try { return mapper.readValue(json, RepositorySnapshot.class); }
+        catch (Exception failure) { throw new IllegalStateException("Nie udało się odczytać zapisanych plików repozytorium.", failure); }
     }
 
     private SavedAnalysis deserialize(ResultSet rs) {
         try {
             return new SavedAnalysis(rs.getString("repository_id"), rs.getString("id"),
                     mapper.readValue(rs.getString("preview_json"), Preview.class),
-                    mapper.readValue(rs.getString("result_json"), Result.class));
+                    mapper.readValue(rs.getString("result_json"), Result.class), inputSnapshotId(rs.getString("id")));
         } catch (Exception failure) {
             throw new IllegalStateException("Nie udało się odczytać zapisanej analizy.", failure);
         }

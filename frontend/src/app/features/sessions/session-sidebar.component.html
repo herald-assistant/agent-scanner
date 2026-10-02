@@ -46,15 +46,15 @@
         }
         @for (entry of visibleAnalyses(); track entry.analysis.id) {
           <button class="session-card repository-item" type="button" [class.active]="isAnalysisActive(entry)"
-            [attr.aria-label]="'Otwórz analizę repozytorium ' + entry.repositoryName + ' z ' + time(entry.analysis.analyzedAt)"
+            [attr.aria-label]="(entry.analysis.input ? 'Otwórz pliki repozytorium ' : 'Otwórz analizę repozytorium ') + entry.repositoryName + ' z ' + time(entry.analysis.date)"
             (click)="analysisSelected.emit({repositoryId: entry.repositoryId, analysisId: entry.analysis.id})">
             <div class="session-head">
-              <span class="source-avatar repository-avatar"><mat-icon aria-hidden="true">fact_check</mat-icon></span>
-              <div><strong>{{ entry.repositoryName }}</strong><small class="source-line">Analiza konfiguracji Copilot</small></div>
+              <span class="source-avatar repository-avatar"><mat-icon aria-hidden="true">{{ entry.analysis.input ? 'folder_open' : 'fact_check' }}</mat-icon></span>
+              <div><strong>{{ entry.repositoryName }}</strong><small class="source-line">{{ entry.analysis.input ? 'Pliki do analizy · bez oceny AI' : 'Analiza konfiguracji Copilot' }}</small></div>
             </div>
-            <div class="session-meta"><span>{{ time(entry.analysis.analyzedAt) }}</span><span>{{ entry.analysis.model }}</span><span>{{ files(entry.analysis.fileCount) }}</span></div>
+            <div class="session-meta"><span>{{ time(entry.analysis.date) }}</span>@if (entry.analysis.model) { <span>{{ entry.analysis.model }}</span> }<span>{{ files(entry.analysis.fileCount) }}</span></div>
           </button>
-        } @empty { <p class="repository-empty">Brak zapisanych analiz repozytoriów.</p> }
+        } @empty { <p class="repository-empty">Brak zapisanych repozytoriów.</p> }
         @if (analyses().length > analysisLimit()) {
           <button class="show-more" type="button" (click)="analysisLimit.update(value => value + 5)">Pokaż więcej</button>
         }

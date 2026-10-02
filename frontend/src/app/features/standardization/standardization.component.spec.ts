@@ -2,11 +2,13 @@ import {TestBed} from '@angular/core/testing';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {ScannerApiService} from '../../core/scanner-api.service';
 import {StandardizationComponent} from './standardization.component';
-import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, StandardPreview, StandardResult} from '../../models/standardization.models';
+import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, StandardPreview, StandardRepositorySnapshot, StandardResult, StandardSnapshotRequest} from '../../models/standardization.models';
 import {MatDialog} from '@angular/material/dialog';
 import {StandardizationFileDialogComponent} from './standardization-file-dialog.component';
 import {categoryForPath} from '../../core/standardization-files';
 import {Router} from '@angular/router';
+import {APP_RUNTIME} from '../../core/app-runtime';
+import {StandardizationRepositoryService} from '../../core/standardization-repository.service';
 
 const catalog: StandardCatalog = {
   version: 'test-v1', checkedAt: '2026-09-22', profiles: ['AUTO'],
@@ -29,13 +31,27 @@ function preview(request: StandardPrepareRequest): StandardPreview {
   };
 }
 describe('Standardization view', () => {
+  let stored: StandardRepositorySnapshot;
+  function saveSnapshot(request: StandardSnapshotRequest): StandardRepositorySnapshot {
+    stored = {id: request.snapshotId ?? 'input-1', repositoryId: request.repositoryId ?? 'repository-1',
+      repositoryName: request.repositoryName, savedAt: '2026-10-02T10:00:00Z',
+      inventoryComplete: request.inventoryComplete, gitDetected: request.gitDetected,
+      files: request.files.map(file => ({...file, category: categoryForPath(file.path),
+        bytes: new TextEncoder().encode(file.content).length, redacted: file.content.includes('[UKRYTO]')}))};
+    return stored;
+  }
   const api = {
     standardizationCatalog: vi.fn(async () => catalog),
     sessionChatModels: vi.fn(async () => ({configured: true, defaultModel: 'model-a', running: false, models: [
       {id: 'model-a', name: 'Model A', maxPromptTokens: null, maxContextWindowTokens: null, reasoningEfforts: []},
       {id: 'model-b', name: 'Model B', maxPromptTokens: null, maxContextWindowTokens: null, reasoningEfforts: []}
     ]})),
-    prepareStandardization: vi.fn(async (request: StandardPrepareRequest) => preview(request)),
+    saveRepositorySnapshot: vi.fn(async (request: StandardSnapshotRequest) => saveSnapshot(request)),
+    prepareRepositorySnapshot: vi.fn(async (_repositoryId: string, _snapshotId: string, model: string) => preview({
+      profile: 'AUTO', clientVersion: '', model, inventoryComplete: stored.inventoryComplete,
+      files: stored.files.filter(file => file.selected).map(file => ({path: file.path, content: file.content})),
+      omissions: stored.files.filter(file => !file.selected).map(file => ({path: file.path, reason: file.omissionReason ?? 'EXCLUDED'}))
+    })),
     analyzeAndSaveStandardization: vi.fn<() => Promise<SavedStandardAnalysis>>(),
     standardizationRepositories: vi.fn(async () => []),
     discardStandardization: vi.fn(async () => undefined), cancelStandardization: vi.fn(async () => undefined)
@@ -53,17 +69,21 @@ describe('Standardization view', () => {
     TestBed.resetTestingModule();
   });
 
-  async function setup() {
+  async function setup(initialize = true) {
     const fixture = TestBed.createComponent(StandardizationComponent);
     await fixture.whenStable();
+    expect(api.sessionChatModels).not.toHaveBeenCalled();
+    expect(api.standardizationCatalog).not.toHaveBeenCalled();
     await fixture.componentInstance.state.loadFolder({name: 'synthetic-repo', complete: true, gitDetected: true, refreshable: true,
       entries: ['AGENTS.md', '.github/copilot-instructions.md'].map(path => ({path, read: async () => new File(['Przy przeglądzie zmian wykonaj kolejne kroki procedury.'], path)}))});
+    if (initialize) await fixture.componentInstance.state.initialize();
     fixture.detectChanges();
     return fixture;
   }
 
   it('does not start overlapping folder selections while enumerating a directory', async () => {
     const fixture = await setup();
+    fixture.componentInstance.state.beginNew();
     const input = document.createElement('input');
     let finish!: () => void;
     const picker = vi.fn(async () => {
@@ -96,15 +116,16 @@ describe('Standardization view', () => {
     expect(state.selected()).toHaveLength(2);
     const checkbox = fixture.nativeElement.querySelector('input[aria-label="Przekaż do analizy: AGENTS.md"]') as HTMLInputElement;
     checkbox.click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(state.selected()).toHaveLength(1);
     state.setModel('model-b');
     await state.prepare();
-    expect(api.prepareStandardization.mock.calls[0][0].files.map(file => file.path)).toEqual(['.github/copilot-instructions.md']);
-    expect(api.prepareStandardization.mock.calls[0][0].model).toBe('model-b');
-    expect(api.prepareStandardization.mock.calls[0][0].profile).toBe('AUTO');
-    expect(api.prepareStandardization.mock.calls[0][0].clientVersion).toBe('');
-    expect(api.prepareStandardization.mock.calls[0][0].omissions).toEqual([{path: 'AGENTS.md', reason: 'EXCLUDED'}]);
+    expect(api.prepareRepositorySnapshot).toHaveBeenCalledWith('repository-1', 'input-1', 'model-b');
+    expect(state.preview()!.packet.files.map(file => file.path)).toEqual(['.github/copilot-instructions.md']);
+    expect(state.preview()!.packet.profile).toBe('AUTO');
+    expect(state.preview()!.packet.clientVersion).toBe('');
+    expect(state.preview()!.packet.omissions).toEqual([{path: 'AGENTS.md', reason: 'EXCLUDED'}]);
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });
@@ -117,14 +138,14 @@ describe('Standardization view', () => {
     state.setModel('model-b');
     expect(state.preview()).toBeNull();
     await state.prepare();
-    state.toggle('AGENTS.md', false);
+    await state.toggle('AGENTS.md', false);
     expect(state.preview()).toBeNull();
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });
 
-  it('starts preparation and saved AI analysis with one explicit action, without a preview card', async () => {
-    const fixture = await setup();
+  it('loads models only in the modal and prepares stored input after explicit confirmation', async () => {
+    const fixture = await setup(false);
     const result: StandardResult = {contract: 'standardization-answer-v1', previewId: 'test-preview', hash: 'test-hash',
       model: 'model-a', analyzedAt: '2026-09-22T10:00:00Z', assessments: [], unreviewedTargetIds: [], rejectedRecords: 0};
     api.analyzeAndSaveStandardization.mockImplementationOnce(async () => ({repositoryId: 'repository-1',
@@ -135,10 +156,18 @@ describe('Standardization view', () => {
     expect(button.querySelector('mat-icon')?.textContent?.trim()).toBe('auto_awesome');
     expect(fixture.nativeElement.textContent).not.toContain('PODGLĄD PRZED WYSŁANIEM');
     button.click();
+    await fixture.whenStable();
+    expect(api.sessionChatModels).toHaveBeenCalledTimes(1);
+    expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
+    expect(api.prepareRepositorySnapshot).not.toHaveBeenCalled();
+    const confirm = [...document.querySelectorAll<HTMLButtonElement>('mat-dialog-actions button')]
+      .find(item => item.textContent?.trim() === 'Uruchom analizę')!;
+    expect(confirm.disabled).toBe(false);
+    confirm.click();
     await vi.waitFor(() => expect(api.analyzeAndSaveStandardization).toHaveBeenCalledTimes(1));
     await fixture.whenStable();
-    expect(api.prepareStandardization).toHaveBeenCalledTimes(1);
-    expect(api.analyzeAndSaveStandardization).toHaveBeenCalledWith('test-preview', null, 'synthetic-repo');
+    expect(api.prepareRepositorySnapshot).toHaveBeenCalledTimes(1);
+    expect(api.analyzeAndSaveStandardization).toHaveBeenCalledWith('test-preview', 'repository-1', 'synthetic-repo');
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/repositories', 'repository-1', 'analyses', 'test-preview']);
     fixture.destroy();
   });
@@ -157,13 +186,14 @@ describe('Standardization view', () => {
       path, read: vi.fn(async () => new File([content], path))
     }));
     const state = fixture.componentInstance.state;
+    state.beginNew();
     await state.loadFolder({name: 'configuration-only', complete: true, gitDetected: true, refreshable: true, entries: repositoryEntries});
     fixture.detectChanges();
     expect(state.files().map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
     expect(fixture.nativeElement.textContent).toContain('Materiały konfiguracji');
     expect(fixture.nativeElement.textContent).toContain('uniwersalne względem technologii i architektury');
     await state.prepare();
-    expect(api.prepareStandardization.mock.calls[0][0].files.map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
+    expect(state.preview()!.packet.files.map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
     for (const entry of repositoryEntries.slice(2)) expect(entry.read).not.toHaveBeenCalled();
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
@@ -185,7 +215,7 @@ describe('Standardization view', () => {
     api.analyzeAndSaveStandardization.mockResolvedValueOnce({repositoryId: 'repo-1', analysisId: prepared.id, preview: prepared, result});
     await state.send();
     fixture.detectChanges();
-    expect(api.analyzeAndSaveStandardization).toHaveBeenCalledWith(prepared.id, null, 'synthetic-repo');
+    expect(api.analyzeAndSaveStandardization).toHaveBeenCalledWith(prepared.id, 'repository-1', 'synthetic-repo');
     expect(fixture.nativeElement.textContent).toContain('Wynik częściowy');
     expect(fixture.nativeElement.textContent).toContain('do dopracowania');
     const file = state.files().find(item => item.path === prepared.packet.files[0].path)!;
@@ -227,6 +257,61 @@ describe('Standardization view', () => {
     await state.send();
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     expect(state.error()).toContain('wygasł');
+    fixture.destroy();
+  });
+
+  it('cancels model selection without preparing or running AI', async () => {
+    const fixture = await setup(false);
+    void fixture.componentInstance.runAnalysis();
+    await fixture.whenStable();
+    TestBed.inject(MatDialog).closeAll();
+    await fixture.whenStable();
+    expect(api.prepareRepositorySnapshot).not.toHaveBeenCalled();
+    expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('blocks AI after a failed selection save and retries the same input', async () => {
+    const fixture = await setup(false);
+    const state = fixture.componentInstance.state;
+    api.saveRepositorySnapshot.mockRejectedValueOnce(new Error('Nie udało się zapisać plików.'));
+    await state.toggle('AGENTS.md', false);
+    fixture.detectChanges();
+    expect(state.snapshot()!.id).toBe('input-1');
+    expect(state.filesSaved()).toBe(false);
+    expect(state.canRun()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('Ponów zapis');
+    await fixture.componentInstance.retrySave();
+    expect(api.saveRepositorySnapshot.mock.lastCall![0].snapshotId).toBe('input-1');
+    expect(state.canRun()).toBe(true);
+    expect(state.selected()).toHaveLength(1);
+    expect(api.sessionChatModels).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('opens local files in demo and blocks only AI without loading models or calling any backend method', async () => {
+    TestBed.overrideProvider(APP_RUNTIME, {useValue: {demo: true, maxImportBytes: 1024}});
+    TestBed.overrideProvider(StandardizationRepositoryService, {useValue: {
+      save: async (request: StandardSnapshotRequest) => saveSnapshot(request), repositories: async () => []
+    }});
+    const fixture = await setup(false);
+    expect(fixture.componentInstance.state.canRun()).toBe(true);
+    fixture.componentInstance.openFile(fixture.componentInstance.state.files()[0]);
+    await fixture.whenStable();
+    expect(document.body.textContent).toContain('Lokalny podgląd po maskowaniu');
+    TestBed.inject(MatDialog).closeAll();
+    await fixture.whenStable();
+    await fixture.componentInstance.runAnalysis();
+    await fixture.whenStable();
+    expect(document.body.textContent).toContain('Dostępne w pełnej wersji');
+    await fixture.componentInstance.state.initialize();
+    await fixture.componentInstance.state.prepare();
+    await fixture.componentInstance.state.send();
+    expect(api.sessionChatModels).not.toHaveBeenCalled();
+    expect(api.standardizationCatalog).not.toHaveBeenCalled();
+    expect(api.saveRepositorySnapshot).not.toHaveBeenCalled();
+    expect(api.prepareRepositorySnapshot).not.toHaveBeenCalled();
+    expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });
 });

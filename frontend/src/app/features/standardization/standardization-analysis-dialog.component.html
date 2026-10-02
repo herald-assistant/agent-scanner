@@ -1,0 +1,20 @@
+<h2 mat-dialog-title>Uruchom analizę AI</h2>
+<mat-dialog-content>
+  <p>Analiza użyje zapisanej migawki: {{ state.folder()?.name }} · {{ state.selected().length }} zaznaczonych plików.</p>
+  @if (state.loadingModels()) { <p class="loading" role="status"><mat-spinner diameter="20" />Pobieranie modeli dostępnych na koncie…</p> }
+  <mat-form-field appearance="outline">
+    <mat-label>Model oceniający</mat-label>
+    <mat-select [value]="state.model()" [disabled]="state.loadingModels()" (selectionChange)="state.setModel($event.value)">
+      @for (model of state.models(); track model.id) { <mat-option [value]="model.id">{{ model.name }}</mat-option> }
+    </mat-select>
+  </mat-form-field>
+  @if (state.modelError() || state.catalogError()) {
+    <p role="alert">{{ state.catalogError() || state.modelError() }}</p>
+    <button class="ui-button ui-button--small" [disabled]="state.loadingModels()" (click)="state.initialize(true)">Ponów</button>
+  }
+  <p>Uruchomienie przekaże zaznaczone treści do GitHub Copilot i może zużyć AI credits. Maskowanie może nie wykryć wszystkich sekretów; sprawdź pliki przed startem.</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button class="ui-button" mat-dialog-close type="button">Anuluj</button>
+  <button class="ui-button ui-button--primary" type="button" [disabled]="!state.canPrepare() || state.loadingModels()" (click)="confirm()">Uruchom analizę</button>
+</mat-dialog-actions>

@@ -37,7 +37,8 @@ Integracja wspólnego rdzenia z JVM pozostaje kolejnym etapem.
 | Szczegóły, analiza i workflow-sources | Zapisany scope; rdzeń w Workerze | REST i kompatybilność ze starszą analizą |
 | Eksport, usunięcie sesji i całości | Blob i lokalna transakcja | Adapter HTTP |
 | Katalog technik | Statyczny asset tego samego katalogu | Istniejący endpoint katalogu |
-| AI, historia, modele, Standaryzacja | Modal i guard przed inicjalizacją | Osobne usługi backendowe |
+| Podgląd repozytorium i zapis wejścia | IndexedDB; bez backendu i modeli | Zamaskowana migawka w H2 przed AI |
+| AI, historia AI i modele | Modal i guard przed inicjalizacją AI | Osobne usługi backendowe; model Standaryzacji w modalu uruchomienia |
 | Pauza odbiornika | Modal | Obecny status i kontrola REST |
 
 ```text
@@ -51,7 +52,8 @@ Jawne funkcje AI:
 AI Hub / poradnik → kontroler AI → AiExecutionCoordinator
   → CopilotCompletion / Copilot CLI → walidacja → zapis H2
 Rozmowa → SessionAnalysisQueryService → tylko odczytowe narzędzia scanner_*
-Standaryzacja → wybór folderu w przeglądarce → podgląd w pamięci backendu
+Standaryzacja → wybór folderu w przeglądarce → zamaskowane wejście w H2
+  → modal wyboru modelu → podgląd w pamięci backendu z powiązaniem do wejścia
   → AiExecutionCoordinator / CopilotCompletion → walidacja → wynik i zamaskowany pakiet w H2
 ```
 
@@ -88,6 +90,7 @@ polskich etykiet prezentacyjnych; błędy operacji użytkownika są po polsku.
 | `optimization_advice_preview`, `optimization_advice_result` | Zweryfikowane migawki i wyniki doradztwa. |
 | `session_chat`, `session_chat_turn`, `session_chat_tool_call`, `session_chat_evidence` | Zakres rozmowy, historia, audyt i referencje udostępnione modelowi. |
 | `standardization_repository`, `standardization_analysis` | Repozytoria wybrane do oceny oraz historia wyników i zamaskowanych migawek. |
+| `standardization_input_snapshot`, `standardization_analysis_input` | Pliki i zaznaczenia zapisane przed AI oraz powiązanie analizy z niezmiennym wejściem. |
 
 [Schema SQL](../src/main/resources/schema.sql) zachowuje kaskadowe usuwanie.
 `IF NOT EXISTS` nie zastępuje migracji istniejących kolumn. Wygasłe podglądy
@@ -101,7 +104,8 @@ Operacje sesji, importu, eksportu, usuwania i katalogu udostępnia
 `HttpScannerDataGateway` zachowuje istniejące endpointy i wybór jednej rozmowy.
 [BrowserScannerDataGateway](../frontend/src/app/adapters/browser/browser-scanner-data-gateway.ts)
 realizuje wariant demo z wielokrotną selekcją. `FeatureAvailability` chroni akcje
-i trasy przed utworzeniem komponentu zależnego od backendu; transport HTTP ma
+i trasy AI przed utworzeniem komponentu zależnego od backendu; lokalny podgląd
+repozytoriów pozostaje dostępny. Transport HTTP ma
 dodatkowo blokadę żądań w demo.
 
 Deterministyczna interpretacja znajduje się w
@@ -144,6 +148,7 @@ Repozytoria mają trasy `/repositories/new`, `/repositories/:id` i
 | `optimization-technique-matcher.ts` | Deterministyczny wybór technik i deduplikacja. |
 | `round-details-panel.service.ts` | Stan, fokus i nawigacja wspólnego panelu. |
 | `standardization-files.ts`, `standardization-state.service.ts`, `standardization-history.service.ts` | Odczyt folderu, selekcja, redakcja, podgląd oraz lista i otwieranie zapisanych analiz. |
+| `standardization-repository.service.ts`, `indexeddb-repository-snapshots.ts` | Zapis i odczyt wejścia repozytorium przez HTTP w full lub IndexedDB w demo. |
 
 Interpretacja nie należy do template ani rosnącego komponentu głównego.
 Właścicieli ekranów i reguły UI opisuje [frontend](frontend.md).

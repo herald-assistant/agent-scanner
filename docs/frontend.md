@@ -57,7 +57,7 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 | `SessionChatDialogComponent` | Nowa lub wznowiona rozmowa, historia, narzędzia i dowody. |
 | `OptimizationGuidanceComponent` | Katalog technik, filtrowanie, szczegóły i kopiowanie planu próby. |
 | `TechnicalViewComponent` | Filtrowalne drzewo spanów i raw signals. |
-| `StandardizationComponent` / `StandardizationFileDialogComponent` | Wybór folderu, plików i modelu, podgląd wysyłki oraz zgodności i zalecenia przy pliku. |
+| `StandardizationComponent` / `StandardizationFileDialogComponent` / `StandardizationAnalysisDialogComponent` | Wybór folderu i plików, zapis wejścia i podgląd; pobranie i wybór modelu w modalu uruchomienia oraz zgodności i zalecenia przy pliku. |
 
 Właścicieli analiz `core`, routingu i ładowania opisuje [architektura](architektura.md).
 
@@ -70,8 +70,9 @@ wersji. Repozytoria zachowują przycisk zwijania listy.
 Build `demo` wybiera lokalny gateway, IndexedDB i routing hash. Strona startowa
 pokazuje konfigurację eksportera `file`. Topbar zawiera markę i przycisk panelu
 sesji; cała grupa `top-actions` (status, poradnik technik i pauza)
-nie jest renderowana w demo. Demo nie odczytuje `/api` ani `/v1`, historii
-Standaryzacji, cache AI ani katalogu modeli.
+nie jest renderowana w demo. Demo nie odczytuje `/api` ani `/v1`, backendowej historii
+Standaryzacji, cache AI ani katalogu modeli. Podgląd repozytoriów i zaznaczenia
+zapisuje lokalnie w IndexedDB; lista repozytoriów pokazuje zapisane wejścia bez oceny AI.
 Nie pokazuje globalnych liczników logów/metryk ani retencji jako lokalnych pomiarów.
 
 Modal importu wymaga jawnego wyboru checkboxami i pokazuje osobno rundy główne,
@@ -87,10 +88,10 @@ wcięć wymagałoby ich zaokrąglenia, pokazuje oryginalny JSON.
 
 `FeatureAvailability` otwiera jeden modal Material „Dostępne w pełnej wersji”
 z treścią „Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz
-importować i przeglądać sesje lokalnie.” Dotyczy AI Hub, rozmów, klasyfikacji,
-doradztwa, Standaryzacji oraz pauzy odbiornika. Kliknięcie AI Hub
+importować sesje i przeglądać pliki repozytoriów lokalnie.” Dotyczy AI Hub, rozmów, klasyfikacji,
+doradztwa, uruchomienia AI w Standaryzacji oraz pauzy odbiornika. Kliknięcie AI Hub
 zachowuje aktualną zakładkę. Bezpośrednia trasa AI wraca do Podsumowania sesji,
-a trasa repozytorium do strony startowej, przed montowaniem komponentu.
+a trasy repozytorium otwierają lokalny podgląd zapisanych plików.
 Brak danych w telemetrii pozostaje stanem danych bez tego modalu.
 
 Eksport pobiera `agent-scanner-session` v1 z zakresem głównym i `relatedDetails`;

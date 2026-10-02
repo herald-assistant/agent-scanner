@@ -42,9 +42,25 @@ export interface StandardResult {
 export interface StandardAnalysisSummary { id: string; analyzedAt: string; model: string; fileCount: number; }
 export interface StandardRepositorySummary {
   id: string; name: string; createdAt: string; analyses: StandardAnalysisSummary[];
+  snapshots?: StandardSnapshotSummary[];
+}
+export interface StandardSnapshotFile {
+  path: string; category: StandardCategory; content: string; bytes: number; redacted: boolean;
+  selected: boolean; omissionReason: StandardOmission['reason'] | null;
+}
+export interface StandardSnapshotSummary { id: string; savedAt: string; fileCount: number; }
+export interface StandardRepositorySnapshot {
+  id: string; repositoryId: string; repositoryName: string; savedAt: string;
+  inventoryComplete: boolean; gitDetected: boolean; files: StandardSnapshotFile[];
+}
+export interface StandardSnapshotRequest {
+  snapshotId: string | null; repositoryId: string | null; repositoryName: string;
+  inventoryComplete: boolean; gitDetected: boolean;
+  files: {path: string; content: string; selected: boolean; omissionReason: StandardOmission['reason'] | null}[];
 }
 export interface SavedStandardAnalysis {
   repositoryId: string; analysisId: string; preview: StandardPreview; result: StandardResult;
+  snapshotId?: string | null;
 }
 export interface StandardAnalysisExport {
   format: 'agent-scanner-standardization-analysis'; version: 1; analysis: SavedStandardAnalysis;

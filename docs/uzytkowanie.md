@@ -67,8 +67,8 @@ wejściem Copilot JSONL. Usuwanie sesji i całej bazy wymaga potwierdzenia.
 
 Podsumowanie, Koszt i przebieg, Mapa pracy i Dane techniczne działają lokalnie.
 Górny pasek demo zawiera nazwę aplikacji i przycisk panelu sesji; nie pokazuje
-statusu, poradnika technik, konfiguracji ani pauzy. Wejścia do AI i Standaryzacji
-pokazują modal
+statusu, poradnika technik, konfiguracji ani pauzy. Wejścia do AI, w tym przycisk
+„Uruchom analizę” repozytorium, pokazują modal
 „Dostępne w pełnej wersji”. Brak pomiaru lub przechwyconej treści jest pokazany
 jako brak danych. Instrukcje budowania są w [konfiguracji](konfiguracja.md#statyczne-demo).
 
@@ -83,9 +83,12 @@ jako brak danych. Instrukcje budowania są w [konfiguracji](konfiguracja.md#stat
 | Dane techniczne | Drzewo spanów oraz surowe dane do audytu. |
 
 Standaryzację otwiera ikona przy nagłówku **Repozytoria** w lewym panelu.
-Pod repozytorium można ponownie otworzyć zapisane analizy konfiguracji Copilot;
+Pliki konfiguracji i zaznaczenia zapisują się przed AI: w IndexedDB w demo,
+w bazie serwera w pełnej wersji. Pod repozytorium można ponownie otworzyć
+zapisane wejścia oraz wyniki analiz konfiguracji Copilot;
 każda lista pokazuje 5 pozycji i przycisk do wyświetlenia kolejnych.
-[Przebieg i prywatność](standaryzacja.md).
+W pełnej wersji „Uruchom analizę” otwiera modal wyboru modelu;
+demo udostępnia lokalny podgląd. [Przebieg i prywatność](standaryzacja.md).
 
 Sesja może zawierać wiele interakcji użytkownika. Runda to jedno wywołanie modelu.
 Cykl `M → A → M` pokazuje odpowiedź modelu, wykonanie narzędzi przez agenta i dane

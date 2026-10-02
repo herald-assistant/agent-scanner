@@ -39,8 +39,26 @@ public final class Standardization {
     public record ExecuteRequest(String previewId) {}
     public record SaveRequest(String previewId, String repositoryId, String repositoryName) {}
     public record AnalysisSummary(String id, String analyzedAt, String model, int fileCount) {}
-    public record RepositorySummary(String id, String name, String createdAt, List<AnalysisSummary> analyses) {}
-    public record SavedAnalysis(String repositoryId, String analysisId, Preview preview, Result result) {}
+    public record RepositorySummary(String id, String name, String createdAt, List<AnalysisSummary> analyses,
+                                    List<SnapshotSummary> snapshots) {
+        public RepositorySummary(String id, String name, String createdAt, List<AnalysisSummary> analyses) {
+            this(id, name, createdAt, analyses, new java.util.ArrayList<>());
+        }
+    }
+    public record SnapshotInputFile(String path, String content, boolean selected, String omissionReason) {}
+    public record SnapshotRequest(String snapshotId, String repositoryId, String repositoryName,
+                                  boolean inventoryComplete, boolean gitDetected, List<SnapshotInputFile> files) {}
+    public record SnapshotFile(String path, Category category, String content, int bytes, boolean redacted,
+                               boolean selected, String omissionReason) {}
+    public record SnapshotSummary(String id, String savedAt, int fileCount) {}
+    public record RepositorySnapshot(String id, String repositoryId, String repositoryName, String savedAt,
+                                     boolean inventoryComplete, boolean gitDetected, List<SnapshotFile> files) {}
+    public record SnapshotModelRequest(String model) {}
+    public record SavedAnalysis(String repositoryId, String analysisId, Preview preview, Result result, String snapshotId) {
+        public SavedAnalysis(String repositoryId, String analysisId, Preview preview, Result result) {
+            this(repositoryId, analysisId, preview, result, null);
+        }
+    }
     public record AnalysisExport(String format, int version, SavedAnalysis analysis) {}
     public record Evidence(String fileId, EvidenceKind kind, int startLine, int endLine, String quote) {}
     public record Assessment(String assessmentId, Verdict verdict, String rationale, List<Evidence> evidence,

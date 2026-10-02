@@ -64,24 +64,31 @@ usunięty; eksport nadal jest dostępny jako materiał do inspekcji.
 | Metoda i ścieżka | Znaczenie |
 |---|---|
 | `GET /api/standardization/catalog` | Wersjonowane wymagania, źródła i limity; bez AI. |
+| `POST /api/standardization/snapshots` | Zapis zamaskowanych konfiguracji i zaznaczeń przed AI. Body: `snapshotId`, `repositoryId` (null dla nowych), `repositoryName`, `inventoryComplete`, `gitDetected`, `files` z `path`, `content`, `selected`, `omissionReason`. Zwraca `RepositorySnapshot`; bez modeli i poświadczeń. |
+| `GET /api/standardization/repositories/{id}/inputs/{snapshotId}` | Zapisane wejście z plikami i zaznaczeniami; bez AI. |
+| `DELETE /api/standardization/repositories/{id}/inputs/{snapshotId}` | Usunięcie wejścia bez wyniku AI; pliki powiązane z wynikiem usuwa się przez usunięcie analizy. |
+| `POST /api/standardization/repositories/{id}/inputs/{snapshotId}/prepare` | `{"model":"…"}` → pakiet z zaznaczonych zapisanych plików w trybie AUTO, z trwałym powiązaniem do niezmiennego wejścia; bez inferencji. |
 | `POST /api/standardization/prepare` | Tryb `AUTO`, model, wybrane pliki i pominięcia → niezmienny podgląd, hash, termin ważności i dokładny prompt; bez AI. |
 | `POST /api/standardization/analyze` | `{"previewId":"…"}` → jawne wykonanie i zwalidowane oceny. |
-| `POST /api/standardization/analyze-and-save` | `{"previewId":"…","repositoryId":null,"repositoryName":"…"}` tworzy repozytorium albo używa wskazanego ID, wykonuje analizę i zapisuje wynik z migawką. Zwraca `repositoryId`, `analysisId`, `preview` i `result`. |
-| `GET /api/standardization/repositories` | Repozytoria z metadanymi analiz; bez odczytu zawartości plików i bez AI. |
+| `POST /api/standardization/analyze-and-save` | `{"previewId":"…","repositoryId":null,"repositoryName":"…"}` tworzy repozytorium albo używa wskazanego ID, wykonuje analizę i zapisuje wynik z migawką. Zwraca `repositoryId`, `analysisId`, `preview`, `result` i `snapshotId` (null dla wcześniejszych analiz). Pakiet z zapisanego wejścia wymaga jego właściwego repozytorium. |
+| `GET /api/standardization/repositories` | Repozytoria z listami `analyses` i `snapshots` (wejścia bez wyniku: `id`, `savedAt`, `fileCount`); bez odczytu zawartości plików i bez AI. |
 | `GET /api/standardization/repositories/{id}/analyses/{analysisId}` | Zapisany wynik i zamaskowany pakiet dowodowy; bez AI. |
 | `GET /api/standardization/repositories/{id}/analyses/{analysisId}/export` | Pobranie zapisanej analizy i jej zamaskowanej migawki jako załącznika JSON; bez AI. |
 | `DELETE /api/standardization/repositories/{id}/analyses/{analysisId}` | Usunięcie wybranej analizy i migawki; po ostatniej analizie także pustego wpisu repozytorium. Sukces: 204, brak analizy w tym repozytorium: 404. |
 | `POST /api/standardization/cancel` | `{"previewId":"…"}` → przerwanie tego wykonania. |
 | `DELETE /api/standardization/previews/{id}` | Usunięcie nieaktywnego podglądu z pamięci. |
 
-Funkcja nie wymaga identyfikatora sesji. Nowy widok używa `analyze-and-save`;
+Funkcja nie wymaga identyfikatora sesji. Widok najpierw zapisuje wejście przez
+`snapshots`, a po potwierdzeniu modelu w modalu przygotowuje pakiet z zapisanego
+wejścia i używa `analyze-and-save` z jego `repositoryId`.
+Zapis i odczyt wejścia nie wymagają poświadczeń Copilot;
 zapisane analizy pozostają w lokalnej bazie H2 także po odświeżeniu strony.
 Eksport ma format `agent-scanner-standardization-analysis` v1 i pole `analysis`
 z zapisanym wynikiem oraz podglądem. Nie jest formatem importu sesji.
 Usuwanie jest ograniczone do wskazanej pary repozytorium–analiza, kończy się
 `CHECKPOINT` i nie dotyczy sesji telemetrii ani analiz pozostałych repozytoriów.
 Modele pochodzą z istniejącego `GET /api/ai/session-chats/models`.
-Wymagane są skonfigurowane poświadczenia Copilot; model wybiera użytkownik,
+Uruchomienie AI wymaga skonfigurowanych poświadczeń Copilot; model wybiera użytkownik,
 nie musi być ustawiony domyślny model w konfiguracji.
 Interfejs wysyła `profile: "AUTO"` i pustą `clientVersion`. Pola pozostają w DTO
 dla zgodności kontraktu; backend oznacza wersję klienta jako nieznaną i ocenia

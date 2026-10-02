@@ -7,7 +7,7 @@ export type BackendFeature = 'ai' | 'standardization' | 'receiver';
 @Component({
   selector: 'as-full-version-dialog', imports: [MatDialogModule], changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<h2 mat-dialog-title>Dostępne w pełnej wersji</h2>
-    <mat-dialog-content>Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz importować i przeglądać sesje lokalnie.</mat-dialog-content>
+    <mat-dialog-content>Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz importować sesje i przeglądać pliki repozytoriów lokalnie.</mat-dialog-content>
     <mat-dialog-actions align="end"><button class="ui-button ui-button--primary" mat-dialog-close type="button">Rozumiem</button></mat-dialog-actions>`
 })
 export class FullVersionDialogComponent {}

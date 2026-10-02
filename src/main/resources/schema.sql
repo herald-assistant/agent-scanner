@@ -213,6 +213,24 @@ CREATE TABLE IF NOT EXISTS standardization_analysis (
     FOREIGN KEY (repository_id) REFERENCES standardization_repository(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS standardization_input_snapshot (
+    id VARCHAR(36) PRIMARY KEY,
+    repository_id VARCHAR(36) NOT NULL,
+    saved_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    file_count INT NOT NULL,
+    snapshot_json CLOB NOT NULL,
+    FOREIGN KEY (repository_id) REFERENCES standardization_repository(id) ON DELETE CASCADE
+);
+
+-- Links can precede the AI result; a prepared input is immutable even if AI fails.
+CREATE TABLE IF NOT EXISTS standardization_analysis_input (
+    analysis_id VARCHAR(36) PRIMARY KEY,
+    snapshot_id VARCHAR(36) NOT NULL,
+    FOREIGN KEY (snapshot_id) REFERENCES standardization_input_snapshot(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_standardization_input_repository ON standardization_input_snapshot(repository_id, saved_at DESC);
+CREATE INDEX IF NOT EXISTS idx_standardization_analysis_input_snapshot ON standardization_analysis_input(snapshot_id);
+
 CREATE INDEX IF NOT EXISTS idx_signal_received ON telemetry_signal(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_last_seen ON agent_session(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_span_session ON span_record(session_id, started_at);

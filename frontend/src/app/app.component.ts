@@ -52,7 +52,7 @@ export class AppComponent {
 
   constructor() {
     this.state.startPolling();
-    if (!this.features.demo) void this.standardizationHistory.refresh();
+    void this.standardizationHistory.refresh();
     this.updateSelectedSessionId();
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef))
@@ -74,15 +74,15 @@ export class AppComponent {
   }
 
   async openNewRepositoryAnalysis(): Promise<void> {
-    if (!this.features.require('standardization')) return;
     this.detailsPanel.close();
     if (await this.router.navigate(['/repositories', 'new']) && this.compactLayout()) this.closeSidebar();
   }
 
   async openSavedAnalysis(selection: {repositoryId: string; analysisId: string}): Promise<void> {
-    if (!this.features.require('standardization')) return;
     this.detailsPanel.close();
-    if (await this.router.navigate(['/repositories', selection.repositoryId, 'analyses', selection.analysisId]) && this.compactLayout()) this.closeSidebar();
+    const repository = this.standardizationHistory.repositories().find(item => item.id === selection.repositoryId);
+    const kind = repository?.snapshots?.some(item => item.id === selection.analysisId) ? 'inputs' : 'analyses';
+    if (await this.router.navigate(['/repositories', selection.repositoryId, kind, selection.analysisId]) && this.compactLayout()) this.closeSidebar();
   }
 
   async importSessionFile(file: File): Promise<void> {
@@ -114,7 +114,7 @@ export class AppComponent {
     const path = this.router.url.split(/[?#]/, 1)[0];
     const match = path.match(/^\/sessions\/(\d+)(?:\/[^/]+)?$/);
     this.selectedSessionIdState.set(match ? Number(match[1]) : undefined);
-    const repository = path.match(/^\/repositories\/([a-f0-9-]{36})(?:\/analyses\/([a-f0-9-]{36})|\/new)?$/);
+    const repository = path.match(/^\/repositories\/([a-f0-9-]{36})(?:\/(?:analyses|inputs)\/([a-f0-9-]{36})|\/new)?$/);
     this.selectedRepositoryIdState.set(path.endsWith('/new') ? null : repository?.[1] ?? null);
     this.selectedAnalysisIdState.set(repository?.[2] ?? null);
     if (!match) this.state.setSelectedTurnCount(0);

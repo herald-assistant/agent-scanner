@@ -41,6 +41,41 @@ public final class StandardizationController {
     @GetMapping("/repositories")
     public java.util.List<RepositorySummary> repositories() { return history.repositories(); }
 
+    @PostMapping("/snapshots")
+    public ResponseEntity<?> saveSnapshot(HttpServletRequest request) throws Exception {
+        byte[] body = request.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
+        if (body.length > MAX_BODY_BYTES) return error(413, "Migawka przekracza dozwolony rozmiar.");
+        SnapshotRequest parsed;
+        try { parsed = mapper.readValue(body, SnapshotRequest.class); }
+        catch (Exception failure) { return error(400, "Migawka plików ma niepoprawną strukturę."); }
+        return ResponseEntity.ok(history.saveSnapshot(parsed));
+    }
+
+    @GetMapping("/repositories/{repositoryId}/inputs/{snapshotId}")
+    public RepositorySnapshot snapshot(@PathVariable String repositoryId, @PathVariable String snapshotId) {
+        return history.snapshot(repositoryId, snapshotId);
+    }
+
+    @DeleteMapping("/repositories/{repositoryId}/inputs/{snapshotId}")
+    public ResponseEntity<?> deleteSnapshot(@PathVariable String repositoryId, @PathVariable String snapshotId) {
+        if (!history.deleteSnapshot(repositoryId, snapshotId)) return error(404, "Nie znaleziono zapisanych plików repozytorium.");
+        history.checkpoint();
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/repositories/{repositoryId}/inputs/{snapshotId}/prepare")
+    public Preview prepareSnapshot(@PathVariable String repositoryId, @PathVariable String snapshotId,
+                                   @RequestBody SnapshotModelRequest request) {
+        RepositorySnapshot snapshot = history.snapshot(repositoryId, snapshotId);
+        Preview preview = service.prepare(new PrepareRequest(Profile.AUTO, "", request == null ? null : request.model(),
+                snapshot.files().stream().filter(SnapshotFile::selected).map(file -> new InputFile(file.path(), file.content())).toList(),
+                snapshot.files().stream().filter(file -> !file.selected()).map(file -> new Omission(file.path(),
+                        file.omissionReason() == null ? "EXCLUDED" : file.omissionReason())).toList(), snapshot.inventoryComplete()));
+        try { history.attachInput(snapshot, preview.id()); }
+        catch (RuntimeException failure) { service.discard(preview.id()); throw failure; }
+        return preview;
+    }
+
     @GetMapping("/repositories/{repositoryId}/analyses/{analysisId}")
     public SavedAnalysis savedAnalysis(@PathVariable String repositoryId, @PathVariable String analysisId) {
         return history.get(repositoryId, analysisId);
@@ -102,14 +137,18 @@ public final class StandardizationController {
         } else if (!request.repositoryId().matches("[a-f0-9-]{36}") || !history.hasRepository(request.repositoryId())) {
             return CompletableFuture.completedFuture(error(404, "Wybrane repozytorium nie istnieje."));
         }
+        try { history.validateInputRepository(previewId, request.repositoryId()); }
+        catch (IllegalArgumentException failure) { return CompletableFuture.completedFuture(error(409, failure.getMessage())); }
+        String snapshotId = history.inputSnapshotId(previewId);
         if (!properties.credentialsConfigured()) return CompletableFuture.completedFuture(error(503,
                 "Skonfiguruj token GitHub Copilot, aby uruchomić analizę. Podgląd plików pozostaje dostępny."));
         return coordinator.<ResponseEntity<?>>submit(() -> {
             try {
                 Preview preview = service.preview(previewId);
                 Result result = service.analyze(previewId);
-                return ResponseEntity.ok(history.save(preview, result,
-                        request.repositoryId(), request.repositoryName()));
+                return ResponseEntity.ok(snapshotId == null ? history.save(preview, result,
+                        request.repositoryId(), request.repositoryName()) : history.saveWithInput(preview, result,
+                        request.repositoryId(), request.repositoryName(), snapshotId));
             } catch (IllegalArgumentException failure) { return error(409, failure.getMessage()); }
             catch (InterruptedException failure) { Thread.currentThread().interrupt(); return error(409, "Analiza została anulowana. Pliki pozostają dostępne."); }
             catch (AiExecutionException failure) {

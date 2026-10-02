@@ -16,6 +16,60 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class StandardizationControllerTest {
+    @Test void savesAndReopensMaskedInputWithoutCopilotCredentialsOrInference() throws Exception {
+        var database = new org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder()
+                .setType(org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType.H2).addScript("schema.sql").build();
+        var service = mock(StandardizationService.class);
+        var mapper = new ObjectMapper();
+        var history = new StandardizationHistoryStore(new org.springframework.jdbc.core.JdbcTemplate(database), mapper);
+        try (var coordinator = new AiExecutionCoordinator()) {
+            var mvc = MockMvcBuilders.standaloneSetup(new StandardizationController(new StandardizationCatalog(),
+                    service, history, new CopilotProperties("", "", null, null, 30), coordinator, mapper)).build();
+            String body = mapper.writeValueAsString(new SnapshotRequest(null, null, "synthetic-project", true, false,
+                    List.of(new SnapshotInputFile("AGENTS.md", "token=synthetic-secret-value", true, null))));
+            var response = mvc.perform(post("/api/standardization/snapshots").contentType("application/json").content(body))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.files[0].content").value("token=[UKRYTO]"))
+                    .andReturn();
+            var snapshot = mapper.readValue(response.getResponse().getContentAsByteArray(), RepositorySnapshot.class);
+            mvc.perform(get("/api/standardization/repositories/{id}/inputs/{snapshotId}", snapshot.repositoryId(), snapshot.id()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.files[0].selected").value(true));
+            mvc.perform(get("/api/standardization/repositories"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$[0].analyses.length()").value(0))
+                    .andExpect(jsonPath("$[0].snapshots[0].id").value(snapshot.id()));
+            verifyNoInteractions(service);
+        } finally { database.shutdown(); }
+    }
+
+    @Test void preparesAiOnlyFromStoredSelectedInputWithoutInvokingTheModel() throws Exception {
+        var service = mock(StandardizationService.class);
+        var history = mock(StandardizationHistoryStore.class);
+        var snapshot = new RepositorySnapshot("input-a", "repo-a", "synthetic-project", "2026-10-02T10:00:00Z", false, true,
+                List.of(new SnapshotFile("AGENTS.md", Category.INSTRUCTIONS, "Persisted configuration", 23, false, true, null),
+                        new SnapshotFile(".github/copilot-instructions.md", Category.INSTRUCTIONS, "Excluded", 8, false, false, null)));
+        when(history.snapshot("repo-a", "input-a")).thenReturn(snapshot);
+        var preview = new Preview("12345678-1234-1234-1234-123456789abc", "2026-10-02T11:00:00Z", "hash", null, "system", "prompt");
+        when(service.prepare(any())).thenReturn(preview);
+        try (var coordinator = new AiExecutionCoordinator()) {
+            var mvc = MockMvcBuilders.standaloneSetup(new StandardizationController(new StandardizationCatalog(),
+                    service, history, new CopilotProperties("", "", null, null, 30), coordinator, new ObjectMapper())).build();
+            mvc.perform(get("/api/standardization/repositories/repo-a/inputs/input-a"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.files[0].content").value("Persisted configuration"));
+            mvc.perform(post("/api/standardization/repositories/repo-a/inputs/input-a/prepare")
+                    .contentType("application/json").content("{\"model\":\"model-a\"}"))
+                    .andExpect(status().isOk());
+            verify(service).prepare(new PrepareRequest(Profile.AUTO, "", "model-a",
+                    List.of(new InputFile("AGENTS.md", "Persisted configuration")),
+                    List.of(new Omission(".github/copilot-instructions.md", "EXCLUDED")), false));
+            verify(history).attachInput(snapshot, preview.id());
+            verify(service, never()).analyze(any());
+            verifyNoMoreInteractions(service);
+            mvc.perform(post("/api/standardization/snapshots").contentType("application/json")
+                    .content("{\"unexpected\":true}"))
+                    .andExpect(status().isBadRequest());
+            verify(history, never()).saveSnapshot(any());
+        }
+    }
+
     @Test void deletesOnlyTheRequestedAnalysisAndCheckpointsAfterSuccessfulDeletionWithoutAi() throws Exception {
         var service = mock(StandardizationService.class);
         var history = mock(StandardizationHistoryStore.class);

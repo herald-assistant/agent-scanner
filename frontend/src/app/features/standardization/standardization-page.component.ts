@@ -9,6 +9,8 @@ import {StandardizationHistoryService} from '../../core/standardization-history.
 import {StandardizationStateService} from '../../core/standardization-state.service';
 import {StandardizationComponent} from './standardization.component';
 import {SavedStandardAnalysis} from '../../models/standardization.models';
+import {StandardizationRepositoryService} from '../../core/standardization-repository.service';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 
 @Component({
   selector: 'as-standardization-page',
@@ -23,6 +25,8 @@ export class StandardizationPageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(ScannerApiService);
   private readonly history = inject(StandardizationHistoryService);
+  private readonly repositories = inject(StandardizationRepositoryService);
+  private readonly features = inject(FeatureAvailability);
   private readonly notifications = inject(NotificationService);
   readonly state = inject(StandardizationStateService);
   private request = 0;
@@ -43,26 +47,38 @@ export class StandardizationPageComponent {
       this.savedAnalysis.set(null);
       const repositoryId = params.get('repositoryId');
       const analysisId = params.get('analysisId');
+      const snapshotId = params.get('snapshotId');
       this.repositoryId.set(repositoryId);
       this.newAnalysis.set(!repositoryId || this.route.snapshot.routeConfig?.path?.endsWith('/new') === true);
-      void this.open(current, repositoryId, analysisId);
+      void this.open(current, repositoryId, analysisId, snapshotId);
     });
   }
 
   exportAnalysis(): void {
     const saved = this.savedAnalysis();
     if (saved) window.location.href = this.api.standardizationExportUrl(saved.repositoryId, saved.analysisId);
+    else if (this.state.snapshot()) {
+      const snapshot = this.state.snapshot()!;
+      const url = URL.createObjectURL(new Blob([JSON.stringify({format: 'agent-scanner-repository-input', version: 1, snapshot}, null, 2)], {type: 'application/json'}));
+      const link = document.createElement('a');
+      link.href = url; link.download = `agent-scanner-input-${snapshot.id}.json`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
   }
 
   async deleteAnalysis(): Promise<void> {
     const saved = this.savedAnalysis();
-    if (!saved || this.deleting() || !confirm('Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisaną migawką plików?')) return;
+    const snapshot = this.state.snapshot();
+    if ((!saved && !snapshot) || this.deleting() || !confirm(saved
+      ? 'Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisaną migawką plików?'
+      : 'Usunąć zapisane pliki tego repozytorium?')) return;
     const request = this.request;
     this.deleting.set(true);
     try {
-      await this.history.deleteAnalysis(saved.repositoryId, saved.analysisId);
+      if (saved) await this.history.deleteAnalysis(saved.repositoryId, saved.analysisId);
+      else if (snapshot) { await this.repositories.delete(snapshot.repositoryId, snapshot.id); await this.history.refresh(); }
       if (request === this.request) await this.closeAnalysis();
-      this.notifications.success('Usunięto analizę repozytorium.');
+      this.notifications.success(saved ? 'Usunięto analizę repozytorium.' : 'Usunięto zapisane pliki repozytorium.');
     } catch (failure) {
       this.notifications.error(failure instanceof Error ? failure.message : 'Nie udało się usunąć analizy repozytorium.');
     } finally { this.deleting.set(false); }
@@ -75,7 +91,7 @@ export class StandardizationPageComponent {
     await this.router.navigate(['/']);
   }
 
-  private async open(request: number, repositoryId: string | null, analysisId: string | null): Promise<void> {
+  private async open(request: number, repositoryId: string | null, analysisId: string | null, snapshotId: string | null): Promise<void> {
     try {
       if (!repositoryId) {
         this.state.beginNew();
@@ -88,7 +104,13 @@ export class StandardizationPageComponent {
         if (this.newAnalysis()) {
           this.state.beginNew(repositoryId, repository.name);
           this.title.set(`Nowa analiza · ${repository.name}`);
+        } else if (snapshotId || (!analysisId && !repository.analyses.length && repository.snapshots?.length)) {
+          const snapshot = await this.repositories.get(repositoryId, snapshotId ?? repository.snapshots![0].id);
+          if (request !== this.request) return;
+          this.state.loadSnapshot(snapshot);
+          this.title.set(repository.name);
         } else {
+          if (this.features.demo) throw new Error('Nie znaleziono zapisanych plików tego repozytorium.');
           const selected = analysisId ?? repository.analyses[0]?.id;
           if (!selected) throw new Error('Repozytorium nie ma zapisanych analiz.');
           const saved = await this.api.savedStandardization(repositoryId, selected);

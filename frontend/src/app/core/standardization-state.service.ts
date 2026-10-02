@@ -1,12 +1,23 @@
 import {computed, inject, Injectable, signal} from '@angular/core';
 import {ScannerApiService} from './scanner-api.service';
-import {discoverRepository, readRepositoryText, redactRepositoryText, RepositoryFile, RepositorySelection} from './standardization-files';
-import {SavedStandardAnalysis, StandardCatalog, StandardOmission, StandardPreview, StandardResult} from '../models/standardization.models';
+import {discoverRepository, RepositoryFile, RepositorySelection} from './standardization-files';
+import {SavedStandardAnalysis, StandardCatalog, StandardPreview, StandardRepositorySnapshot, StandardResult, StandardSnapshotRequest} from '../models/standardization.models';
 import {SessionChatModel} from '../models/session-chat.models';
+import {FeatureAvailability} from './feature-availability.service';
+import {StandardizationRepositoryService} from './standardization-repository.service';
+import {StandardizationHistoryService} from './standardization-history.service';
 
 @Injectable({providedIn: 'root'})
 export class StandardizationStateService {
   private readonly api = inject(ScannerApiService);
+  private readonly features = inject(FeatureAvailability);
+  private readonly repositories = inject(StandardizationRepositoryService);
+  private readonly history = inject(StandardizationHistoryService);
+  private saving: Promise<void> = Promise.resolve();
+  private generation = 0;
+  readonly snapshot = signal<StandardRepositorySnapshot | null>(null);
+  readonly savingFiles = signal(false);
+  readonly filesSaved = signal(false);
   readonly catalog = signal<StandardCatalog | null>(null);
   readonly models = signal<SessionChatModel[]>([]);
   readonly model = signal('');
@@ -30,12 +41,16 @@ export class StandardizationStateService {
   readonly expectedRepositoryName = signal('');
   readonly selected = computed(() => this.files().filter(file => file.selected && !file.error));
   readonly bytes = computed(() => this.selected().reduce((sum, file) => sum + file.bytes, 0));
-  readonly busy = computed(() => this.choosingFolder() || this.reading() || this.preparing() || this.sending());
-  readonly canPrepare = computed(() => !this.saved() && !!this.catalog() && !!this.model() && !this.busy()
+  readonly busy = computed(() => this.choosingFolder() || this.reading() || this.savingFiles() || this.preparing() || this.sending());
+  readonly limits = computed(() => this.catalog()?.limits ?? {maxFiles: 80, maxFileBytes: 131072, maxTotalBytes: 1048576});
+  readonly canRun = computed(() => !this.saved() && this.filesSaved() && !!this.snapshot() && !this.busy()
     && this.selected().some(file => file.category !== 'CONTEXT')
-    && this.selected().length <= this.catalog()!.limits.maxFiles && this.bytes() <= this.catalog()!.limits.maxTotalBytes);
+    && this.selected().length <= this.limits().maxFiles && this.bytes() <= this.limits().maxTotalBytes);
+  readonly canPrepare = computed(() => !this.features.demo && this.canRun() && !!this.catalog()
+    && !this.modelError() && !this.catalogError() && this.models().some(model => model.id === this.model()));
 
   async initialize(refresh = false): Promise<void> {
+    if (this.features.demo) return;
     if (this.loadingModels()) return;
     this.loadingModels.set(true);
     const results = await Promise.allSettled([
@@ -63,6 +78,8 @@ export class StandardizationStateService {
       return;
     }
     this.invalidate();
+    this.snapshot.set(null);
+    this.filesSaved.set(false);
     this.saved.set(false);
     this.folder.set(selection);
     this.files.set([]);
@@ -72,20 +89,23 @@ export class StandardizationStateService {
       const result = await discoverRepository(selection);
       this.files.set(result.files);
       this.inventoryComplete.set(result.complete);
+      await this.persistFiles();
     } catch (failure) {
       this.inventoryComplete.set(false);
       this.error.set(message(failure, 'Nie udało się odczytać katalogu.'));
     } finally { this.reading.set(false); }
   }
-  toggle(path: string, selected: boolean): void {
+  async toggle(path: string, selected: boolean): Promise<void> {
     if (this.busy() || this.saved()) return;
     this.files.update(files => files.map(file => file.path === path && !file.error ? {...file, selected} : file));
     this.invalidate();
+    await this.persistFiles().catch(() => undefined);
   }
-  selectAll(selected: boolean): void {
+  async selectAll(selected: boolean): Promise<void> {
     if (this.busy() || this.saved()) return;
     this.files.update(files => files.map(file => file.error ? file : {...file, selected}));
     this.invalidate();
+    await this.persistFiles().catch(() => undefined);
   }
   setModel(value: string): void { if (!this.busy() && !this.saved() && this.model() !== value) { this.model.set(value); this.invalidate(); } }
 
@@ -95,29 +115,15 @@ export class StandardizationStateService {
     this.preparing.set(true);
     this.error.set('');
     try {
-      const selected = this.selected();
-      const fresh = await Promise.all(selected.map(async file => {
-        const text = await readRepositoryText(await file.read());
-        return {...file, content: redactRepositoryText(text)};
-      }));
-      if (fresh.some((file, index) => file.content !== selected[index].content)) {
-        const updated = new Map(fresh.map(file => [file.path, {...file, bytes: new TextEncoder().encode(file.content).length,
-          redacted: file.content.includes('[UKRYTO]')}]));
-        this.files.update(files => files.map(file => updated.get(file.path) ?? file));
-        throw new Error('Pliki zmieniły się od odczytu. Lista została odświeżona; sprawdź ją i przygotuj podgląd ponownie.');
-      }
-      const omissions: StandardOmission[] = this.files().filter(file => !file.selected || !!file.error)
-        .map(file => ({path: file.path, reason: file.omissionReason ?? 'EXCLUDED'}));
-      const preview = await this.api.prepareStandardization({
-        profile: 'AUTO', clientVersion: '', model: this.model(),
-        files: fresh.map(file => ({path: file.path, content: file.content})), omissions, inventoryComplete: this.inventoryComplete()
-      });
+      const snapshot = this.snapshot()!;
+      const preview = await this.api.prepareRepositorySnapshot(snapshot.repositoryId, snapshot.id, this.model());
       this.preview.set(preview);
     } catch (failure) { this.error.set(message(failure, 'Nie udało się przygotować podglądu.')); }
     finally { this.preparing.set(false); }
   }
 
   async send(): Promise<SavedStandardAnalysis | undefined> {
+    if (this.features.demo) return;
     const preview = this.preview();
     if (!preview || this.busy() || this.usedPreview()) return;
     if (Date.parse(preview.expiresAt) <= Date.now()) { this.error.set('Podgląd wygasł. Przygotuj go ponownie.'); return; }
@@ -125,13 +131,6 @@ export class StandardizationStateService {
     this.error.set('');
     this.cancelRequested.set(false);
     try {
-      const current = await Promise.all(this.selected().map(async file => ({
-        path: file.path, content: redactRepositoryText(await readRepositoryText(await file.read()))
-      })));
-      if (current.some(file => preview.packet.files.find(item => item.path === file.path)?.content !== file.content)) {
-        this.invalidate();
-        throw new Error('Plik zmienił się po przygotowaniu podglądu. Wybierz folder ponownie, aby odświeżyć treść.');
-      }
       this.usedPreview.set(true);
       const saved = await this.api.analyzeAndSaveStandardization(preview.id, this.repositoryId(), this.folder()?.name ?? '');
       this.result.set(saved.result);
@@ -146,6 +145,10 @@ export class StandardizationStateService {
     finally { this.sending.set(false); }
   }
   beginNew(repositoryId: string | null = null, repositoryName = ''): void {
+    this.generation++;
+    this.snapshot.set(null);
+    this.savingFiles.set(false);
+    this.filesSaved.set(false);
     this.invalidate();
     this.saved.set(false);
     this.repositoryId.set(repositoryId);
@@ -155,6 +158,10 @@ export class StandardizationStateService {
     this.error.set('');
   }
   loadSaved(saved: SavedStandardAnalysis, repositoryName: string): void {
+    this.generation++;
+    this.snapshot.set(null);
+    this.savingFiles.set(false);
+    this.filesSaved.set(true);
     this.invalidate();
     this.repositoryId.set(saved.repositoryId);
     this.expectedRepositoryName.set(repositoryName);
@@ -174,6 +181,7 @@ export class StandardizationStateService {
     this.error.set('');
   }
   async cancel(): Promise<void> {
+    if (this.features.demo) return;
     const preview = this.preview();
     if (!preview || !this.sending() || this.cancelRequested()) return;
     this.cancelRequested.set(true);
@@ -185,7 +193,51 @@ export class StandardizationStateService {
     this.preview.set(null);
     this.result.set(null);
     this.usedPreview.set(false);
-    if (previous) void this.api.discardStandardization(previous.id).catch(() => undefined);
+    if (previous && !this.features.demo) void this.api.discardStandardization(previous.id).catch(() => undefined);
+  }
+
+  loadSnapshot(snapshot: StandardRepositorySnapshot): void {
+    this.beginNew(snapshot.repositoryId, snapshot.repositoryName);
+    this.snapshot.set(snapshot);
+    this.filesSaved.set(true);
+    this.folder.set({name: snapshot.repositoryName, entries: [], complete: snapshot.inventoryComplete,
+      gitDetected: snapshot.gitDetected, refreshable: false});
+    this.inventoryComplete.set(snapshot.inventoryComplete);
+    this.files.set(snapshot.files.map(file => ({...file, omissionReason: file.omissionReason ?? undefined,
+      error: file.omissionReason && file.omissionReason !== 'EXCLUDED' ? 'Plik pominięty: ' + file.omissionReason : undefined,
+      read: async () => new File([file.content], file.path)})));
+  }
+
+  async persistFiles(): Promise<void> {
+    const folder = this.folder();
+    if (!folder || this.saved()) return;
+    const generation = this.generation;
+    const request: StandardSnapshotRequest = {
+      snapshotId: this.snapshot()?.id ?? null, repositoryId: this.repositoryId(), repositoryName: folder.name,
+      inventoryComplete: this.inventoryComplete(), gitDetected: folder.gitDetected,
+      files: this.files().map(file => ({path: file.path, content: file.content, selected: file.selected,
+        omissionReason: file.omissionReason ?? null}))
+    };
+    this.savingFiles.set(true);
+    this.filesSaved.set(false);
+    const save = this.saving.catch(() => undefined).then(async () => {
+      if (generation !== this.generation) return;
+      const snapshot = await this.repositories.save(request);
+      if (generation !== this.generation) return;
+      this.snapshot.set(snapshot);
+      this.filesSaved.set(true);
+      this.repositoryId.set(snapshot.repositoryId);
+      this.expectedRepositoryName.set(snapshot.repositoryName);
+      this.error.set('');
+      await this.history.refresh();
+    }).catch(failure => {
+      if (generation === this.generation) {
+        this.error.set(message(failure, 'Nie udało się zapisać plików repozytorium.'));
+      }
+      throw failure;
+    }).finally(() => { if (generation === this.generation) this.savingFiles.set(false); });
+    this.saving = save;
+    return save;
   }
 }
 

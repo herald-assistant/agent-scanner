@@ -3,7 +3,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {Session} from '../../models/scanner.models';
 import {FeatureAvailability} from '../../core/feature-availability.service';
-import {StandardAnalysisSummary, StandardRepositorySummary} from '../../models/standardization.models';
+import {StandardRepositorySummary} from '../../models/standardization.models';
 import {sessionEmitterLabel, sessionRepositoryName, sessionSourceIcon, sessionSourceLabel} from '../../core/session-presentation';
 
 @Component({
@@ -36,9 +36,13 @@ export class SessionSidebarComponent {
   readonly repositoriesExpanded = signal(true);
   readonly analysisLimit = signal(5);
   readonly analyses = computed(() => this.repositories()
-    .flatMap(repository => repository.analyses.map(analysis => ({repositoryId: repository.id,
-      repositoryName: repository.name, analysis})))
-    .sort((left, right) => right.analysis.analyzedAt.localeCompare(left.analysis.analyzedAt)
+    .flatMap(repository => [
+      ...repository.analyses.map(analysis => ({repositoryId: repository.id, repositoryName: repository.name,
+        analysis: {...analysis, date: analysis.analyzedAt, input: false}})),
+      ...(repository.snapshots ?? []).map(snapshot => ({repositoryId: repository.id, repositoryName: repository.name,
+        analysis: {...snapshot, date: snapshot.savedAt, model: '', input: true}}))
+    ])
+    .sort((left, right) => right.analysis.date.localeCompare(left.analysis.date)
       || left.repositoryName.localeCompare(right.repositoryName) || left.analysis.id.localeCompare(right.analysis.id)));
   readonly visibleAnalyses = computed(() => this.analyses().slice(0, this.analysisLimit()));
 
@@ -52,10 +56,11 @@ export class SessionSidebarComponent {
     });
   }
 
-  isAnalysisActive(entry: {repositoryId: string; analysis: StandardAnalysisSummary}): boolean {
+  isAnalysisActive(entry: {repositoryId: string; analysis: {id: string}}): boolean {
     const selected = this.selectedAnalysisId();
     return selected === entry.analysis.id || (!selected && this.selectedRepositoryId() === entry.repositoryId
-      && this.repositories().find(repository => repository.id === entry.repositoryId)?.analyses[0]?.id === entry.analysis.id);
+      && (this.repositories().find(repository => repository.id === entry.repositoryId)?.analyses[0]?.id
+        ?? this.repositories().find(repository => repository.id === entry.repositoryId)?.snapshots?.[0]?.id) === entry.analysis.id);
   }
 
   private readonly compactNumber = new Intl.NumberFormat('pl-PL', {notation: 'compact'});
