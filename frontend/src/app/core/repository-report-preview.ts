@@ -165,7 +165,8 @@ export function repositoryFileLink(git: RepositoryGitMetadata | null, path: stri
   const segments = repo.split('/').filter(Boolean);
   if (segments.length < 2 || (url.hostname === 'github.com' && segments.length !== 2)) return null;
   const commit = git.commit && /^(?:[a-f\d]{40}|[a-f\d]{64})$/i.test(git.commit) ? git.commit : null;
-  const ref = commit ?? git.branch;
+  // A local commit may not exist on origin. Prefer the named branch for repository navigation.
+  const ref = git.branch || commit;
   if (!ref || /[\u0000-\u001f]/.test(ref)) return null;
   return `https://${url.hostname}${repo}/${url.hostname === 'gitlab.com' ? '-/blob' : 'blob'}/${encodeURIComponent(ref)}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }

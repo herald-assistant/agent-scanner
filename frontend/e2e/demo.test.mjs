@@ -223,6 +223,8 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   const pdf = await pdfDownload;
   const bytes = await readFile(await pdf.path());
   assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(bytes.includes(Buffer.from('https://github.com/example/synthetic-repository/blob/main/.github/agents/reviewer.agent.md')));
+  assert.ok(!bytes.includes(Buffer.from('/blob/' + 'a'.repeat(40) + '/')), 'PDF source links must not depend on a local commit when the branch is known');
   await writeFile(resolve(report, 'repository-report.pdf'), bytes);
   await context.setOffline(true);
   const offlineDownload = page.waitForEvent('download');

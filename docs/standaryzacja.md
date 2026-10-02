@@ -187,8 +187,12 @@ lub zawierający tylko metadane otrzymuje krótką informację bez pustego bloku
 
 Pod fragmentem znajduje się link **Szczegóły w repozytorium**, gdy adres `origin`
 wskazuje rozpoznany GitHub.com lub GitLab.com i znany jest commit lub branch.
-Obsługiwane są adresy HTTPS oraz Git/SSH; link HTTPS wskazuje najpierw commit,
-a przy jego braku znany branch. Ścieżki plików są kodowane jako segmenty URL.
+Obsługiwane są adresy HTTPS oraz Git/SSH; link HTTPS wskazuje najpierw znany branch,
+a tylko przy braku jego nazwy poprawny identyfikator commita. Lokalny commit może
+nie być opublikowany w `origin`, dlatego nie zastępuje znanej gałęzi w odnośniku.
+Pole `COMMIT` w metadanych raportu nadal opisuje odczytany checkout. Odnośnik do
+gałęzi prowadzi do jej aktualnej treści, która może różnić się od zapisanej treści
+raportu. Nazwa gałęzi i segmenty ścieżki pliku są kodowane w URL.
 Dla innych hostingów lub brakujących metadanych pozostaje ścieżka bez zgadywanego
 linku. Generowanie nie sprawdza dostępności sieciowej pliku. Uwaga na pierwszej
 stronie wyjaśnia, że lokalne zmiany i nieopublikowane pliki mogą być niedostępne

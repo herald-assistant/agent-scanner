@@ -110,7 +110,9 @@ describe('repository PDF source excerpts', () => {
     const output = JSON.stringify(repositoryReportDefinition(report).content);
     expect(output.match(/FRAGMENT TREŚCI/g)).toHaveLength(1);
     expect(output.match(/Szczegóły w repozytorium/g)).toHaveLength(1);
-    expect(output).toContain('/blob/' + git.commit + '/.vscode/mcp.json');
+    expect(output).toContain('/blob/main/.vscode/mcp.json');
+    expect(output).not.toContain('/blob/' + git.commit + '/');
+    expect(output).toContain(git.commit); // The checkout commit remains report metadata.
   });
 
   it('does not bypass the excerpt limit through duplicated XML or ignore-file source fields', () => {
@@ -146,13 +148,23 @@ describe('repository PDF pagination', () => {
 });
 
 describe('repository source links', () => {
-  it('pins GitHub links to the known commit and encodes each path segment', () => {
-    expect(repositoryFileLink(git, '.github/agents/Przegląd #1.agent.md')).toBe(`https://github.com/example/repository/blob/${git.commit}/.github/agents/Przegl%C4%85d%20%231.agent.md`);
+  it('prefers the known GitHub branch over a potentially unpublished local commit and encodes each path segment', () => {
+    expect(repositoryFileLink(git, '.github/agents/Przegląd #1.agent.md')).toBe('https://github.com/example/repository/blob/main/.github/agents/Przegl%C4%85d%20%231.agent.md');
+    expect(repositoryFileLink({...git, branch: 'master'}, 'frontend/AGENTS.md')).toBe('https://github.com/example/repository/blob/master/frontend/AGENTS.md');
     expect(repositoryFileLink({...git, origin: 'github.com:example/repository.git'}, 'AGENTS.md')).toBe(repositoryFileLink(git, 'AGENTS.md'));
   });
-  it('supports HTTPS and SSH GitLab origins with nested groups, and uses a branch only without a commit', () => {
-    expect(repositoryFileLink({...git, origin: 'ssh://git@gitlab.com/team/sub/repo.git'}, 'AGENTS.md')).toBe(`https://gitlab.com/team/sub/repo/-/blob/${git.commit}/AGENTS.md`);
-    expect(repositoryFileLink({...git, commit: null, branch: 'feature/review', origin: 'https://github.com/example/repository.git'}, 'AGENTS.md')).toContain('/blob/feature%2Freview/AGENTS.md');
+  it('supports nested GitLab groups and encodes branch names even when a commit is also known', () => {
+    expect(repositoryFileLink({...git, origin: 'ssh://git@gitlab.com/team/sub/repo.git'}, 'AGENTS.md')).toBe('https://gitlab.com/team/sub/repo/-/blob/main/AGENTS.md');
+    expect(repositoryFileLink({...git, branch: 'feature/review', origin: 'https://github.com/example/repository.git'}, 'AGENTS.md')).toContain('/blob/feature%2Freview/AGENTS.md');
+    expect(repositoryFileLink({...git, branch: 'feature/review', origin: 'https://gitlab.com/team/sub/repo.git'}, 'AGENTS.md')).toBe('https://gitlab.com/team/sub/repo/-/blob/feature%2Freview/AGENTS.md');
+  });
+  it('falls back to a valid commit only when the branch is missing, without guessing a default branch', () => {
+    for (const branch of [null, '']) {
+      expect(repositoryFileLink({...git, branch}, 'AGENTS.md')).toBe(`https://github.com/example/repository/blob/${git.commit}/AGENTS.md`);
+    }
+    expect(repositoryFileLink({...git, branch: null, origin: 'https://gitlab.com/team/repo.git'}, 'AGENTS.md')).toBe(`https://gitlab.com/team/repo/-/blob/${git.commit}/AGENTS.md`);
+    expect(repositoryFileLink({...git, branch: null, commit: 'b'.repeat(64)}, 'AGENTS.md')).toContain('/blob/' + 'b'.repeat(64) + '/');
+    expect(repositoryFileLink({...git, branch: null, commit: 'invalid'}, 'AGENTS.md')).toBeNull();
   });
   it('strips credentials and never guesses unsupported hosting, missing refs or unsafe paths', () => {
     expect(repositoryFileLink({...git, origin: 'https://user:synthetic-password@github.com/example/repository.git?token=secret'}, 'AGENTS.md')).toBe(repositoryFileLink(git, 'AGENTS.md'));
