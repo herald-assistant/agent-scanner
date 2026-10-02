@@ -230,7 +230,7 @@ class OtlpFlowIntegrationTest {
     }
 
     @Test
-    void exportsDeletesAndImportsSessionWithItsRawSignal() throws Exception {
+    void exportsAndDeletesSessionWithItsRawSignal() throws Exception {
         mvc.perform(post("/v1/traces").contentType("application/x-protobuf")
             .content(CopilotTraceFixture.request().toByteArray())).andExpect(status().isOk());
         long sessionId = ((Number) store.sessions().get(0).get("ID")).longValue();
@@ -244,29 +244,14 @@ class OtlpFlowIntegrationTest {
         mvc.perform(get("/api/sessions")).andExpect(jsonPath("$", hasSize(0)));
         mvc.perform(get("/api/status")).andExpect(jsonPath("$.traces").value(0));
 
-        mvc.perform(post("/api/sessions/import").contentType(MediaType.APPLICATION_JSON).content(exported))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.signals").value(1))
-            .andExpect(jsonPath("$.spans").value(3));
-        mvc.perform(get("/api/sessions"))
-            .andExpect(jsonPath("$", hasSize(1)))
-            .andExpect(jsonPath("$[0].conversationId").value(CopilotTraceFixture.CONVERSATION));
-        long importedId = ((Number) store.sessions().get(0).get("ID")).longValue();
-        mvc.perform(get("/api/sessions/{id}", importedId))
-            .andExpect(jsonPath("$.spans", hasSize(3)))
-            .andExpect(jsonPath("$.messages", hasSize(4)))
-            .andExpect(jsonPath("$.signals", hasSize(1)));
-        mvc.perform(post("/api/sessions/import").contentType(MediaType.APPLICATION_JSON).content(exported))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error", containsString("już zapisana")));
+        assertTrue(exported.length > 0);
     }
 
     @Test
-    void rejectsJsonThatIsNotAnAgentScannerExport() throws Exception {
+    void rejectsLegacyJsonImportContentType() throws Exception {
         mvc.perform(post("/api/sessions/import").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"format\":\"something-else\",\"version\":1}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error", containsString("Nieobsługiwany format")));
+            .andExpect(status().isUnsupportedMediaType());
     }
 
     private byte[] gzip(byte[] source) throws Exception {

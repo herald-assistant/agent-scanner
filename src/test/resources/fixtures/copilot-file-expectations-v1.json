@@ -1,0 +1,28 @@
+{
+  "copilot-file-v1.jsonl": {
+    "ignoredRecords": 3,
+    "duplicateRecords": 0,
+    "unassignedSpans": 0,
+    "sessions": [
+      {"conversationId": "file-session-b", "spans": 2, "turns": 1, "relatedSessions": 0, "relatedTurns": 0, "auxiliaryCalls": 0},
+      {"conversationId": "file-session-a", "spans": 5, "turns": 1, "relatedSessions": 1, "relatedTurns": 1, "auxiliaryCalls": 0}
+    ],
+    "normalized": {
+      "file-session-b": {"spans":2,"inputTokens":30,"outputTokens":2,"cacheReadTokens":0,"turnCount":1,"toolCount":0},
+      "file-session-a": {"spans":3,"inputTokens":100,"outputTokens":10,"cacheReadTokens":40,"turnCount":1,"toolCount":1},
+      "file-child-a": {"spans":2,"inputTokens":20,"outputTokens":5,"cacheReadTokens":0,"turnCount":1,"toolCount":0}
+    }
+  },
+  "copilot-file-detached-v1.jsonl": {
+    "ignoredRecords": 3,
+    "duplicateRecords": 0,
+    "unassignedSpans": 6,
+    "sessions": [
+      {"conversationId": "fixture-main", "spans": 10, "turns": 2, "relatedSessions": 1, "relatedTurns": 2, "auxiliaryCalls": 1}
+    ],
+    "normalized": {
+      "fixture-main": {"spans":5,"inputTokens":20,"outputTokens":4,"cacheReadTokens":0,"turnCount":2,"toolCount":2},
+      "fixture-child": {"spans":4,"inputTokens":20,"outputTokens":4,"cacheReadTokens":0,"turnCount":2,"toolCount":1}
+    }
+  }
+}

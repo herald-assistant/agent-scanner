@@ -10,6 +10,8 @@ Zacznij od [obsługi](uzytkowanie.md). Przy zmianie kodu przeczytaj
 | [Obsługa](uzytkowanie.md) | Uruchomienie, VS Code, ekrany, interpretacja danych i prywatność. |
 | [Konfiguracja](konfiguracja.md) | Zmienne, baza, retencja i uruchomienie AI. |
 | [Architektura](architektura.md) | Przepływ danych, warstwy, moduły i persystencja. |
+| [Architektura docelowa](architektura-docelowa.md) | Wdrożone demo i wspólny rdzeń; kolejny etap integracji ze Spring Boot, GraalJS, bazą klienta i MCP. |
+| [Plan realizacji demo](plan-demo.md) | Etapy dojścia do GitHub Pages: lokalny import JSONL, IndexedDB, obecne widoki, dostępność funkcji, testy i publikacja. |
 | [Telemetria](telemetria.md) | Tożsamość sesji i rund, subagenci, kompaktowanie, wzory i błędy. |
 | [API](api.md) | Endpointy i parametry HTTP. |
 | [AI](ai.md) | Klasyfikacja, podział credits, doradztwo, rozmowa, runtime i cache. |

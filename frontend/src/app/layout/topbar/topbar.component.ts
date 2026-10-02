@@ -1,7 +1,8 @@
-import {ChangeDetectionStrategy, Component, input, output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, input, output} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {ScannerStatus} from '../../models/scanner.models';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 
 @Component({
   selector: 'as-topbar',
@@ -11,6 +12,7 @@ import {ScannerStatus} from '../../models/scanner.models';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TopbarComponent {
+  readonly features = inject(FeatureAvailability);
   readonly status = input.required<ScannerStatus>();
   readonly sidebarOpen = input.required<boolean>();
   readonly sidebarToggle = output<void>();

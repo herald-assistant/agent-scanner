@@ -71,7 +71,7 @@
             <button class="button quiet ui-button" (click)="loadWorkflow()">Ponów przygotowanie mapy</button>
           }
         }
-        @if (activeTab === 'ai-hub') {
+        @if (activeTab === 'ai-hub' && !features.demo) {
           @if (workflowState(); as workflow) {
             @if (workflow.source.session.id === detail.session.id) {
               <as-ai-hub [analysis]="workflow" [contextCompactions]="contextCompactions()"

@@ -10,6 +10,7 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 ## Spis treści
 
 - [Wzorce Angulara](#wzorce-angulara)
+- [Tryb demo](#tryb-demo)
 - [Właściciele ekranów](#właściciele-ekranów)
 - [Material, język i dostępność](#material-język-i-dostępność)
 - [Wspólny panel szczegółów](#wspólny-panel-szczegółów)
@@ -27,7 +28,8 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 - Strict TypeScript i strict templates, bez `any` i niebezpiecznych rzutowań.
 - Signal input jest tylko do odczytu: rodzic używa `[messages]="messages()"`,
   dziecko `this.messages()`. Two-way binding wymaga pasującego outputu.
-- Interpretacja sesji należy do serwisów `core`, transport do `ScannerApiService`,
+- Interpretacja sesji należy do `scanner-core` i jego serwisów fasadowych,
+  operacje do `ScannerDataGateway`, transport HTTP do `ScannerApiService`,
   snackbary do `NotificationService`, a lokalny stan i formatowanie do funkcji.
 - `AppComponent` jest korzeniem kompozycji. Nie dodawaj tam interpretacji domenowej
   ani renderowania funkcji, które mają własnego właściciela.
@@ -43,7 +45,7 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 | Komponent | Odpowiedzialność |
 |---|---|
 | `TopbarComponent` | Zwijanie/rozwijanie panelu sesji w miejscu znaku aplikacji, status odbiornika, konfiguracja, poradnik technik i pauza. |
-| `SessionSidebarComponent` | Wybór sesji, ikonowy import JSON w nagłówku oraz zwijana lista repozytoriów i zapisanych analiz. |
+| `SessionSidebarComponent` / `SessionImportDialogComponent` | Wybór sesji, ikonowy import Copilot OTel JSONL, modal wyboru jednej rozmowy przez HTTP lub wielu w demo oraz zwijana lista repozytoriów i zapisanych analiz. |
 | `CostDashboardComponent` | Bilans sesji i porównywalne rozliczenie wywołań. |
 | `ToolOptimizationOverviewComponent` | Globalne zestawienie narzędzi bez AI. |
 | `ToolDefinitionDialogComponent` | Wersje definicji i dowody potencjalnych powtórzeń. |
@@ -58,6 +60,35 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 | `StandardizationComponent` / `StandardizationFileDialogComponent` | Wybór folderu, plików i modelu, podgląd wysyłki oraz zgodności i zalecenia przy pliku. |
 
 Właścicieli analiz `core`, routingu i ładowania opisuje [architektura](architektura.md).
+
+## Tryb demo
+
+Build `demo` wybiera lokalny gateway, IndexedDB i routing hash. Strona startowa
+pokazuje konfigurację eksportera `file`; status opisuje lokalny zapis. Demo nie
+odczytuje `/api` ani `/v1`, historii Standaryzacji, cache AI ani katalogu modeli.
+Nie pokazuje globalnych liczników logów/metryk ani retencji jako lokalnych pomiarów.
+
+Modal importu wymaga jawnego wyboru checkboxami i pokazuje osobno rundy główne,
+subagentów i wywołania pomocnicze. Już zapisane zakresy są nieaktywne. Escape,
+backdrop i Anuluj zwalniają podgląd bez zapisu. Długi odczyt można przerwać przez
+„Anuluj odczyt”, co kończy Workera. Przy zatwierdzaniu UI pokazuje zapis i blokuje
+kolejny import; sukces następuje dopiero po zatwierdzeniu całej transakcji.
+Otwiera się Podsumowanie pierwszej wybranej rozmowy według kolejności podglądu.
+Pozostałe lokalne zakładki i wspólne panele działają po odświeżeniu strony.
+
+`FeatureAvailability` otwiera jeden modal Material „Dostępne w pełnej wersji”
+z treścią „Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz
+importować i przeglądać sesje lokalnie.” Dotyczy AI Hub, rozmów, klasyfikacji,
+doradztwa, Standaryzacji oraz ustawień i pauzy odbiornika. Kliknięcie AI Hub
+zachowuje aktualną zakładkę. Bezpośrednia trasa AI wraca do Podsumowania sesji,
+a trasa repozytorium do strony startowej, przed montowaniem komponentu.
+Brak danych w telemetrii pozostaje stanem danych bez tego modalu.
+
+Eksport pobiera `agent-scanner-session` v1 z zakresem głównym i `relatedDetails`;
+object URL zostaje zwolniony. To kopia materiału źródłowego, nie wejście importu
+JSONL. Usunięcie sesji lub całości wymaga potwierdzenia i obejmuje lokalny raw.
+Poradnik pobiera statyczny katalog z jednego źródła backendowego, kopiowanego
+w przygotowaniu buildu. Nie inicjuje doradztwa AI.
 
 ## Material, język i dostępność
 
@@ -228,8 +259,16 @@ jawnego wysłania, narzędzi analityka i walidacji są w [AI](ai.md).
 
 ## Konfiguracja i komunikaty
 
-Onboarding i konfiguracja VS Code pokazują kompletny poprawny JSON z eksportem
+W pełnej wersji onboarding i konfiguracja VS Code pokazują kompletny poprawny JSON z eksportem
 OTel, `http://localhost:8081`, `http/protobuf` i capture content.
 Dodanie emitera wymaga instrukcji, zanonimizowanego fixture'u i potwierdzenia
 grupowania; sam wspólny OTLP nie potwierdza zgodności.
 Błędy przejściowe i wynik importu pokazuj w snackbarach, bez bannerów u góry strony.
+Import przyjmuje `.jsonl`/`.ndjson` z eksportera plikowego Copilot. Po odczycie
+przez wybrany adapter zawsze otwiera modal, także dla jednej sesji. W pełnej wersji użytkownik wybiera
+jedną pozycję i potwierdza zapis; anulowanie, Escape lub backdrop nie zapisują
+danych. Podgląd pokazuje identyfikator, czas, model, liczbę rund/spanów,
+powiązanych subagentów, obecność treści i istniejące dane. Zapisane pozycje są
+nieaktywne. Modal pełnej wersji informuje o przesłaniu pliku do backendu i prywatności zapisu;
+modal demo o przetwarzaniu i zapisie tylko w przeglądarce.
+Po udanym imporcie odśwież listę sesji i otwórz zaimportowaną sesję.

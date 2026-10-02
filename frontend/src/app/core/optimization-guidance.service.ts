@@ -1,10 +1,10 @@
 import {inject, Injectable} from '@angular/core';
 import {OptimizationTechniqueCatalog} from '../models/optimization-guidance.models';
-import {ScannerApiService} from './scanner-api.service';
+import {SCANNER_DATA} from './scanner-data-gateway';
 
 @Injectable({providedIn: 'root'})
 export class OptimizationGuidanceService {
-  private readonly api = inject(ScannerApiService);
+  private readonly api = inject(SCANNER_DATA);
   private catalogRequest?: Promise<OptimizationTechniqueCatalog>;
 
   load(): Promise<OptimizationTechniqueCatalog> {

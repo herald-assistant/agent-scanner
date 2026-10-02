@@ -33,13 +33,31 @@ bez zapisu. Nie zatrzymuje importu.
 | `GET /api/sessions/{id}/analysis` | Rekonstrukcja `session-reconstruction-v1`: epizody, interakcje, rundy i narzędzia. |
 | `GET /api/sessions/{id}/workflow-sources` | Źródła mapy pobierane leniwie przez widoki workflow i AI Hub. |
 | `GET /api/sessions/{id}/export` | Eksport `agent-scanner-session` v1. |
-| `POST /api/sessions/import` | Import v1; tylko trace signals, limit rozmiaru, HTTP 409 przy konflikcie conversation ID. |
+| `POST /api/sessions/import/preview` | Body `application/x-ndjson`: plik Copilot OTel JSONL → lista sesji, bez zapisu. |
+| `POST /api/sessions/import?conversationId=…` | Ten sam plik JSONL i wybór jednej sesji; zapis jej spanów i jednoznacznie powiązanych subagentów. HTTP 409 przy istniejących danych. |
 | `DELETE /api/sessions/{id}` | Usunięcie sesji i powiązanych danych. |
 | `DELETE /api/data` | Usunięcie wszystkich danych. |
 
 Eksport nie obejmuje wyników AI ani rozmów. Format i zgodność opisuje
 [kontrakt backendu](backend.md), a skutki dla danych —
 [poradnik prywatności](uzytkowanie.md).
+
+Podgląd zwraca `sessions`: `conversationId`, `agentName`, `repository`, `model`,
+`startedAt`, `endedAt`, `spans`, `turns`, `relatedSessions`, `relatedTurns`,
+`auxiliaryCalls`, `contentCaptured` i `alreadyImported`, oraz `ignoredRecords`,
+`duplicateRecords` i `unassignedSpans`. `turns` i `model` opisują głównego agenta;
+`relatedTurns` — rundy jednoznacznie powiązanych subagentów, a `auxiliaryCalls` —
+wywołania pomocnicze w importowanym zakresie. `spans` obejmuje cały wybrany zakres,
+`startedAt` i `endedAt` zakres głównej rozmowy. Techniczne grupy bez dowodu sesji
+nie są pozycjami do wyboru; `unassignedSpans` liczy spany niepowiązane z żadną
+wybieralną rozmową. Podgląd nie
+utrwala pliku i nie uruchamia AI. Po wyborze frontend ponownie przesyła plik;
+backend ponownie sprawdza zakres oraz konflikty i atomowo zapisuje wybrany zakres.
+Wynik zapisu ma `sessionId`, `signals` i `spans`. Oba endpointy egzekwują
+`maxPayloadBytes` (413); niepoprawne JSONL lub wybór dają 400.
+Rekordy logów, metryk i inne rekordy bez spanów nie są importowane; liczba
+pominięć pozostaje jawna. Import eksportu `agent-scanner-session` v1 został
+usunięty; eksport nadal jest dostępny jako materiał do inspekcji.
 
 ## Standaryzacja repozytorium
 

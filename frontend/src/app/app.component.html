@@ -29,6 +29,11 @@
     </mat-drawer>
 
     <mat-drawer-content class="workspace-content">
+      @if (state.importing()) {
+        <p role="status">{{ state.importPhase() }}
+          @if (state.canCancelImport()) {<button type="button" class="ui-button ui-button--ghost" (click)="state.cancelImport()">Anuluj odczyt</button>}
+        </p>
+      }
       <router-outlet />
     </mat-drawer-content>
   </mat-drawer-container>

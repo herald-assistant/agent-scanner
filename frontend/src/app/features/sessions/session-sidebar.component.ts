@@ -1,7 +1,8 @@
-import {ChangeDetectionStrategy, Component, computed, effect, input, output, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {Session} from '../../models/scanner.models';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 import {StandardAnalysisSummary, StandardRepositorySummary} from '../../models/standardization.models';
 import {sessionEmitterLabel, sessionRepositoryName, sessionSourceIcon, sessionSourceLabel} from '../../core/session-presentation';
 
@@ -13,6 +14,7 @@ import {sessionEmitterLabel, sessionRepositoryName, sessionSourceIcon, sessionSo
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SessionSidebarComponent {
+  readonly features = inject(FeatureAvailability);
   readonly sessions = input.required<Session[]>();
   readonly selectedSessionId = input<number>();
   readonly selectedTurnCount = input(0);

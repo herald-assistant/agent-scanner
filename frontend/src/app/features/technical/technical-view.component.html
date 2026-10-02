@@ -10,12 +10,16 @@
       <span>SOURCE OF TRUTH</span>
     </div>
     <div class="coverage-grid">
-      <article><strong>{{ detail().signals.length }}</strong><span>payloadów trace tej sesji</span><small>Pełny OTLP JSON, spany, atrybuty i eventy.</small></article>
+      <article><strong>{{ detail().signals.length }}</strong><span>payloadów spanów tej sesji</span><small>{{ features.demo ? 'Źródłowe rekordy JSONL i odpowiadający im OTLP JSON.' : 'Pełny OTLP JSON, spany, atrybuty i eventy.' }}</small></article>
+      @if (!features.demo) {
       <article><strong>{{ status().metrics }}</strong><span>paczek metrics globalnie <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o metrykach globalnych" matTooltip="Metryki są zachowane w bazie jako surowy OTLP. Nie przypisujemy ich automatycznie do sesji, jeśli sygnał nie zawiera wiarygodnego identyfikatora rozmowy — zapobiega to podwójnemu liczeniu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><small>Zapisane, lecz nie sumowane do kosztu sesji.</small></article>
       <article><strong>{{ status().logs }}</strong><span>paczek events/logs globalnie <mat-icon class="info-tip" tabindex="0" role="img" aria-label="Informacja o eventach globalnych" matTooltip="Eventy i logi są zachowane w bazie jako surowy OTLP. Obecnie nie przypisujemy ich do sesji bez jednoznacznego klucza korelacji; widok kosztu opiera się na spanach modelu." matTooltipClass="scanner-info-tooltip" matTooltipPosition="above">info</mat-icon></span><small>Zachowane do diagnostyki; nie są obecnie częścią kosztu sesji.</small></article>
-      <article><strong>{{ status().contentCaptured ? 'pełna' : 'wyłączona' }}</strong><span>treść promptów i narzędzi</span><small>{{ status().contentCaptured ? 'Capture content działa; treść jest dostępna w atrybutach.' : 'Copilot nie wyemitował pełnej treści.' }}</small></article>
+      } @else {
+        <article><strong>—</strong><span>logi i metryki poza spanami</span><small>Import obejmuje spany. Pozostałe rekordy są pomijane i zliczane w podglądzie.</small></article>
+      }
+      <article><strong>{{ detail().session.contentCaptured ? 'dostępna' : 'niewyemitowana' }}</strong><span>treść promptów i narzędzi</span><small>{{ detail().session.contentCaptured ? 'Przechwycona treść jest dostępna w atrybutach.' : 'Plik nie zawiera przechwyconej treści tej sesji.' }}</small></article>
     </div>
-    <p>Warstwa surowa zachowuje cały otrzymany payload. Widok główny pokazuje tylko pola, które można poprawnie przypisać do sesji; dane wyliczone i niewyemitowane są oznaczone ikoną informacji.</p>
+    <p>{{ features.demo ? 'Warstwa surowa zachowuje wybrany zakres importu. Pozostałe rozmowy i nieprzypisane rekordy nie są zapisywane.' : 'Warstwa surowa zachowuje cały otrzymany payload.' }} Widok główny pokazuje tylko pola, które można poprawnie przypisać do sesji; dane wyliczone i niewyemitowane są oznaczone ikoną informacji.</p>
   </section>
 
   <nav class="technical-switcher ui-segmented" aria-label="Rodzaj danych technicznych">

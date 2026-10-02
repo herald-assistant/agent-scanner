@@ -1,10 +1,12 @@
 import {inject, Injectable, signal} from '@angular/core';
+import {FeatureAvailability} from './feature-availability.service';
 import {ScannerApiService} from './scanner-api.service';
 import {StandardRepositorySummary} from '../models/standardization.models';
 
 @Injectable({providedIn: 'root'})
 export class StandardizationHistoryService {
   private readonly api = inject(ScannerApiService);
+  private readonly features = inject(FeatureAvailability);
   readonly repositories = signal<StandardRepositorySummary[]>([]);
   readonly error = signal('');
 
@@ -17,6 +19,7 @@ export class StandardizationHistoryService {
   }
 
   async refresh(): Promise<void> {
+    if (this.features.demo) return;
     try {
       this.repositories.set(await this.api.standardizationRepositories());
       this.error.set('');

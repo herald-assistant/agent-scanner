@@ -5,9 +5,17 @@
   "scripts": {
     "start": "ng serve --proxy-config proxy.conf.json",
     "check:styles": "node scripts/check-styles.mjs",
-    "prebuild": "npm run check:styles",
+    "prebuild": "npm run prepare:assets && npm run check:styles",
     "build": "ng build",
-    "test": "ng test --watch=false"
+    "test": "ng test --watch=false",
+    "start:demo": "ng serve --configuration demo",
+    "prebuild:demo": "npm run prepare:assets && npm run check:styles",
+    "build:demo": "ng build --configuration demo",
+    "pretest": "npm run prepare:assets && node scripts/prepare-test-fixtures.mjs",
+    "prepare:assets": "node scripts/prepare-demo-assets.mjs",
+    "prestart": "npm run prepare:assets",
+    "prestart:demo": "npm run prepare:assets",
+    "test:demo:e2e": "node --test e2e/demo.test.mjs"
   },
   "dependencies": {
     "@angular/cdk": "^22.1.4",
@@ -28,6 +36,7 @@
     "@angular/cli": "^22.1.6",
     "@angular/compiler-cli": "^22.1.4",
     "jsdom": "^30.0.1",
+    "playwright": "1.62.1",
     "typescript": "~6.0.3",
     "vitest": "^4.1.11"
   }

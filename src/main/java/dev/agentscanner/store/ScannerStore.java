@@ -183,6 +183,11 @@ public class ScannerStore {
         return result.stream().findFirst();
     }
 
+    public boolean hasSpan(String traceId, String spanId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM span_record WHERE trace_id=? AND span_id=?)", Boolean.class, traceId, spanId));
+    }
+
     public Optional<Long> sessionIdByConversationId(String conversationId) {
         return jdbc.queryForList("SELECT id FROM agent_session WHERE conversation_id=?", Long.class, conversationId)
             .stream().findFirst();

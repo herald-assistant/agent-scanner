@@ -51,6 +51,7 @@ a npm z `frontend/`.
 | Dokumentacja | `node scripts/check-docs.mjs`, `git diff --check` |
 | Skrypt kontroli dokumentacji | dodatkowo `node --test scripts/check-docs.test.mjs` |
 | Frontend | `npm test -- --watch=false`, `npm run build` |
+| Demo, Worker, IndexedDB i Pages | dodatkowo `npm run build:demo -- --base-href /agent-scanner/`, `node scripts/check-demo-artifact.mjs /agent-scanner/`, `npm run test:demo:e2e` |
 | Wspólne style | dodatkowo `npm run check:styles` i ogląd ekranów/overlayów przy desktopowej i wąskiej szerokości |
 | OTLP, H2, API, walidacja AI, konfiguracja | `mvn "-Dskip.frontend=true" test` |
 | Zależności i integracja buildu | osobny build frontendu oraz `mvn clean package` |
@@ -68,6 +69,17 @@ wymaga fixture'u wielobatchowego. Pochodzenie i kształt regresji opisuj w
 Frontendowe regresje obejmują grupowanie interakcji/rund, korelację subagentów,
 tokeny i credits, potwierdzone błędy, konfigurację, krytyczne warunki widoczności
 i stan rozwinięcia. Preferuj publiczne zachowanie komponentu i wyrenderowany wynik.
+
+Do testów demo zainstaluj Chromium przez `npx playwright install chromium`
+(na Linux CI `npx playwright install --with-deps chromium`). Test
+[demo.test.mjs](../frontend/e2e/demo.test.mjs) uruchamia zwykły serwer statycznego
+artefaktu, bez Spring i atrap API. Rejestruje sieć, blokuje wysyłkę oraz każde
+`/api` i `/v1`, sprawdza rzeczywiste IndexedDB, Workera, multi import, rollback,
+konflikt między kartami, migrację, anulowanie, lokalne widoki, eksport i usuwanie.
+Ten sam test odczytuje base href z buildu i działa w root oraz podkatalogu.
+Screeny i syntetyczne pliki robocze zapisują się w ignorowanym `frontend/test-results`.
+Nie zawierają pliku użytkownika. Wspólne JSONL i oczekiwania normalizacji pozostają
+w `src/test/resources/fixtures`; skrypt pretest generuje ignorowany moduł TypeScript.
 
 ## Prywatność
 

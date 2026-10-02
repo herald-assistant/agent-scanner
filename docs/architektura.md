@@ -4,6 +4,10 @@ Status: aktualna dokumentacja.
 
 [Dokumentacja](README.md)
 
+Ten dokument opisuje obecną implementację. Uzgodniony podział demo i pełnej wersji
+ze wspólnym rdzeniem oraz backendem Spring Boot opisuje
+[architektura docelowa](architektura-docelowa.md).
+
 ## Spis treści
 
 - [Przepływ danych](#przepływ-danych)
@@ -13,6 +17,28 @@ Status: aktualna dokumentacja.
 - [Wersje i źródła](#wersje-i-źródła)
 
 ## Przepływ danych
+
+Demo składa lokalny adapter z tych samych komponentów Angular:
+
+```text
+Copilot OTel JSONL → BrowserScannerDataGateway → Web Worker / scanner-core
+  → podgląd i wybór głównych rozmów → atomowa transakcja IndexedDB
+  → ScannerDataGateway → lokalne analizy w Workerze → widoki Angular
+```
+
+Konfiguracja buildu wybiera adapter. W pełnej wersji port deleguje do obecnego
+HTTP Spring Boot. Demo nie uruchamia pollingu, historii backendowych ani AI.
+Integracja wspólnego rdzenia z JVM pozostaje kolejnym etapem.
+
+| Operacja UI | Demo | Pełna wersja |
+|---|---|---|
+| Start, lista, metadane magazynu | IndexedDB; bez timera pollingu | Status i lista przez REST; polling odbiornika |
+| Podgląd, zatwierdzenie i anulowanie importu | Worker, uchwyt pliku i jedna transakcja IndexedDB | Obecne endpointy preview/import jednej rozmowy |
+| Szczegóły, analiza i workflow-sources | Zapisany scope; rdzeń w Workerze | REST i kompatybilność ze starszą analizą |
+| Eksport, usunięcie sesji i całości | Blob i lokalna transakcja | Adapter HTTP |
+| Katalog technik | Statyczny asset tego samego katalogu | Istniejący endpoint katalogu |
+| AI, historia, modele, Standaryzacja | Modal i guard przed inicjalizacją | Osobne usługi backendowe |
+| Ustawienia i pauza odbiornika | Modal | Obecny status i kontrola REST |
 
 ```text
 GitHub Copilot w VS Code
@@ -70,6 +96,30 @@ doradztwa są sprzątane przy zapisaniu następnej migawki.
 
 ## Frontend
 
+Operacje sesji, importu, eksportu, usuwania i katalogu udostępnia
+[ScannerDataGateway](../frontend/src/app/core/scanner-data-gateway.ts).
+`HttpScannerDataGateway` zachowuje istniejące endpointy i wybór jednej rozmowy.
+[BrowserScannerDataGateway](../frontend/src/app/adapters/browser/browser-scanner-data-gateway.ts)
+realizuje wariant demo z wielokrotną selekcją. `FeatureAvailability` chroni akcje
+i trasy przed utworzeniem komponentu zależnego od backendu; transport HTTP ma
+dodatkowo blokadę żądań w demo.
+
+Deterministyczna interpretacja znajduje się w
+[scanner-core](../frontend/src/scanner-core). Dawne importy `app/core` są fasadami,
+a serwisy analizy cienkimi adapterami Angular. Rdzeń nie importuje Angulara,
+DOM ani magazynu; przyjmuje DTO i zwraca wyniki. Parser zachowuje ścisłe JSONL,
+nieznane raw, precyzję liczb i dokładne reguły powiązań. Parser Java pozostaje
+referencją zgodności na wspólnych syntetycznych fixture'ach.
+
+[Magazyn IndexedDB](../frontend/src/app/adapters/browser/indexeddb-session-repository.ts)
+używa bazy `agent-scanner-demo`, schematu 2 i stores `sessions`, `spans`,
+`messages`, `signals`, `scopes`, `metadata`. Unikalne indeksy rozmowy i OTel spanu
+chronią transakcję przed konfliktem, także z innej karty. Zapis obejmuje wybrane
+zakresy, a każdy sygnał raw zawiera tylko własną znormalizowaną sesję. Migracja
+z wersji 1 dodaje brakujące stores i indeksy bez czyszczenia danych. Lista pokazuje
+korzenie importu; subagenci i dane pomocnicze są odczytywane przez zapisany scope.
+Usunięcie korzenia zachowuje zakresy nadal wskazywane przez inne korzenie.
+
 `AppComponent` i `ScannerShellStateService` odpowiadają za shell, polling,
 wybór sesji i wspólny panel. `SessionPageComponent` ładuje dane sesji i koordynuje
 zakładki. Routing jest lazy-loaded: `/sessions/:sessionId/:tab` obejmuje
@@ -78,7 +128,7 @@ Repozytoria mają trasy `/repositories/new`, `/repositories/:id` i
 `/repositories/:id/analyses/:analysisId`, niezależne od sesji.
 Źródła workflow są pobierane dopiero dla Mapy pracy lub AI Hub.
 
-| Moduł w `frontend/src/app/core` | Odpowiedzialność |
+| Moduł lub fasada w `frontend/src/app/core` | Odpowiedzialność |
 |---|---|
 | `session-analysis.service.ts` | Fasada interpretacji dla widoków. |
 | `workflow-analysis.service.ts`, `workflow/` | Model mapy, obserwacje, obecność metryk i relacje. |

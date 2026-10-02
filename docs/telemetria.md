@@ -94,10 +94,17 @@ conversation ID: `copilot-episode-v1` requires its explicit chat/parent chat IDs
 match the launching execution and its structural parent before attributing its
 descendant chats/tools to the child. This does not replace timestamp-based tool
 assignment within an episode. No database rewrite is required for old sessions.
+When the invoke is in a separate trace and its structural parent is absent, the
+explicit child/parent chat IDs may identify it only through one exact launching
+execution whose call ID equals the child chat ID and whose conversation equals
+the parent chat ID. The synthetic `copilot-file-detached-v1.jsonl` fixture covers
+this case. A missing parent never authorizes a join by time or resource window.
+Span-tree parent lookup uses `(traceId, spanId)` and stops cycles; the same span ID
+in a different trace is not a parent.
 Cost totals include the main episode and uniquely linked descendants once;
 auxiliary requests remain separate. Never use a cumulative session error counter
 as proof of the session's final outcome; label emitted cancellation separately.
-An exact child episode linked from `execution_subagent` remains a subagent even
+An exact child episode with an invoke linked from a launching execution remains a subagent even
 when its chat spans use the technical agent name `executionSubagentTool`; do not
 strip those spans as auxiliary calls before building workflow or cost totals.
 
@@ -120,7 +127,7 @@ those three instruction layers together under the user-facing “Co zlecono
 modelowi” section instead of presenting system instructions as incidental raw data.
 
 Known technical/auxiliary agent names are centralized in
-`frontend/src/app/core/auxiliary-model-calls.ts`. Apply the same separation to
+`frontend/src/scanner-core/auxiliary-model-calls.ts` (the old `app/core` import is a facade). Apply the same separation to
 standalone auxiliary sessions and inline calls embedded in a primary trace. Keep
 them out of primary round numbering and workflow totals, but available under the
 owning session. A tool execution may move with an inline auxiliary call only when

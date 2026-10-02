@@ -13,6 +13,7 @@ import {RoundDetailsAsideComponent} from './features/round-details/round-details
 import {SessionSidebarComponent} from './features/sessions/session-sidebar.component';
 import {TopbarComponent} from './layout/topbar/topbar.component';
 import {Session} from './models/scanner.models';
+import {FeatureAvailability} from './core/feature-availability.service';
 
 @Component({
   selector: 'as-scanner-shell',
@@ -26,6 +27,7 @@ import {Session} from './models/scanner.models';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent {
+  readonly features = inject(FeatureAvailability);
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly analysis = inject(SessionAnalysisService);
@@ -42,7 +44,7 @@ export class AppComponent {
   private readonly selectedRepositoryIdState = signal<string | null>(null);
   private readonly selectedAnalysisIdState = signal<string | null>(null);
 
-  readonly visibleSessions = computed(() => this.state.sessions().filter(session => !this.analysis.isAuxiliarySession(session)));
+  readonly visibleSessions = computed(() => this.features.demo ? this.state.sessions() : this.state.sessions().filter(session => !this.analysis.isAuxiliarySession(session)));
   readonly sidebarOpen = this.sidebarOpenState.asReadonly();
   readonly selectedSessionId = this.selectedSessionIdState.asReadonly();
   readonly selectedRepositoryId = this.selectedRepositoryIdState.asReadonly();
@@ -50,7 +52,7 @@ export class AppComponent {
 
   constructor() {
     this.state.startPolling();
-    void this.standardizationHistory.refresh();
+    if (!this.features.demo) void this.standardizationHistory.refresh();
     this.updateSelectedSessionId();
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef))
@@ -72,18 +74,23 @@ export class AppComponent {
   }
 
   async openNewRepositoryAnalysis(): Promise<void> {
+    if (!this.features.require('standardization')) return;
     this.detailsPanel.close();
     if (await this.router.navigate(['/repositories', 'new']) && this.compactLayout()) this.closeSidebar();
   }
 
   async openSavedAnalysis(selection: {repositoryId: string; analysisId: string}): Promise<void> {
+    if (!this.features.require('standardization')) return;
     this.detailsPanel.close();
     if (await this.router.navigate(['/repositories', selection.repositoryId, 'analyses', selection.analysisId]) && this.compactLayout()) this.closeSidebar();
   }
 
   async importSessionFile(file: File): Promise<void> {
     const sessionId = await this.state.importSession(file);
-    if (sessionId != null) await this.router.navigate(['/sessions', sessionId, 'overview']);
+    if (sessionId != null) {
+      const navigated = await this.router.navigate(['/sessions', sessionId, 'overview']);
+      if (navigated && this.compactLayout()) this.closeSidebar();
+    }
   }
 
   async deleteAll(): Promise<void> {
@@ -93,6 +100,7 @@ export class AppComponent {
   }
 
   async openConfiguration(): Promise<void> {
+    if (!this.features.require('receiver')) return;
     this.detailsPanel.close();
     await this.router.navigate(['/'], {queryParams: {configuration: 'open'}});
   }

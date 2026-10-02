@@ -2,6 +2,31 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {OptimizationAdvicePreview} from '../models/optimization-guidance.models';
 import {ScannerApiService} from './scanner-api.service';
 
+describe('ScannerApiService Copilot JSONL import', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('previews the file without a selected session, then commits only the chosen identifier', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({sessions: [], ignoredRecords: 0, duplicateRecords: 0, unassignedSpans: 0}), {status: 200}));
+    vi.stubGlobal('fetch', fetchMock);
+    const service = new ScannerApiService();
+    const file = new File(['synthetic'], 'copilot-otel.jsonl');
+    await service.previewSessionImport(file);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/sessions/import/preview', {
+      method: 'POST', headers: {'Content-Type': 'application/x-ndjson'}, body: file
+    });
+    await service.importSession(file, 'conversation/with ?&characters');
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/sessions/import?conversationId=conversation%2Fwith%20%3F%26characters', {
+      method: 'POST', headers: {'Content-Type': 'application/x-ndjson'}, body: file
+    });
+  });
+
+  it('keeps a duplicate-session error actionable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({error: 'Sesja jest już zapisana.'}), {status: 409})));
+    await expect(new ScannerApiService().importSession(new File(['synthetic'], 'fixture.jsonl'), 'a'))
+      .rejects.toThrow('Sesja jest już zapisana.');
+  });
+});
+
 describe('ScannerApiService saved repository analyses', () => {
   afterEach(() => vi.unstubAllGlobals());
 

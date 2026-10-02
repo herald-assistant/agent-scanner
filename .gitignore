@@ -9,4 +9,9 @@ agent-scanner-data/
 .vscode/
 !.vscode/extensions.json
 frontend/.angular/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/src/scanner-core/testing/*.generated.ts
+frontend/src/generated-assets/
 config/application.properties

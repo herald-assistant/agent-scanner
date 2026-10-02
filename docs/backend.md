@@ -64,9 +64,28 @@ Session export format is:
 - `version: 1`;
 - normalized session view plus raw signals.
 
-Import accepts only version 1, only trace signals, enforces the configured maximum
-size and rejects duplicate `conversationId` with HTTP 409. A breaking export
-change requires a new version and tests for both rejection and migration/import.
+Import accepts Copilot's file exporter JSONL (public ReadableSpan records), not the
+Scanner export. Preview is read-only; commit requires one `conversationId` from
+the preview. Both operations enforce the configured payload limit. The selected
+session and uniquely linked descendants are normalized together through the
+existing trace ingestion, bypassing pause. Session ownership uses the same
+explicit identities, ancestors and unambiguous trace fallback as OTLP ingestion.
+Descendants require exact tool call ID joins; ambiguous and cyclic joins are excluded.
+Only groups with an agent invocation or explicit conversation evidence are selectable;
+detached auxiliary chats, tools and UI traces are not conversation candidates.
+Detached technical groups with one explicit `copilot_chat.parent_chat_session_id`
+matching a conversation are included as supporting data, separately from descendants.
+Shared runtime `session.id` or timestamps never establish this import relationship.
+Unassigned spans are counted in preview and omitted from the selected payload.
+An existing selected conversation, descendant or trace/span ID returns HTTP 409.
+Identical duplicate records are counted once; conflicting duplicates and malformed
+lines reject the file before any writes. Non-span records are counted but not saved.
+`raw_json` contains converted OTLP plus `sourceFormat: "copilot-otel-jsonl"` and
+original selected objects in `fileRecords`, including unknown fields. `raw_payload`
+contains their original JSONL lines joined with LF. No unrelated session is saved.
+The file parser contract fixtures are `copilot-file-v1.jsonl` and
+`copilot-file-detached-v1.jsonl`; a breaking export
+change still requires a new export version and tests.
 
 Return Polish, actionable errors from user-facing API operations. Do not expose a
 stack trace or raw exception message by default.

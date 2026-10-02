@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 import {NotificationService} from '../../core/notification.service';
 import {OptimizationGuidanceService} from '../../core/optimization-guidance.service';
 import {matchOptimizationTechniques} from '../../core/optimization-technique-matcher';
@@ -54,6 +55,7 @@ const TECHNIQUE_CATALOG_POSITION = new Map(
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class OptimizationGuidanceComponent {
+  private readonly features = inject(FeatureAvailability);
   private readonly guidance = inject(OptimizationGuidanceService);
   private readonly notifications = inject(NotificationService);
   readonly catalogState = signal<OptimizationTechniqueCatalog | undefined>(undefined);
@@ -163,6 +165,7 @@ export class OptimizationGuidanceComponent {
   }
 
   prepareAdvicePreview(): void {
+    if (!this.features.require('ai')) return;
     const context = this.context();
     const catalog = this.catalogState();
     if (!context || !catalog || !this.advicePreviewEligible() || this.advicePreviewLoading()) return;

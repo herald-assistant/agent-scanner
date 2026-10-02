@@ -40,14 +40,15 @@ describe('SessionSidebarComponent', () => {
     expect(card.querySelector('.state')?.textContent).toContain('Błędy');
   });
 
-  it('offers JSON import as an icon action in the session heading', () => {
+  it('offers Copilot JSONL import as an icon action in the session heading', () => {
     fixture.componentRef.setInput('sessions', []);
     fixture.detectChanges();
     const heading: HTMLElement = fixture.nativeElement.querySelector('.aside-title');
-    const button: HTMLButtonElement = heading.querySelector('button[aria-label="Importuj sesję JSON"]')!;
+    const button: HTMLButtonElement = heading.querySelector('button[aria-label="Importuj sesję z Copilot OTel JSONL"]')!;
     const input: HTMLInputElement = heading.querySelector('input[type="file"]')!;
     expect(button.querySelector('mat-icon')?.textContent?.trim()).toBe('upload_file');
-    expect(input.accept).toContain('.json');
+    expect(input.accept).toContain('.jsonl');
+    expect(input.accept.split(',')).not.toContain('.json');
     expect(fixture.nativeElement.querySelector('.session-import')).toBeNull();
     const click = vi.spyOn(input, 'click').mockImplementation(() => {});
     button.click();

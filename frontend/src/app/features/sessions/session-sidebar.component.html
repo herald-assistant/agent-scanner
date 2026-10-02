@@ -3,9 +3,9 @@
     <div><span class="eyebrow ui-eyebrow">HISTORIA</span><h2>Sesje</h2></div>
     <div class="aside-title-actions">
       <span class="count">{{ sessions().length }}</span>
-      <input #sessionImportInput class="session-import-input" type="file" accept=".json,application/json" (change)="onFileSelected($event)">
-      <button class="ui-icon-button" type="button" [disabled]="importing()" matTooltip="Importuj sesję JSON"
-        matTooltipClass="scanner-info-tooltip" aria-label="Importuj sesję JSON" (click)="sessionImportInput.click()">
+      <input #sessionImportInput class="session-import-input" type="file" accept=".jsonl,.ndjson,application/x-ndjson" (change)="onFileSelected($event)">
+      <button class="ui-icon-button" type="button" [disabled]="importing()" matTooltip="Importuj sesję z Copilot OTel JSONL"
+        matTooltipClass="scanner-info-tooltip" aria-label="Importuj sesję z Copilot OTel JSONL" (click)="sessionImportInput.click()">
         <mat-icon aria-hidden="true">upload_file</mat-icon>
       </button>
     </div>
@@ -65,5 +65,5 @@
       </div>
     }
   </section>
-  <div class="aside-footer"><span>Retencja {{ retentionDays() }} dni</span><button class="ui-button ui-button--ghost ui-button--danger" (click)="clearAll.emit()" [disabled]="!canClear()">Wyczyść</button></div>
+  <div class="aside-footer"><span>{{ features.demo ? 'Dane w tej przeglądarce' : 'Retencja ' + retentionDays() + ' dni' }}</span><button class="ui-button ui-button--ghost ui-button--danger" (click)="clearAll.emit()" [disabled]="!canClear()">Wyczyść</button></div>
 </div>

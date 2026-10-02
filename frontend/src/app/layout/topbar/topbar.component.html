@@ -12,7 +12,7 @@
   <div class="top-actions">
     <div class="connection" [class.connected]="status().connected" [class.paused]="status().paused">
       <i></i>
-      <span>{{ status().paused ? 'Nasłuchiwanie wstrzymane' : status().connected ? 'Ostatnio odebrano telemetrię' : 'Oczekiwanie na telemetrię' }}</span>
+      <span>{{ features.demo ? 'Zapis lokalny · IndexedDB' : status().paused ? 'Nasłuchiwanie wstrzymane' : status().connected ? 'Ostatnio odebrano telemetrię' : 'Oczekiwanie na telemetrię' }}</span>
       @if (status().lastSignalAt) {<small>{{ time(status().lastSignalAt) }}</small>}
     </div>
     <button class="button guide-button ui-button" matTooltip="Katalog technik optymalizacji bez AI" matTooltipClass="scanner-info-tooltip" aria-label="Techniki optymalizacji" (click)="optimizationGuide.emit($event)"><mat-icon>lightbulb</mat-icon><span>Techniki optymalizacji</span></button>

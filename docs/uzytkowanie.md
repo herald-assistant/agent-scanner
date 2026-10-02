@@ -7,6 +7,7 @@ Status: aktualna dokumentacja.
 ## Spis treści
 
 - [Uruchomienie i pierwsza sesja](#uruchomienie-i-pierwsza-sesja)
+- [Demo w przeglądarce](#demo-w-przeglądarce)
 - [Czytanie sesji](#czytanie-sesji)
 - [Narzędzia i techniki optymalizacji](#narzędzia-i-techniki-optymalizacji)
 - [Korzystanie z AI](#korzystanie-z-ai)
@@ -45,6 +46,29 @@ Przeładuj okno VS Code i rozpocznij nową interakcję z Copilotem. Sesja powinn
 pojawić się na liście, a status zmienić na „Ostatnio odebrano telemetrię”.
 Oznacza to zapis danych w bazie, nie aktywne połączenie z IDE. Status można
 sprawdzić także przez `GET /api/status`.
+
+## Demo w przeglądarce
+
+Demo działa na statycznym hostingu i nie wymaga uruchomienia Java ani Spring.
+Na stronie startowej skopiuj ustawienia eksportera plikowego, wpisz własną ścieżkę
+w `github.copilot.chat.otel.outfile`, a po pracy z Copilotem użyj „Wczytaj plik
+Copilot OTel JSONL” lub ikony importu przy nagłówku Sesje.
+
+Zaznacz jedną lub kilka głównych rozmów w modalu i zatwierdź. Model, czas i rundy
+głównego agenta są oddzielone od subagentów i wywołań pomocniczych. Zapis obejmuje
+tylko wybrane rozmowy oraz ich jednoznacznie powiązany zakres. Nieprzypisane spany,
+logi i metryki są pomijane; podgląd podaje ich liczniki. Limit pliku wynosi 64 MiB.
+
+Plik pozostaje w przeglądarce. Sesje zapisują się w IndexedDB i wracają po
+odświeżeniu strony. Dane zależą od adresu aplikacji i profilu przeglądarki; mogą
+zostać usunięte przez przeglądarkę. Eksportuj potrzebny materiał jako kopię.
+Eksport JSON Scanner zawiera sesję i jej powiązane dane; nie można go wczytać
+wejściem Copilot JSONL. Usuwanie sesji i całej bazy wymaga potwierdzenia.
+
+Podsumowanie, Koszt i przebieg, Mapa pracy, Dane techniczne i katalog technik
+działają lokalnie. Wejścia do AI, Standaryzacji i odbiornika pokazują modal
+„Dostępne w pełnej wersji”. Brak pomiaru lub przechwyconej treści jest pokazany
+jako brak danych. Instrukcje budowania są w [konfiguracji](konfiguracja.md#statyczne-demo).
 
 ## Czytanie sesji
 
@@ -124,12 +148,32 @@ wysyłanych danych opisane w [kontrakcie AI](ai.md).
 ## Dane i prywatność
 
 Przechwytywanie treści może zapisać lokalnie kod, prompty, instrukcje, ścieżki,
-argumenty i wyniki narzędzi. Raw payload oraz jego JSON pozostają w bazie H2.
+argumenty i wyniki narzędzi. Raw payload oraz jego JSON pozostają w bazie H2 pełnej
+wersji lub w IndexedDB demo.
 Eksport `agent-scanner-session` v1 zawiera dane źródłowe; traktuj go jak bazę
 przed udostępnieniem innym. Eksport nie zawiera analiz AI ani historii rozmów.
 
-Import przyjmuje tylko wersję 1 i sygnały trace, egzekwuje limit rozmiaru,
-odrzuca istniejący `conversationId` i omija pauzę odbiornika. Pauza zatrzymuje
+Import pod ikoną w nagłówku `Sesje` przyjmuje plik Copilot OTel JSONL. W VS Code
+ustaw eksport do pliku, np.:
+
+```json
+{
+  "github.copilot.chat.otel.enabled": true,
+  "github.copilot.chat.otel.exporterType": "file",
+  "github.copilot.chat.otel.outfile": "C:/Users/mknie/copilot-otel.jsonl",
+  "github.copilot.chat.otel.captureContent": true,
+  "github.copilot.chat.otel.maxAttributeSizeChars": 0
+}
+```
+
+Wybierz wygenerowany plik `.jsonl` lub `.ndjson`. Demo umożliwia wybór wielu rozmów
+i przetwarza plik lokalnie. W pełnej wersji wybierz w modalu jedną sesję do
+zapisu. Jej podgląd przesyła plik do backendu bez utrwalania; potwierdzenie zapisuje
+wybraną sesję i jej jednoznacznie powiązanych subagentów w H2, po czym otwiera
+sesję. Anulowanie niczego nie zapisuje. Niepowiązane sesje, logi i metryki z pliku
+nie trafiają do bazy; podgląd podaje liczbę pominiętych rekordów. Import egzekwuje
+limit rozmiaru, odrzuca istniejące dane i omija pauzę odbiornika. Stary import
+eksportu Scanner v1 został usunięty. Pauza zatrzymuje
 zapis nowych poprawnych sygnałów, nie usuwa wcześniejszych danych. Retencja
 usuwa stare sygnały, a następnie osierocone sesje. Usunięcie sesji lub wszystkich
 danych wymaga potwierdzenia w UI. [API operacji](api.md).

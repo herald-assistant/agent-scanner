@@ -1,6 +1,7 @@
-import {ChangeDetectionStrategy, Component, computed, input, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, inject, input, signal} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 import {ScannerStatus, SessionDetail, SpanRecord, TechnicalMode} from '../../models/scanner.models';
 
 @Component({
@@ -11,6 +12,7 @@ import {ScannerStatus, SessionDetail, SpanRecord, TechnicalMode} from '../../mod
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TechnicalViewComponent {
+  readonly features = inject(FeatureAvailability);
   readonly detail = input.required<SessionDetail>();
   readonly status = input.required<ScannerStatus>();
 

@@ -6,6 +6,8 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {ActivatedRoute, Router} from '@angular/router';
 import {ContextCompactionMeasurement, MessageRecord, ModelTurn, RelatedModelCall, Session, SessionAnalysisResponse, SessionDetail, SessionView, SpanRecord, Tab, UserInteraction} from '../../models/scanner.models';
 import {ScannerApiService} from '../../core/scanner-api.service';
+import {SCANNER_DATA} from '../../core/scanner-data-gateway';
+import {FeatureAvailability} from '../../core/feature-availability.service';
 import {NotificationService} from '../../core/notification.service';
 import {CostBreakdownRow, CostDashboardComponent, CostDashboardView, DashboardRecord} from '../session-overview/cost-dashboard.component';
 import {ToolOptimizationOverviewComponent} from '../session-overview/tool-optimization-overview.component';
@@ -61,6 +63,8 @@ export class SessionPageComponent {
   private readonly telemetry = new TelemetryReader();
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(ScannerApiService);
+  private readonly data = inject(SCANNER_DATA);
+  readonly features = inject(FeatureAvailability);
   private readonly notifications = inject(NotificationService);
   private readonly analysis = inject(SessionAnalysisService);
   private readonly detailsPanel = inject(RoundDetailsPanelService);
@@ -301,12 +305,13 @@ export class SessionPageComponent {
     let serverAnalysis: SessionAnalysisResponse | undefined;
     let loadedDetail: SessionDetail;
     try {
-      serverAnalysis = await this.api.sessionAnalysis(sessionId, abort.signal);
-      loadedDetail = serverAnalysis?.detail ?? await this.api.session(sessionId);
+      serverAnalysis = await this.data.sessionAnalysis(sessionId, abort.signal);
+      loadedDetail = serverAnalysis?.detail ?? await this.data.session(sessionId);
     } catch (error) {
       if (abort.signal.aborted) return;
       this.loadingSessionSignature = undefined;
-      throw error;
+      this.notifications.error(error instanceof Error ? error.message : 'Nie udało się otworzyć sesji.', () => this.loadSession(sessionId, signature));
+      return;
     }
     if (request !== this.sessionRequest || this.routeSessionId() !== sessionId) return;
     const detail = {...loadedDetail, spans: this.analysis.withDepth(loadedDetail.spans)};
@@ -356,17 +361,30 @@ export class SessionPageComponent {
 
   async deleteSession(): Promise<void> {
     if (!this.detail || !confirm('Usunąć tę sesję wraz z surową telemetrią i pełną treścią?')) return;
-    await this.api.deleteSession(this.detail.session.id);
-    this.clearSessionData();
-    await this.router.navigate(['/']);
-    await this.shell.refresh();
+    try {
+      await this.data.deleteSession(this.detail.session.id);
+      this.clearSessionData();
+      await this.router.navigate(['/']);
+      await this.shell.refresh();
+    } catch (error) {
+      this.notifications.error(error instanceof Error ? error.message : 'Nie udało się usunąć sesji.');
+    }
   }
 
-  exportSession(): void {
-    if (this.detail) window.location.href = this.api.exportSessionUrl(this.detail.session.id);
+  async exportSession(): Promise<void> {
+    if (!this.detail) return;
+    try {
+      const result = await this.data.exportSession(this.detail.session.id);
+      const url = URL.createObjectURL(result.blob), link = document.createElement('a');
+      link.href = url; link.download = result.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      this.notifications.error(error instanceof Error ? error.message : 'Nie udało się wyeksportować sesji.');
+    }
   }
 
   selectTab(tab: Tab): void {
+    if (tab === 'ai-hub' && !this.features.require('ai')) return;
     if (this.activeTab === tab) return;
     const sessionId = this.routeSessionId();
     if (sessionId == null) return;
@@ -376,6 +394,7 @@ export class SessionPageComponent {
   async loadWorkflow(): Promise<void> {
     const source = this.detail;
     if (!source) return;
+    if (this.features.demo && this.workflowState()?.source.session.id === source.session.id) return;
     const request = ++this.workflowRequest;
     this.workflowLoading.set(true);
     this.workflowFailed.set(false);
@@ -384,13 +403,15 @@ export class SessionPageComponent {
       // preserves compatibility with an older backend during a rolling local upgrade.
       let prepared = this.workflowSourcesState();
       let modernEndpoint = this.workflowSourcesLoadedState();
+      let preparedAnalysis: WorkflowAnalysis | undefined;
       if (!modernEndpoint) {
-        const response = await this.api.sessionWorkflowSources(source.session.id);
+        const response = await this.data.sessionWorkflowSources(source.session.id);
         if (response) {
           prepared = response.sources.map(item => ({...item, spans: this.analysis.withDepth(item.spans)}));
           this.workflowSourcesState.set(prepared);
           this.workflowSourcesLoadedState.set(true);
           modernEndpoint = true;
+          preparedAnalysis = response.analysis;
         }
       }
       const pending = modernEndpoint ? [] : this.sessions.filter(session => session.id !== source.session.id);
@@ -399,10 +420,10 @@ export class SessionPageComponent {
       await Promise.all(Array.from({length: Math.min(4, pending.length)}, async () => {
         while (cursor < pending.length) {
           const candidate = pending[cursor++];
-          details.push(await this.api.session(candidate.id));
+          details.push(await this.data.session(candidate.id));
         }
       }));
-      const result = await this.analysis.buildWorkflow(source, details);
+      const result = preparedAnalysis ?? await this.analysis.buildWorkflow(source, details);
       if (request === this.workflowRequest && this.detail === source) this.workflowState.set(result);
     } catch {
       if (request === this.workflowRequest && this.detail === source) {
@@ -437,6 +458,7 @@ export class SessionPageComponent {
   }
 
   async prepareOptimizationAdvicePreview(request: OptimizationAdvicePreviewRequest): Promise<void> {
+    if (!this.features.require('ai')) return;
     const workflow = this.workflowState();
     if (!workflow) {
       this.notifications.error('Podgląd wymaga aktualnego modelu sesji. Otwórz ponownie wskazany obszar.');
@@ -473,6 +495,7 @@ export class SessionPageComponent {
   }
 
   async requestOptimizationAdvice(preview: OptimizationAdvicePreview): Promise<void> {
+    if (!this.features.require('ai')) return;
     if (!preview.preparation) {
       this.notifications.error('Najpierw przygotuj i zweryfikuj migawkę.');
       return;
@@ -745,7 +768,7 @@ export class SessionPageComponent {
       const at = this.newDate(session.startedAt || session.lastSeenAt);
       return at >= start && at <= end;
     });
-    const details = await Promise.all(candidates.map(session => this.api.session(session.id)));
+    const details = await Promise.all(candidates.map(session => this.data.session(session.id)));
     return details.map(detail => ({...detail, spans: this.analysis.withDepth(detail.spans)}));
   }
 

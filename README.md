@@ -7,6 +7,11 @@ mają `≈`, a opcjonalna analiza AI wymaga jawnego uruchomienia.
 
 ## Uruchomienie
 
+Statyczne [demo przeglądarkowe](https://herald-assistant.github.io/agent-scanner/)
+wczytuje Copilot OTel JSONL, pozwala wybrać rozmowy i zapisuje je lokalnie w IndexedDB.
+Zakładki i katalog technik działają bez backendu; pozostałe funkcje pokazują
+„Dostępne w pełnej wersji”. [Uruchomienie i build demo](docs/konfiguracja.md#statyczne-demo).
+
 Wymagane: JDK 17+ i Maven. W katalogu repozytorium:
 
 ```powershell

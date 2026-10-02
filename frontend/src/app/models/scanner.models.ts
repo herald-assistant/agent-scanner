@@ -120,6 +120,29 @@ export interface RelatedModelCall {
   label: string;
 }
 
+export interface SessionImportCandidate {
+  conversationId: string;
+  agentName: string | null;
+  repository: string | null;
+  model: string | null;
+  startedAt: string;
+  endedAt: string;
+  spans: number;
+  turns: number;
+  relatedSessions: number;
+  relatedTurns: number;
+  auxiliaryCalls: number;
+  contentCaptured: boolean;
+  alreadyImported: boolean;
+}
+
+export interface SessionImportPreview {
+  sessions: SessionImportCandidate[];
+  ignoredRecords: number;
+  duplicateRecords: number;
+  unassignedSpans: number;
+}
+
 export interface SessionCostGroup {
   id: string;
   kind: 'main' | 'subagent';

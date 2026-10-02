@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>Wybierz sesję do importu</h2>
+<mat-dialog-content>
+  <p class="file-name">{{ data.fileName }} · znalezione sesje: {{ data.preview.sessions.length }}</p>
+  <p>Zapisz {{ data.multiple ? 'wybrane rozmowy' : 'jedną rozmowę' }} wraz z jednoznacznie powiązanymi subagentami i danymi pomocniczymi. Pozostałe sesje z pliku nie zostaną zapisane.</p>
+  @if (data.local) {
+    <p class="privacy-note">Plik jest przetwarzany w tej przeglądarce. Wybrane sesje zostaną zapisane lokalnie w IndexedDB i mogą zawierać kod, prompty oraz wyniki narzędzi. Plik nie jest wysyłany do serwera.</p>
+  } @else {
+    <p class="privacy-note">Podgląd przesłał plik do backendu Agent Scanner bez zapisu. Wybrana sesja będzie przechowywana w bazie aplikacji i może zawierać kod, prompty oraz wyniki narzędzi.</p>
+  }
+  @if (data.preview.ignoredRecords || data.preview.duplicateRecords) {
+    <p class="import-note">Rekordy poza importem spanów (np. logi i metryki): {{ data.preview.ignoredRecords }}.
+      Pominięte identyczne duplikaty spanów: {{ data.preview.duplicateRecords }}.</p>
+  }
+  @if (data.preview.unassignedSpans) {
+    <p class="import-note">Spany bez jednoznacznego powiązania z rozmową: {{ data.preview.unassignedSpans }}.
+      Nie będą importowane. Wywołania techniczne nie są osobnymi sesjami do wyboru.</p>
+  }
+  @if (!data.preview.sessions.length) {
+    <p>W pliku nie znaleziono sesji rozmowy do importu.</p>
+  }
+  <div class="session-options" [attr.role]="data.multiple ? 'group' : 'radiogroup'" aria-label="Sesje w pliku JSONL">
+    @for (session of data.preview.sessions; track session.conversationId) {
+      <label class="session-option" [class.selected]="isSelected(session.conversationId)" [class.unavailable]="session.alreadyImported">
+        <input [type]="data.multiple ? 'checkbox' : 'radio'" name="session-import" [value]="session.conversationId" [checked]="isSelected(session.conversationId)"
+          [disabled]="session.alreadyImported" (change)="select(session)">
+        <span class="session-copy">
+          <strong>{{ title(session) }}</strong>
+          <span class="session-id">{{ session.conversationId }}</span>
+          <span>{{ date(session.startedAt) }} — {{ date(session.endedAt) }}</span>
+          <span>{{ session.model || 'Model niewyemitowany' }} · rundy głównego agenta: {{ session.turns }}</span>
+          @if (session.relatedSessions) {
+            <span>Powiązane sesje subagentów: {{ session.relatedSessions }} · rundy subagentów: {{ session.relatedTurns }}</span>
+          }
+          @if (session.auxiliaryCalls) { <span>Wywołania pomocnicze modelu: {{ session.auxiliaryCalls }}</span> }
+          <span>Spany w wybranym zakresie importu: {{ session.spans }}</span>
+          <span>{{ session.contentCaptured ? 'Zawiera przechwyconą treść' : 'Bez przechwyconej treści' }}</span>
+          @if (session.alreadyImported) { <span class="saved-state">Sesja lub jej powiązane dane są już zapisane</span> }
+        </span>
+      </label>
+    }
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  @if (data.multiple && selectionCount()) {<span>Wybrano: {{ selectionCount() }} · spany: {{ selectedSpans() }}</span>}
+  <button type="button" class="ui-button ui-button--ghost" (click)="close()">Anuluj</button>
+  <button type="button" class="ui-button ui-button--primary" [disabled]="!selectionCount()" (click)="confirm()">{{ data.multiple ? 'Importuj wybrane sesje' : 'Importuj wybraną sesję' }}</button>
+</mat-dialog-actions>

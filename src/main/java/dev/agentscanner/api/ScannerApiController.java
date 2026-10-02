@@ -1,7 +1,6 @@
 package dev.agentscanner.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import dev.agentscanner.config.ScannerProperties;
 import dev.agentscanner.analysis.SessionReconstructionService;
 import dev.agentscanner.ai.sessionchat.SessionChatCleanupService;
@@ -118,15 +117,27 @@ public class ScannerApiController {
             .contentType(MediaType.APPLICATION_JSON).body(bytes);
     }
 
-    @PostMapping(value = "/sessions/import", consumes = MediaType.APPLICATION_JSON_VALUE,
+    @PostMapping(value = "/sessions/import/preview", consumes = "application/x-ndjson",
         produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> importSession(@RequestBody byte[] body) {
+    public ResponseEntity<?> previewSessionImport(@RequestBody byte[] body) {
         if (body.length > properties.maxPayloadBytes()) {
             return ResponseEntity.status(413).body(Map.of("error", "Plik przekracza dozwolony rozmiar importu."));
         }
         try {
-            JsonNode document = mapper.readTree(body);
-            SessionImportService.ImportResult result = sessionImport.importSession(document);
+            return ResponseEntity.ok(sessionImport.preview(body));
+        } catch (SessionImportException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/sessions/import", consumes = "application/x-ndjson",
+        produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> importSession(@RequestBody byte[] body, @RequestParam String conversationId) {
+        if (body.length > properties.maxPayloadBytes()) {
+            return ResponseEntity.status(413).body(Map.of("error", "Plik przekracza dozwolony rozmiar importu."));
+        }
+        try {
+            SessionImportService.ImportResult result = sessionImport.importSession(body, conversationId);
             store.checkpoint();
             return ResponseEntity.status(201).body(Map.of(
                 "sessionId", result.sessionId(),
@@ -137,7 +148,7 @@ public class ScannerApiController {
             return ResponseEntity.status(exception.conflict() ? 409 : 400)
                 .body(Map.of("error", exception.getMessage()));
         } catch (Exception exception) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Plik nie jest poprawnym eksportem JSON Agent Scanner."));
+            return ResponseEntity.badRequest().body(Map.of("error", "Nie udało się zaimportować sesji Copilot OTel JSONL."));
         }
     }
 

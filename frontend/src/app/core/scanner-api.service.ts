@@ -1,5 +1,7 @@
 import {Injectable} from '@angular/core';
-import {ImportSessionResult, ScannerStatus, Session, SessionAnalysisResponse, SessionDetail, SessionWorkflowSourcesResponse} from '../models/scanner.models';
+import {runtimeConfiguration} from '../runtime-configuration';
+import {ScannerOperationError} from '../../scanner-core/operation-error';
+import {ImportSessionResult, ScannerStatus, Session, SessionAnalysisResponse, SessionDetail, SessionImportPreview, SessionWorkflowSourcesResponse} from '../models/scanner.models';
 import {ToolClassificationRequest, ToolClassificationResult, ToolClassificationStatus} from '../models/tool-classification.models';
 import {OptimizationAdvicePreview, OptimizationAdviceResult, OptimizationAdviceRuntimeStatus, OptimizationTechniqueCatalog} from '../models/optimization-guidance.models';
 import {SessionChatModelsResponse, SessionChatSummary, SessionChatTurn, SessionChatView} from '../models/session-chat.models';
@@ -7,6 +9,7 @@ import {SavedStandardAnalysis, StandardCatalog, StandardPrepareRequest, Standard
 
 @Injectable({providedIn: 'root'})
 export class ScannerApiService {
+  private readonly runtime = runtimeConfiguration;
   private sessionChatModelsRequest?: Promise<SessionChatModelsResponse>;
 
   sessionChatModels(refresh = false): Promise<SessionChatModelsResponse> {
@@ -47,10 +50,10 @@ export class ScannerApiService {
     await this.standardizationPost('cancel', {previewId});
   }
   async discardStandardization(previewId: string): Promise<void> {
-    await fetch('/api/standardization/previews/' + encodeURIComponent(previewId), {method: 'DELETE'});
+    await this.backendFetch('/api/standardization/previews/' + encodeURIComponent(previewId), {method: 'DELETE'});
   }
   private async standardizationPost<T>(operation: string, body: unknown): Promise<T> {
-    const response = await fetch('/api/standardization/' + operation, {
+    const response = await this.backendFetch('/api/standardization/' + operation, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     });
     const result = await response.json().catch(() => null) as (T & {error?: string}) | null;
@@ -62,7 +65,7 @@ export class ScannerApiService {
     return this.get(`/api/ai/session-chats/${id}?sessionId=${sessionId}`);
   }
   async createSessionChat(sessionId: number, model: string): Promise<SessionChatView> {
-    const response = await fetch(`/api/ai/session-chats?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/session-chats?sessionId=${sessionId}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model})
     });
     const result = await response.json().catch(() => null) as (SessionChatView & {error?: string}) | null;
@@ -70,7 +73,7 @@ export class ScannerApiService {
     return result;
   }
   async askSessionChat(sessionId: number, id: string, question: string, clientRequestId: string): Promise<SessionChatTurn> {
-    const response = await fetch(`/api/ai/session-chats/${id}/turns?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/session-chats/${id}/turns?sessionId=${sessionId}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question, clientRequestId})
     });
     const result = await response.json().catch(() => null) as (SessionChatTurn & {error?: string}) | null;
@@ -78,7 +81,7 @@ export class ScannerApiService {
     return result;
   }
   async deleteSessionChat(sessionId: number, id: string): Promise<void> {
-    const response = await fetch(`/api/ai/session-chats/${id}?sessionId=${sessionId}`, {method: 'DELETE'});
+    const response = await this.backendFetch(`/api/ai/session-chats/${id}?sessionId=${sessionId}`, {method: 'DELETE'});
     if (!response.ok) {
       const result = await response.json().catch(() => null) as {error?: string} | null;
       throw new Error(result?.error || 'Nie udało się usunąć rozmowy.');
@@ -86,20 +89,20 @@ export class ScannerApiService {
   }
   toolClassificationStatus(): Promise<ToolClassificationStatus> { return this.get('/api/ai/tool-classification/status'); }
   async cachedToolClassification(sessionId: number, request: ToolClassificationRequest): Promise<ToolClassificationResult | null> {
-    const response = await fetch(`/api/ai/tool-classification/cached?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
+    const response = await this.backendFetch(`/api/ai/tool-classification/cached?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
     if (response.status === 204) return null;
     const result = await response.json().catch(() => null) as (ToolClassificationResult & {error?: string}) | null;
     if (!response.ok || !result) throw new Error(result?.error || 'Nie udało się odczytać zapisanej analizy.');
     return result;
   }
   async classifyTools(sessionId: number, request: ToolClassificationRequest): Promise<ToolClassificationResult> {
-    const response = await fetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
+    const response = await this.backendFetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)});
     const result = await response.json().catch(() => null) as (ToolClassificationResult & {error?: string}) | null;
     if (!response.ok || !result) throw new Error(result?.error || (response.status === 404 ? 'Uruchom ponownie backend, aby włączyć analizę AI.' : 'Nie udało się przeanalizować działań modelu.'));
     return result;
   }
   async deleteToolClassification(sessionId: number, request: ToolClassificationRequest): Promise<void> {
-    const response = await fetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/tool-classification?sessionId=${sessionId}`, {
       method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)
     });
     if (!response.ok) {
@@ -111,14 +114,14 @@ export class ScannerApiService {
   sessions(): Promise<Session[]> { return this.get('/api/sessions'); }
   session(id: number): Promise<SessionDetail> { return this.get(`/api/sessions/${id}`); }
   async sessionAnalysis(id: number, signal?: AbortSignal): Promise<SessionAnalysisResponse | undefined> {
-    const response = await fetch(`/api/sessions/${id}/analysis`, {signal});
+    const response = await this.backendFetch(`/api/sessions/${id}/analysis`, {signal});
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Błąd API ${response.status}`);
     const result = await response.json().catch(() => undefined) as SessionAnalysisResponse | undefined;
     return result?.schemaVersion === 'session-reconstruction-v1' && result.detail && result.view ? result : undefined;
   }
   async sessionWorkflowSources(id: number): Promise<SessionWorkflowSourcesResponse | undefined> {
-    const response = await fetch(`/api/sessions/${id}/workflow-sources`);
+    const response = await this.backendFetch(`/api/sessions/${id}/workflow-sources`);
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Błąd API ${response.status}`);
     const result = await response.json().catch(() => undefined) as SessionWorkflowSourcesResponse | undefined;
@@ -126,7 +129,7 @@ export class ScannerApiService {
   }
   optimizationTechniques(): Promise<OptimizationTechniqueCatalog> { return this.get('/api/optimization/techniques'); }
   async prepareOptimizationAdvice(sessionId: number, request: OptimizationAdvicePreview['request']): Promise<OptimizationAdvicePreview> {
-    const response = await fetch(`/api/ai/optimization-advice/prepare?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/optimization-advice/prepare?sessionId=${sessionId}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)
     });
     const result = await response.json().catch(() => null) as (OptimizationAdvicePreview & {error?: string}) | null;
@@ -135,7 +138,7 @@ export class ScannerApiService {
   }
   optimizationAdviceStatus(): Promise<OptimizationAdviceRuntimeStatus> { return this.get('/api/ai/optimization-advice/status'); }
   async cachedOptimizationAdvice(sessionId: number, previewId: string): Promise<OptimizationAdviceResult | null> {
-    const response = await fetch(`/api/ai/optimization-advice/cached?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/optimization-advice/cached?sessionId=${sessionId}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({previewId})
     });
     if (response.status === 204) return null;
@@ -144,7 +147,7 @@ export class ScannerApiService {
     return result;
   }
   async requestOptimizationAdvice(sessionId: number, previewId: string): Promise<OptimizationAdviceResult> {
-    const response = await fetch(`/api/ai/optimization-advice?sessionId=${sessionId}`, {
+    const response = await this.backendFetch(`/api/ai/optimization-advice?sessionId=${sessionId}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({previewId})
     });
     const result = await response.json().catch(() => null) as (OptimizationAdviceResult & {error?: string}) | null;
@@ -168,10 +171,21 @@ export class ScannerApiService {
     await this.request('/api/data', {method: 'DELETE'}, 'Nie udało się wyczyścić danych');
   }
 
-  async importSession(file: File): Promise<ImportSessionResult> {
-    const response = await fetch('/api/sessions/import', {
+  async previewSessionImport(file: File): Promise<SessionImportPreview> {
+    const response = await this.backendFetch('/api/sessions/import/preview', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/x-ndjson'},
+      body: file
+    });
+    const result = await response.json().catch(() => null) as (SessionImportPreview & {error?: string}) | null;
+    if (!response.ok || !result) throw new Error(result?.error || 'Nie udało się odczytać pliku Copilot OTel JSONL');
+    return result;
+  }
+
+  async importSession(file: File, conversationId: string): Promise<ImportSessionResult> {
+    const response = await this.backendFetch('/api/sessions/import?conversationId=' + encodeURIComponent(conversationId), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-ndjson'},
       body: file
     });
     const result = await response.json().catch(() => ({})) as ImportSessionResult & {error?: string};
@@ -181,15 +195,20 @@ export class ScannerApiService {
 
   exportSessionUrl(id: number): string { return `/api/sessions/${id}/export`; }
 
+  private async backendFetch(url: string, init?: RequestInit): Promise<Response> {
+    if (this.runtime.demo) throw new ScannerOperationError('unavailable', 'Dostępne w pełnej wersji');
+    return init === undefined ? fetch(url) : fetch(url, init);
+  }
+
   private async get<T>(url: string): Promise<T> {
-    const response = await fetch(url);
+    const response = await this.backendFetch(url);
     const result = await response.json().catch(() => null) as (T & {error?: string}) | null;
     if (!response.ok || result == null) throw new Error(result?.error || `Błąd API ${response.status}`);
     return result;
   }
 
   private async request(url: string, init: RequestInit, fallback: string): Promise<Response> {
-    const response = await fetch(url, init);
+    const response = await this.backendFetch(url, init);
     if (!response.ok) throw new Error(fallback);
     return response;
   }

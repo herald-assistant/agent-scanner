@@ -46,12 +46,18 @@ public class OtlpIngestionService {
         return ingestTraces(payload, contentType, encoding, true);
     }
 
+    /** Converted OTLP drives normalization; selected file records remain available for audit. */
     @Transactional
-    public IngestionResult importTracesJson(byte[] payload) {
-        return ingestTraces(payload, "application/json", null, false);
+    public IngestionResult importFileTraces(byte[] otlpJson, String rawJson, byte[] rawPayload) {
+        return ingestTraces(otlpJson, "application/json", null, false, rawJson, rawPayload);
     }
 
     private IngestionResult ingestTraces(byte[] payload, String contentType, String encoding, boolean honorPause) {
+        return ingestTraces(payload, contentType, encoding, honorPause, null, null);
+    }
+
+    private IngestionResult ingestTraces(byte[] payload, String contentType, String encoding, boolean honorPause,
+                                         String sourceJson, byte[] sourcePayload) {
         if (honorPause && paused.get()) return new IngestionResult("traces", 0, true);
         try {
             ExportTraceServiceRequest request = parseTraces(payload, contentType);
@@ -59,8 +65,9 @@ public class OtlpIngestionService {
             int spanCount = request.getResourceSpansList().stream()
                 .mapToInt(r -> r.getScopeSpansList().stream().mapToInt(s -> s.getSpansCount()).sum()).sum();
             ArrayNode resources = resources(request.getResourceSpansList().stream().map(ResourceSpans::getResource).toList());
-            long signalId = store.insertSignal("traces", receivedAt, contentType, encoding, resources,
-                print(request), payload, spanCount);
+            long signalId = store.insertSignal("traces", receivedAt, sourcePayload == null ? contentType : "application/x-ndjson", encoding, resources,
+                sourceJson == null ? print(request) : sourceJson,
+                sourcePayload == null ? payload : sourcePayload, spanCount);
 
             Map<String, List<SpanEnvelope>> byTrace = new LinkedHashMap<>();
             for (ResourceSpans resourceSpans : request.getResourceSpansList()) {
@@ -106,7 +113,7 @@ public class OtlpIngestionService {
     }
 
     /** copilot-episode-v1: resolve child ownership without modifying emitted attributes. */
-    private static String explicitSessionKey(ObjectNode attrs) {
+    public static String explicitSessionKey(ObjectNode attrs) {
         String conversation = text(attrs, "gen_ai.conversation.id");
         String chat = text(attrs, "copilot_chat.chat_session_id");
         String parent = text(attrs, "copilot_chat.parent_chat_session_id");

@@ -12,13 +12,18 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-          "browser": "src/main.ts",
-          "tsConfig": "tsconfig.app.json",
-          "inlineStyleLanguage": "css",
-          "assets": [
-            "src/favicon.svg"
-          ],
-          "outputPath": {
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "css",
+            "assets": [
+              "src/favicon.svg",
+              {
+                "glob": "techniques-v1.json",
+                "input": "src/generated-assets/optimization",
+                "output": "assets/optimization"
+              }
+            ],
+            "outputPath": {
               "base": "../target/classes/static",
               "browser": ""
             },
@@ -27,18 +32,45 @@
               "node_modules/@angular/material/prebuilt-themes/cyan-orange.css",
               "node_modules/material-symbols/outlined.css",
               "src/styles.css"
-            ]
+            ],
+            "webWorkerTsConfig": "tsconfig.worker.json"
           },
           "configurations": {
             "production": {
               "budgets": [
-                {"type": "initial", "maximumWarning": "750kB", "maximumError": "1MB"}
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1MB"
+                }
               ],
               "outputHashing": "all"
             },
             "development": {
               "optimization": false,
               "sourceMap": true
+            },
+            "demo": {
+              "optimization": true,
+              "sourceMap": false,
+              "outputHashing": "all",
+              "outputPath": {
+                "base": "dist/demo",
+                "browser": ""
+              },
+              "fileReplacements": [
+                {
+                  "replace": "src/app/runtime-configuration.ts",
+                  "with": "src/app/runtime-configuration.demo.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1MB"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -46,8 +78,15 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": {"buildTarget": "agent-scanner-ui:build:production"},
-            "development": {"buildTarget": "agent-scanner-ui:build:development"}
+            "production": {
+              "buildTarget": "agent-scanner-ui:build:production"
+            },
+            "development": {
+              "buildTarget": "agent-scanner-ui:build:development"
+            },
+            "demo": {
+              "buildTarget": "agent-scanner-ui:build:demo"
+            }
           },
           "defaultConfiguration": "development"
         },
