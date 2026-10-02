@@ -191,7 +191,7 @@ describe('Standardization view', () => {
     fixture.detectChanges();
     expect(state.files().map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
     expect(fixture.nativeElement.textContent).toContain('Materiały konfiguracji');
-    expect(fixture.nativeElement.textContent).toContain('uniwersalne względem technologii i architektury');
+    expect(fixture.nativeElement.textContent).toContain('Raport konfiguracji repozytorium');
     await state.prepare();
     expect(state.preview()!.packet.files.map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
     for (const entry of repositoryEntries.slice(2)) expect(entry.read).not.toHaveBeenCalled();
@@ -243,7 +243,7 @@ describe('Standardization view', () => {
     expect(state.canPrepare()).toBe(false);
     expect(state.files().map(file => file.path)).toEqual(prepared.packet.files.map(file => file.path));
     expect(fixture.nativeElement.textContent).toContain('Zapisana analiza');
-    expect(fixture.nativeElement.textContent).toContain('Zapisana migawka');
+    expect(fixture.nativeElement.textContent).toContain('Zapisane pliki');
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });

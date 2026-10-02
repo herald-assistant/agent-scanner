@@ -4,6 +4,7 @@ export interface RepositoryEntry { path: string; read: () => Promise<File>; }
 export interface RepositorySelection {
   name: string; entries: RepositoryEntry[]; complete: boolean; gitDetected: boolean;
   refreshable: boolean;
+  gitEntries?: RepositoryEntry[];
 }
 export interface RepositoryFile {
   path: string; category: StandardCategory; content: string; bytes: number; redacted: boolean;
@@ -47,6 +48,7 @@ export function selectionFromFiles(files: readonly File[]): RepositorySelection 
   return {
     name: root, complete: files.length <= MAX_ENTRIES, refreshable: false,
     gitDetected: paths.some(entry => entry.path === '.git' || entry.path.startsWith('.git/')),
+    gitEntries: paths.filter(entry => gitMetadataPath(entry.path)).map(entry => ({path: entry.path, read: async () => entry.file})),
     entries: paths.filter(entry => allowedPath(entry.path) && !nested.some(prefix => entry.path.startsWith(prefix)))
       .map(entry => ({path: entry.path, read: async () => entry.file}))
   };
@@ -61,6 +63,19 @@ export async function pickRepository(): Promise<RepositorySelection | undefined>
   let count = 0;
   let complete = true;
   let gitDetected = false;
+  const gitEntries: RepositoryEntry[] = [];
+  let gitCount = 0;
+  const visitGit = async (directory: DirectoryHandle, prefix = '.git/', depth = 0): Promise<void> => {
+    if (depth > 20) return;
+    for await (const child of directory.values()) {
+      if (++gitCount > 1000) return;
+      const path = prefix + child.name;
+      if (child.kind === 'file' && gitMetadataPath(path)) gitEntries.push({path, read: () => child.getFile()});
+      else if (child.kind === 'directory' && (path === '.git/refs' || path.startsWith('.git/refs/heads'))) {
+        await visitGit(child, path + '/', depth + 1);
+      }
+    }
+  };
   const visit = async (directory: DirectoryHandle, prefix: string, depth: number): Promise<void> => {
     if (depth > 20) { complete = false; return; }
     const children: (DirectoryHandle | RepoFileHandle)[] = [];
@@ -74,6 +89,10 @@ export async function pickRepository(): Promise<RepositorySelection | undefined>
     }
     for (const child of children) {
       const path = prefix + child.name;
+      if (!prefix && child.name === '.git') {
+        if (child.kind === 'directory') { try { await visitGit(child); } catch { /* Git metadata may be unavailable. */ } }
+        continue;
+      }
       if (!allowedPath(path)) continue;
       if (child.kind === 'directory') {
         try { await visit(child, path + '/', depth + 1); }
@@ -83,11 +102,21 @@ export async function pickRepository(): Promise<RepositorySelection | undefined>
     }
   };
   await visit(root, '', 0);
-  return {name: root.name, entries, complete, gitDetected, refreshable: true};
+  return {name: root.name, entries, complete, gitDetected, refreshable: true, gitEntries};
+}
+
+function gitMetadataPath(path: string): boolean {
+  return ['.git/config', '.git/HEAD', '.git/packed-refs'].includes(path)
+    || /^\.git\/refs\/heads\/(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\u0000-\u001f:]+$/.test(path);
 }
 
 export function redactRepositoryText(value: string): string {
   return value
+    .replace(/([a-z]+:\/\/)[^/\s"'@]+@/gi, '$1[UKRYTO]@')
+    .replace(/(\bname=["'][^"']*(?:token|password|secret|api[_-]?key|authorization)[^"']*["'][^>]*\bvalue=["'])([^"']+)(["'])/gi,
+      '$1[UKRYTO]$3')
+    .replace(/(\bvalue=["'])([^"']+)(["'][^>]*\bname=["'][^"']*(?:token|password|secret|api[_-]?key|authorization)[^"']*["'])/gi,
+      '$1[UKRYTO]$3')
     .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9_-]{20,})\b/g, '[UKRYTO]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b/gi, 'Bearer [UKRYTO]')
     .replace(/-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----/g,

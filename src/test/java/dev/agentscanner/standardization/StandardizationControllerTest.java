@@ -45,7 +45,9 @@ class StandardizationControllerTest {
         var history = mock(StandardizationHistoryStore.class);
         var snapshot = new RepositorySnapshot("input-a", "repo-a", "synthetic-project", "2026-10-02T10:00:00Z", false, true,
                 List.of(new SnapshotFile("AGENTS.md", Category.INSTRUCTIONS, "Persisted configuration", 23, false, true, null),
-                        new SnapshotFile(".github/copilot-instructions.md", Category.INSTRUCTIONS, "Excluded", 8, false, false, null)));
+                        new SnapshotFile(".github/copilot-instructions.md", Category.INSTRUCTIONS, "Excluded", 8, false, false, null)),
+                new GitMetadata("https://example.invalid/repo.git", "main", "a".repeat(40), "AVAILABLE"),
+                List.of(new ReportFile(".vscode/settings.json", "{\"chat.example\":true}", 21, false, null)));
         when(history.snapshot("repo-a", "input-a")).thenReturn(snapshot);
         var preview = new Preview("12345678-1234-1234-1234-123456789abc", "2026-10-02T11:00:00Z", "hash", null, "system", "prompt");
         when(service.prepare(any())).thenReturn(preview);

@@ -1,7 +1,8 @@
 import {computed, inject, Injectable, signal} from '@angular/core';
 import {ScannerApiService} from './scanner-api.service';
 import {discoverRepository, RepositoryFile, RepositorySelection} from './standardization-files';
-import {SavedStandardAnalysis, StandardCatalog, StandardPreview, StandardRepositorySnapshot, StandardResult, StandardSnapshotRequest} from '../models/standardization.models';
+import {RepositoryGitMetadata, RepositoryReportFile, SavedStandardAnalysis, StandardCatalog, StandardPreview, StandardRepositorySnapshot, StandardResult, StandardSnapshotRequest} from '../models/standardization.models';
+import {readGitMetadata, readReportFiles} from './repository-report-files';
 import {SessionChatModel} from '../models/session-chat.models';
 import {FeatureAvailability} from './feature-availability.service';
 import {StandardizationRepositoryService} from './standardization-repository.service';
@@ -16,6 +17,8 @@ export class StandardizationStateService {
   private saving: Promise<void> = Promise.resolve();
   private generation = 0;
   readonly snapshot = signal<StandardRepositorySnapshot | null>(null);
+  readonly git = signal<RepositoryGitMetadata | null>(null);
+  readonly reportFiles = signal<RepositoryReportFile[]>([]);
   readonly savingFiles = signal(false);
   readonly filesSaved = signal(false);
   readonly catalog = signal<StandardCatalog | null>(null);
@@ -83,12 +86,16 @@ export class StandardizationStateService {
     this.saved.set(false);
     this.folder.set(selection);
     this.files.set([]);
+    this.reportFiles.set([]);
+    this.git.set(null);
     this.error.set('');
     this.reading.set(true);
     try {
-      const result = await discoverRepository(selection);
+      const [result, reportFiles, git] = await Promise.all([discoverRepository(selection), readReportFiles(selection), readGitMetadata(selection)]);
       this.files.set(result.files);
-      this.inventoryComplete.set(result.complete);
+      this.reportFiles.set(reportFiles.files);
+      this.git.set(git);
+      this.inventoryComplete.set(result.complete && reportFiles.complete);
       await this.persistFiles();
     } catch (failure) {
       this.inventoryComplete.set(false);
@@ -147,6 +154,8 @@ export class StandardizationStateService {
   beginNew(repositoryId: string | null = null, repositoryName = ''): void {
     this.generation++;
     this.snapshot.set(null);
+    this.git.set(null);
+    this.reportFiles.set([]);
     this.savingFiles.set(false);
     this.filesSaved.set(false);
     this.invalidate();
@@ -157,17 +166,21 @@ export class StandardizationStateService {
     this.files.set([]);
     this.error.set('');
   }
-  loadSaved(saved: SavedStandardAnalysis, repositoryName: string): void {
+  loadSaved(saved: SavedStandardAnalysis, repositoryName: string, snapshot?: StandardRepositorySnapshot): void {
     this.generation++;
-    this.snapshot.set(null);
+    this.snapshot.set(snapshot ?? null);
+    this.git.set(snapshot?.git ?? null);
+    this.reportFiles.set(snapshot?.reportFiles ?? []);
     this.savingFiles.set(false);
     this.filesSaved.set(true);
     this.invalidate();
     this.repositoryId.set(saved.repositoryId);
     this.expectedRepositoryName.set(repositoryName);
     this.folder.set({name: repositoryName, entries: [], complete: saved.preview.packet.inventoryComplete,
-      gitDetected: true, refreshable: false});
-    this.files.set(saved.preview.packet.files.map(file => ({
+      gitDetected: snapshot?.gitDetected ?? false, refreshable: false});
+    this.files.set(snapshot ? snapshot.files.map(file => ({...file, omissionReason: file.omissionReason ?? undefined,
+      error: file.omissionReason && file.omissionReason !== 'EXCLUDED' ? 'Plik pominięty: ' + file.omissionReason : undefined,
+      read: async () => new File([file.content], file.path)})) : saved.preview.packet.files.map(file => ({
       path: file.path, category: file.category, content: file.content,
       bytes: new TextEncoder().encode(file.content).length, redacted: file.redacted,
       selected: true, read: async () => new File([file.content], file.path)
@@ -199,6 +212,8 @@ export class StandardizationStateService {
   loadSnapshot(snapshot: StandardRepositorySnapshot): void {
     this.beginNew(snapshot.repositoryId, snapshot.repositoryName);
     this.snapshot.set(snapshot);
+    this.git.set(snapshot.git ?? null);
+    this.reportFiles.set(snapshot.reportFiles ?? []);
     this.filesSaved.set(true);
     this.folder.set({name: snapshot.repositoryName, entries: [], complete: snapshot.inventoryComplete,
       gitDetected: snapshot.gitDetected, refreshable: false});
@@ -215,6 +230,7 @@ export class StandardizationStateService {
     const request: StandardSnapshotRequest = {
       snapshotId: this.snapshot()?.id ?? null, repositoryId: this.repositoryId(), repositoryName: folder.name,
       inventoryComplete: this.inventoryComplete(), gitDetected: folder.gitDetected,
+      git: this.git(), reportFiles: this.reportFiles().map(file => ({path: file.path, content: file.content, omissionReason: file.omissionReason})),
       files: this.files().map(file => ({path: file.path, content: file.content, selected: file.selected,
         omissionReason: file.omissionReason ?? null}))
     };

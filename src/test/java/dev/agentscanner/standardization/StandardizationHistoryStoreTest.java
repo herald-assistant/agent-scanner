@@ -13,6 +13,34 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StandardizationHistoryStoreTest {
     @Test
+    void persistsReportMetadataSeparatelyFromAiAndMasksOnlyAiNamedIdeComponents() {
+        var database = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2).addScript("schema.sql").build();
+        try {
+            var store = new StandardizationHistoryStore(new JdbcTemplate(database), new ObjectMapper());
+            String xml = "<project><component name=\"Unrelated\">unrelated-private-data</component><component name=\"GitHubCopilotSettings\"><option name=\"apiKey\" value=\"synthetic-secret-value\"/><option name=\"unknown\" value=\"preserved\"/></component></project>";
+            var snapshot = store.saveSnapshot(new SnapshotRequest(null, null, "synthetic-project", true, true,
+                    List.of(new SnapshotInputFile("AGENTS.md", "Rules", true, null)),
+                    new GitMetadata("https://user:synthetic-password@example.invalid/repo.git?token=synthetic-secret-value", "main", "a".repeat(40), "AVAILABLE"),
+                    List.of(new ReportInputFile(".IDEA/workspace.xml", xml, null),
+                            new ReportInputFile(".vscode/settings.json", "{\"unknown\":true,\"github.copilot.token\":\"synthetic-secret-value\"}", null))));
+            assertEquals("https://example.invalid/repo.git", snapshot.git().origin());
+            assertEquals(1, snapshot.files().size());
+            assertEquals(2, snapshot.reportFiles().size());
+            assertFalse(snapshot.reportFiles().get(0).content().contains("unrelated-private-data"));
+            assertFalse(snapshot.reportFiles().get(0).content().contains("synthetic-secret-value"));
+            assertTrue(snapshot.reportFiles().get(0).content().contains("preserved"));
+            assertTrue(snapshot.reportFiles().get(1).content().contains("\"unknown\":true"));
+            assertTrue(snapshot.reportFiles().stream().allMatch(ReportFile::redacted));
+            assertFalse(StandardizationText.redact("<option value=\"synthetic-secret-value\" name=\"apiKey\"/>").contains("synthetic-secret-value"));
+            assertEquals(snapshot, store.snapshot(snapshot.repositoryId(), snapshot.id()));
+            assertThrows(IllegalArgumentException.class, () -> store.saveSnapshot(new SnapshotRequest(null, null, "synthetic-project", true, false,
+                    List.of(), null, List.of(new ReportInputFile("package.json", "{}", null)))));
+            var legacy = new ObjectMapper().readValue("{\"id\":\"legacy\",\"files\":[],\"inventoryComplete\":true}", RepositorySnapshot.class);
+            assertNull(legacy.git());
+        } catch (Exception failure) { throw new AssertionError(failure); }
+        finally { database.shutdown(); }
+    }
+    @Test
     void persistsInputBeforeAiAndKeepsTheLinkedInputImmutableAndOwnedByItsRepository() {
         var database = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.H2).addScript("schema.sql").build();
         try {

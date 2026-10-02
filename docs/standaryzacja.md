@@ -106,6 +106,68 @@ Dla `.claude/agents` i promptów poza VS Code Local sprawdzana jest składnia YA
 bez narzucania schematu pól innego formatu lub klienta. Model ma uwzględniać
 profil i oznaczać brak dowodów zamiast potwierdzać działanie.
 
+## Lokalny raport konfiguracji i PDF
+
+Po wczytaniu katalogu strona pokazuje podsumowanie repozytorium oraz rozwijane
+sekcje instrukcji, skills, agentów, MCP, promptów, materiałów i ustawień AI w IDE.
+Sekcje odsłaniają elementy, ich zadeklarowane metadane i podgląd źródłowych plików.
+Inwentaryzacja obejmuje wszystkie znalezione konfiguracje niezależnie od zaznaczeń
+wejścia AI. Serwery MCP liczymy jako deklaracje, osobno od liczby plików konfiguracji.
+Brak pliku przy odczycie częściowym pozostaje brakiem potwierdzenia.
+Raport nie potwierdza instalacji, aktywacji ani wykorzystania mechanizmu w sesjach.
+
+Podsumowanie Git odczytuje tylko `config`, `HEAD`, `packed-refs` i `refs/heads`
+z katalogu `.git` w wybranym korzeniu. Zachowuje oczyszczony adres `origin`,
+gałąź i identyfikator commita; nie zachowuje surowej konfiguracji Git ani
+poświadczeń i parametrów adresu. Nie czyta obiektów, indeksu, logów ani historii.
+Plik `.git` wskazujący poza wybrany katalog nie powoduje rozszerzenia dostępu.
+Niedostępne metadane pozostają jawnie nieustalone. Commit identyfikuje checkout,
+a migawka raportu zawiera faktycznie odczytane treści, także lokalnie zmienione.
+
+Raport odczytuje `.vscode/settings.json`, `.vscode/extensions.json` i główne
+pliki `*.code-workspace`. Pokazuje rozpoznane ustawienia AI i rekomendacje
+rozszerzeń; rekomendacja nie dowodzi instalacji. Nieznane pola zachowuje w źródle.
+Dla JetBrains odczytuje `.aiassistant/rules/*.md`, `.aiignore` i `.noai`.
+W `.idea/*.xml` zachowuje wyłącznie komponenty, których nazwa jawnie zawiera
+AI Assistant, GitHub Copilot lub Junie; jest to rozpoznanie nazwy, nie walidacja
+schematu wtyczki. Reszta pliku, w tym osobiste dane `workspace.xml`, jest pomijana.
+Nieudana inspekcja pliku XML lub przekroczenie limitu plików oznacza odczyt
+częściowy; nie stanowi dowodu braku konfiguracji AI.
+Ustawienia osobiste poza folderem repozytorium pozostają poza zakresem.
+
+Metadane Git i do 300 plików raportu po 128 KiB są zachowywane w istniejącej
+migawce w IndexedDB lub H2. Wspólny limit body zapisu pozostaje 8 MiB.
+Pliki IDE są osobnym materiałem raportu i nie trafiają do pakietu AI.
+Stare migawki bez nowych pól nadal się otwierają; braków nie uzupełniamy domysłami.
+
+Przycisk **Pobierz raport PDF** tworzy dokument z tego samego modelu raportu,
+z pełnymi szczegółami także zwiniętych sekcji, klikalnym podsumowaniem,
+zakładkami i numeracją stron. Pierwsza strona podsumowuje osobno każdą kategorię
+mechanizmów i konfiguracji IDE, z ikonami oraz kolorami powtarzanymi w szczegółach.
+Cały obszar karty znalezionej kategorii prowadzi do jej szczegółów; zawartość kart
+jest wyśrodkowana w pionie. Nagłówek podaje datę wygenerowania raportu, a dane
+`ORIGIN`, `COMMIT` i `BRANCH` są prezentowane w kolejnych wierszach.
+Logo i nazwa Agent Scanner występują tylko na pierwszej stronie. Kolejne mają
+dyskretny nagłówek po prawej: `RAPORT REPOZYTORIUM · nazwa repozytorium`.
+Stopka zawiera wyłącznie numerację stron; stałe marginesy oddzielają nagłówek
+i stopkę od treści, bez dodatkowej linii nad stopką.
+Kolory identyfikują kategorie, nie stanowią oceny jakości ani poziomu adopcji.
+Raport na stronie i PDF nie eksponują ogólnych liczników plików; pominięcia pozostają
+przy źródłach. Nie ma osobnego bloku zakresu odczytu. Wartości tablic i obiektów
+są prezentowane jako zwarty JSON, z odstępami po przecinkach i dwukropkach;
+nie zmienia to źródła, treści łańcuchów ani precyzji liczb JSON.
+`pdfmake` oraz fonty Roboto z polskimi znakami
+są pakowane w aplikacji i ładowane dopiero po kliknięciu. Generowanie nie wykonuje
+żądań API, nie używa CDN, usług AI ani serwera PDF; dane nie opuszczają przeglądarki.
+PDF zawiera opis konfiguracji i deklarowane metadane, nie pełne treści instrukcji.
+Podgląd pełnego źródła pozostaje dostępny na stronie. Rozpoznane sekrety są
+maskowane przed zapisem, w raporcie i eksporcie. Nie ma osobnego eksportu HTML.
+
+Implementacja: [model raportu](../frontend/src/app/core/repository-report.ts),
+[odczyt metadanych](../frontend/src/app/core/repository-report-files.ts),
+[widok](../frontend/src/app/features/standardization/repository-report.component.ts),
+[PDF](../frontend/src/app/core/repository-report-pdf.ts).
+
 ## Odczyt, limity i prywatność implementacji
 
 Preferowany jest odczyt przez `showDirectoryPicker` z uprawnieniem tylko do
@@ -117,7 +179,7 @@ niezależnie udowodnić `realpath` każdego dowiązania; nie deklarujemy takiej 
 Oba warianty zapisują migawkę wybranego folderu. Po zmianie plików na dysku
 należy ponownie wybrać katalog; AI zawsze analizuje zapisane wejście.
 
-Odczyt pomija m.in. `.git`, zależności, katalogi buildów, wykryte zagnieżdżone
+Odczyt pomija m.in. obiekty i historię `.git`, zależności, katalogi buildów, wykryte zagnieżdżone
 repozytoria, pliki `.env` i odnośniki sieciowe. **Poza zakresem są manifesty
 technologii, kod, skrypty, workflow CI, automatycznie dobierane README i dokumentacja
 architektury projektu**. Dotyczy to również linków do `pom.xml`, `package.json`,

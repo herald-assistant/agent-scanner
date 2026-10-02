@@ -1,6 +1,6 @@
 <h2 mat-dialog-title>Uruchom analizę AI</h2>
 <mat-dialog-content>
-  <p>Analiza użyje zapisanej migawki: {{ state.folder()?.name }} · {{ state.selected().length }} zaznaczonych plików.</p>
+  <p>Analiza użyje zapisanych plików: {{ state.folder()?.name }} · {{ state.selected().length }} zaznaczonych plików.</p>
   @if (state.loadingModels()) { <p class="loading" role="status"><mat-spinner diameter="20" />Pobieranie modeli dostępnych na koncie…</p> }
   <mat-form-field appearance="outline">
     <mat-label>Model oceniający</mat-label>

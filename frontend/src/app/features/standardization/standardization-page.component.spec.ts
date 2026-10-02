@@ -109,7 +109,7 @@ describe('StandardizationPageComponent actions', () => {
     api.standardizationRepositories.mockResolvedValue([]);
     button(element, 'Usuń analizę').click();
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(['/']));
-    expect(confirm).toHaveBeenCalledWith('Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisaną migawką plików?');
+    expect(confirm).toHaveBeenCalledWith('Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisanymi plikami?');
     expect(api.deleteStandardization).toHaveBeenCalledExactlyOnceWith('repo-a', 'analysis-a');
     expect(TestBed.inject(StandardizationHistoryService).repositories()).toEqual([]);
     expect(TestBed.inject(StandardizationStateService).files()).toEqual([]);

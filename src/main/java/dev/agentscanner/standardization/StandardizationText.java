@@ -17,9 +17,16 @@ final class StandardizationText {
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+(?!\\[UKRYTO])([A-Za-z0-9._~+/=-]{12,})");
     private static final Pattern ASSIGNMENT = Pattern.compile("(?i)([\"']?(?:[\\w.-]*(?:token|password|secret|api[_-]?key|authorization))[\"']?\\s*[:=]\\s*[\"']?)([^\\s,\"';}]+)");
     private static final Pattern PRIVATE_KEY = Pattern.compile("-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----[\\s\\S]*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----");
+    private static final Pattern URL_CREDENTIALS = Pattern.compile("(?i)([a-z]+://)[^/\\s\"'@]+@");
+    private static final Pattern XML_SECRET = Pattern.compile("(?i)(\\bname=[\"'][^\"']*(?:token|password|secret|api[_-]?key|authorization)[^\"']*[\"'][^>]*\\bvalue=[\"'])([^\"']+)([\"'])");
+    private static final Pattern XML_SECRET_REVERSED = Pattern.compile("(?i)(\\bvalue=[\"'])([^\"']+)([\"'][^>]*\\bname=[\"'][^\"']*(?:token|password|secret|api[_-]?key|authorization)[^\"']*[\"'])");
+    private static final Pattern AI_COMPONENT = Pattern.compile("(?i)<component\\b[^>]*\\bname=[\"'][^\"']*(?:aiassistant|github[-_.]?copilot|junie)[^\"']*[\"'][^>]*(?:/>|>[\\s\\S]*?</component>)");
 
     static String redact(String text) {
         String result = TOKENS.matcher(text).replaceAll("[UKRYTO]");
+        result = URL_CREDENTIALS.matcher(result).replaceAll("$1[UKRYTO]@");
+        result = XML_SECRET.matcher(result).replaceAll("$1[UKRYTO]$3");
+        result = XML_SECRET_REVERSED.matcher(result).replaceAll("$1[UKRYTO]$3");
         result = BEARER.matcher(result).replaceAll("Bearer [UKRYTO]");
         result = PRIVATE_KEY.matcher(result).replaceAll(match ->
                 String.join("\n", java.util.Collections.nCopies(match.group().split("\n", -1).length, "[UKRYTO]")));
@@ -54,6 +61,33 @@ final class StandardizationText {
         }
         return category(path) != Category.CONTEXT || lower.matches(
                 "\\.(?:github/(?:instructions|skills|agents|prompts)|claude/(?:skills|agents)|agents/skills)/.+\\.(?:md|txt)");
+    }
+
+    static boolean reportPath(String path) {
+        if (!validPath(path)) return false;
+        String lower = path.toLowerCase(Locale.ROOT);
+        return lower.matches("\\.vscode/(?:settings|extensions)\\.json") || lower.matches("[^/]+\\.code-workspace")
+                || lower.matches("\\.aiassistant/rules/.+\\.md") || Set.of(".aiignore", ".noai").contains(lower)
+                || lower.matches("\\.idea/[^/]+\\.xml");
+    }
+
+    static String reportContent(String path, String content) {
+        if (!path.toLowerCase(Locale.ROOT).startsWith(".idea/")) return content;
+        return AI_COMPONENT.matcher(content).results().map(java.util.regex.MatchResult::group)
+                .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    static String safeRemote(String remote) {
+        if (remote == null || remote.isBlank()) return null;
+        if (remote.length() > 2000 || remote.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException("Niepoprawne metadane Git.");
+        try {
+            var uri = java.net.URI.create(remote);
+            if (uri.getScheme() != null && Set.of("http", "https", "ssh", "git").contains(uri.getScheme().toLowerCase(Locale.ROOT)) && uri.getHost() != null) {
+                return redact(new java.net.URI(uri.getScheme(), null, uri.getHost(), uri.getPort(), uri.getPath(), null, null).toString());
+            }
+        } catch (Exception ignored) { }
+        var scp = Pattern.compile("(?i)^(?:[^@/\\s]+@)?([a-z\\d.-]+):([^?#\\s]+)$").matcher(remote);
+        return scp.matches() ? redact(scp.group(1) + ":" + scp.group(2)) : null;
     }
 
     static Category category(String path) {

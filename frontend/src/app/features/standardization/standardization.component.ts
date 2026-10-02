@@ -16,13 +16,15 @@ import {StandardizationHistoryService} from '../../core/standardization-history.
 import {pickRepository, RepositoryFile, RepositorySelection, selectionFromFiles} from '../../core/standardization-files';
 import {StandardCategory} from '../../models/standardization.models';
 import {StandardizationFileDialogComponent, StandardizationFileDialogData} from './standardization-file-dialog.component';
+import {RepositoryReportComponent} from './repository-report.component';
+import {buildRepositoryReport, ReportEntry} from '../../core/repository-report';
 
 export const CATEGORY_LABELS: Record<StandardCategory, string> = {
   INSTRUCTIONS: 'Instrukcje', SKILLS: 'Skills', AGENTS: 'Agenci', MCP: 'MCP', PROMPTS: 'Prompty', CONTEXT: 'Materiały konfiguracji'
 };
 @Component({
   selector: 'as-standardization',
-  imports: [DatePipe, MatIconModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule],
+  imports: [DatePipe, MatIconModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, RepositoryReportComponent],
   templateUrl: './standardization.component.html',
   styleUrl: './standardization.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -44,6 +46,11 @@ export class StandardizationComponent {
     .map(([id, label]) => ({id: id as StandardCategory, label, count: this.state.files().filter(file => file.category === id).length}))
     .filter(item => item.count > 0));
   readonly readableCount = computed(() => this.state.files().filter(file => !file.error).length);
+  readonly report = computed(() => buildRepositoryReport({name: this.state.folder()?.name ?? '',
+    savedAt: this.state.snapshot()?.savedAt ?? this.state.result()?.analyzedAt,
+    complete: this.state.inventoryComplete() && (!this.state.saved() || !!this.state.snapshot()), gitDetected: this.state.folder()?.gitDetected ?? false,
+    git: this.state.git(), files: this.state.files(), reportFiles: this.state.reportFiles(),
+    ideComplete: this.state.snapshot()?.reportFiles != null}));
   readonly summaries = computed(() => {
     const preview = this.state.preview();
     const result = this.state.result();
@@ -140,6 +147,13 @@ export class StandardizationComponent {
       width: '1000px', maxWidth: '94vw', maxHeight: '90vh',
       data: {file, packetFile, preview, result: this.state.result()}
     });
+  }
+  openReportFile(entry: ReportEntry): void {
+    const file = this.state.files().find(file => file.path === entry.path);
+    if (file) { this.openFile(file); return; }
+    this.openFile({path: entry.path, category: 'CONTEXT', content: entry.content, bytes: entry.bytes,
+      redacted: entry.redacted, selected: false, error: entry.readable ? undefined : 'Treść nieodczytana',
+      read: async () => new File([entry.content], entry.path)});
   }
   openAssessment(id: string): void {
     const packet = this.state.preview()?.packet;

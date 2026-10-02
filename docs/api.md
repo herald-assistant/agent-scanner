@@ -183,6 +183,14 @@ Trzy operacje z `sessionId` przyjmują body typu `ToolClassification.Request`.
 
 ## Źródła implementacji
 
+Migawka wejścia Standaryzacji zachowuje opcjonalne `git` (`origin`, `branch`,
+`commit`, `availability`) oraz `reportFiles` (`path`, `content`, `bytes`,
+`redacted`, `omissionReason`). W żądaniu zapisu rozmiar i maskowanie plików
+raportu wylicza serwer; nie ma pola selekcji AI. Starsze migawki mogą nie mieć
+tych pól. `prepare` nadal korzysta wyłącznie z zaznaczonych `files`.
+Raport i eksport PDF są generowane lokalnie z zapisanej migawki, bez nowego
+endpointu. [Zakres raportu](standaryzacja.md#lokalny-raport-konfiguracji-i-pdf).
+
 - [OtlpController](../src/main/java/dev/agentscanner/otel/OtlpController.java).
 - [ScannerApiController](../src/main/java/dev/agentscanner/api/ScannerApiController.java).
 - [SessionAnalysisController](../src/main/java/dev/agentscanner/analysis/SessionAnalysisController.java).

@@ -1,0 +1,48 @@
+<section class="repository-report" aria-label="Raport konfiguracji repozytorium">
+  <section class="ui-card repo-summary">
+    <header class="report-heading">
+      <div><span class="ui-eyebrow">KONFIGURACJA REPOZYTORIUM</span><h3>{{ report().name }}</h3>
+        <p>Wygenerowano: {{ generatedAt() | date:'dd.MM.yyyy, HH:mm' }}</p>
+      </div>
+      <button class="ui-button" [disabled]="exportDisabled() || exporting()" (click)="downloadPdf()">
+        @if (exporting()) { <mat-spinner diameter="16" /> } @else { <mat-icon>picture_as_pdf</mat-icon> }
+        {{ exporting() ? 'Generowanie PDF…' : 'Pobierz raport PDF' }}
+      </button>
+    </header>
+    <dl class="repo-identification">
+      <div><dt>ORIGIN</dt><dd>{{ report().git?.origin || 'Brak danych' }}</dd></div>
+      <div><dt>COMMIT</dt><dd>{{ report().git?.commit || 'Brak danych' }}</dd></div>
+      <div><dt>BRANCH</dt><dd>{{ report().git?.branch || 'Brak danych' }}</dd></div>
+    </dl>
+    @if (report().unreadableCount) { <p class="entry-note">Nie odczytano treści {{ report().unreadableCount }} plików. Szczegóły pominięć są wskazane przy plikach.</p> }
+  </section>
+
+  @for (group of report().groups; track group.id) {
+    <details class="ui-card mechanism" [attr.data-report-mechanism]="group.id">
+      <summary class="mechanism-summary">
+        <mat-icon class="mechanism-icon">{{ group.icon }}</mat-icon>
+        <span><strong>{{ group.title }}</strong><small>{{ group.summary }}</small></span>
+        <span class="ui-badge">{{ group.entries.length ? 'Znaleziono' : group.complete ? 'Nie znaleziono' : 'Nie ustalono' }}</span>
+        <mat-icon class="chevron">expand_more</mat-icon>
+      </summary>
+      <div class="mechanism-content">
+        @for (entry of group.entries; track $index) {
+          <details class="report-entry">
+            <summary><span><strong>{{ entry.name }}</strong><small>{{ entry.path }}</small></span><mat-icon class="chevron">expand_more</mat-icon></summary>
+            <div class="entry-content">
+              @if (entry.description) { <p>{{ entry.description }}</p> }
+              <div class="entry-meta"><span>{{ entry.readable ? entry.bytes + ' B zapisanej treści' : 'Treść nieodczytana' }}</span>
+                @if (entry.redacted) { <span class="ui-badge">Zamaskowane wartości</span> }
+                <button class="ui-button ui-button--small ui-button--ghost" (click)="inspect.emit(entry)" [attr.aria-label]="'Podejrzyj źródło: ' + entry.path"><mat-icon>visibility</mat-icon>Plik źródłowy</button>
+              </div>
+              @if (entry.details.length) { <dl class="entry-details">
+                @for (detail of entry.details; track $index) { <div><dt>{{ detail.label }}</dt><dd><pre>{{ detail.value }}</pre></dd></div> }
+              </dl> }
+              @for (note of entry.notes; track note) { <p class="entry-note">{{ note }}</p> }
+            </div>
+          </details>
+        } @empty { <p class="empty-mechanism">{{ group.complete ? 'Nie znaleziono w obsługiwanym zakresie.' : 'Brak pełnego odczytu tego obszaru. Nie potwierdzono obecności ani nieobecności konfiguracji.' }}</p> }
+      </div>
+    </details>
+  }
+</section>

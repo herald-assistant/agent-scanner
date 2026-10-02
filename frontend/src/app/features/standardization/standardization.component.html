@@ -1,10 +1,9 @@
 <section class="standardization" aria-label="Standaryzacja konfiguracji GitHub Copilot">
   <header class="feature-heading">
     <div>
-      <span class="ui-eyebrow">GITHUB COPILOT · STANDARDY KONFIGURACJI</span>
-      <h2>Sprawdź jakość konfiguracji Copilot</h2>
-      <p>Oceń podział odpowiedzialności plików, zakres reguł, metadane, nagłówki, nadmiarowe treści i łatwość utrzymania.</p>
-      <p>Zasady wspólne powinny być uniwersalne względem technologii i architektury; szczegóły powinny mieć wyraźnie określony zakres.</p>
+      <span class="ui-eyebrow">REPOZYTORIUM · MECHANIZMY AI</span>
+      <h2>Raport konfiguracji repozytorium</h2>
+      <p>Zobacz instrukcje, skills, agentów, MCP, prompty i ustawienia AI w IDE. Rozwiń mechanizm, aby sprawdzić jego deklaracje i pliki źródłowe.</p>
     </div>
     <span class="ui-badge"><mat-icon>{{ state.saved() ? 'history' : 'folder_open' }}</mat-icon>{{ state.saved() ? 'Zapisana analiza' : 'Odczyt plików' }}</span>
   </header>
@@ -14,7 +13,7 @@
       <div class="folder-icon"><mat-icon>folder_open</mat-icon></div>
       <div class="folder-copy">
         <h3>{{ state.folder()?.name || 'Wybierz lokalne repozytorium' }}</h3>
-        <p>{{ state.saved() ? 'Zapisana migawka · ' + state.files().length + ' ocenianych plików' : state.snapshot() ? 'Zapisane wejście · ' + state.files().length + ' plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
+        <p>{{ state.saved() ? 'Zapisane pliki · ' + state.files().length + ' ocenianych plików' : state.snapshot() ? 'Zapisane wejście · ' + state.files().length + ' plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
       </div>
       @if (!state.saved()) {
         <input #folderInput type="file" webkitdirectory multiple hidden (change)="filesChosen($event)" aria-label="Folder repozytorium">
@@ -37,6 +36,8 @@
   } @else if (state.folder()) {
     @if (!state.inventoryComplete()) { <p class="notice warning"><mat-icon>info</mat-icon>Odczyt jest częściowy: pominięto niedostępne katalogi albo osiągnięto limit. Raport uwzględni tę lukę.</p> }
     @if (!state.folder()?.gitDetected) { <p class="scope-note">Nie potwierdzono katalogu Git. Ocena obejmie wyłącznie pliki widoczne w wybranym folderze.</p> }
+
+    <as-repository-report [report]="report()" [exportDisabled]="state.busy() || !state.filesSaved()" (inspect)="openReportFile($event)" />
 
     @if (state.result(); as result) {
       <section class="ui-card report-summary" aria-label="Podsumowanie oceny AI" aria-live="polite">
@@ -67,7 +68,7 @@
 
     <section class="ui-card files-card">
       <header class="ui-panel-header">
-        <div><h3>{{ state.saved() ? 'Ocenione pliki' : 'Pliki do analizy' }}</h3><p>{{ state.saved() ? state.files().length + ' plików w zapisanej migawce' : state.selected().length + ' z ' + readableCount() + ' zaznaczonych · ' + size(state.bytes()) }}</p></div>
+        <div><h3>{{ state.saved() ? 'Pliki i ocena AI' : 'Wybór plików do analizy AI' }}</h3><p>{{ state.saved() ? state.files().length + ' zapisanych plików' : state.selected().length + ' z ' + readableCount() + ' zaznaczonych · ' + size(state.bytes()) }}</p></div>
         @if (!state.saved()) {
           <div class="selection-actions">
             <button class="ui-button ui-button--small ui-button--ghost" [disabled]="state.busy()" (click)="selectFiles(true)">Zaznacz wszystkie</button>
@@ -124,7 +125,7 @@
     @if (!state.saved()) { <div class="analysis-actions">
       <div>
         <p>Analiza obejmie zaznaczone pliki oraz właściwe wymagania GitHub Copilot.</p>
-        <small>{{ features.demo ? 'Podgląd działa lokalnie. Uruchomienie analizy AI jest dostępne w pełnej wersji.' : 'Po kliknięciu wybierzesz model w oknie analizy. AI użyje zaznaczonych plików z zapisanej migawki.' }}</small>
+        <small>{{ features.demo ? 'Podgląd działa lokalnie. Uruchomienie analizy AI jest dostępne w pełnej wersji.' : 'Po kliknięciu wybierzesz model w oknie analizy. AI użyje zapisanych, zaznaczonych plików.' }}</small>
         @if (state.selected().length > state.limits().maxFiles || state.bytes() > state.limits().maxTotalBytes) {
           <p class="warning-text">Zmniejsz zakres: maksymalnie {{ state.limits().maxFiles }} plików i {{ size(state.limits().maxTotalBytes) }}.</p>
         }
@@ -141,9 +142,8 @@
     </div> }
   } @else {
     <div class="empty-state">
-      <mat-icon>rule_folder</mat-icon><h3>Od plików do konkretnych wskazówek</h3>
-      <p>Po wyborze folderu zobaczysz listę plików. Wszystkie odczytane materiały będą zaznaczone; możesz je wykluczyć i sprawdzić ich treść przed analizą.</p>
-      <div><span><mat-icon>check_circle</mat-icon>Co jest zgodne i dlaczego</span><span><mat-icon>edit_note</mat-icon>Co wymaga dopracowania</span><span><mat-icon>format_quote</mat-icon>Dowody z plików</span></div>
+      <mat-icon>rule_folder</mat-icon><h3>Sprawdź, co skonfigurowano w repozytorium</h3>
+      <p>Wybierz folder, aby zobaczyć raport z rozwijanymi mechanizmami i pobrać PDF.</p>
     </div>
   }
 

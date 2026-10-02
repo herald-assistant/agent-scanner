@@ -70,7 +70,7 @@ export class StandardizationPageComponent {
     const saved = this.savedAnalysis();
     const snapshot = this.state.snapshot();
     if ((!saved && !snapshot) || this.deleting() || !confirm(saved
-      ? 'Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisaną migawką plików?'
+      ? 'Usunąć tę analizę repozytorium wraz z wynikiem AI i zapisanymi plikami?'
       : 'Usunąć zapisane pliki tego repozytorium?')) return;
     const request = this.request;
     this.deleting.set(true);
@@ -114,8 +114,9 @@ export class StandardizationPageComponent {
           const selected = analysisId ?? repository.analyses[0]?.id;
           if (!selected) throw new Error('Repozytorium nie ma zapisanych analiz.');
           const saved = await this.api.savedStandardization(repositoryId, selected);
+          const snapshot = saved.snapshotId ? await this.repositories.get(repositoryId, saved.snapshotId) : undefined;
           if (request !== this.request) return;
-          this.state.loadSaved(saved, repository.name);
+          this.state.loadSaved(saved, repository.name, snapshot);
           this.savedAnalysis.set(saved);
           this.title.set(repository.name);
         }

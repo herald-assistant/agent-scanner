@@ -47,12 +47,27 @@ public final class Standardization {
     }
     public record SnapshotInputFile(String path, String content, boolean selected, String omissionReason) {}
     public record SnapshotRequest(String snapshotId, String repositoryId, String repositoryName,
-                                  boolean inventoryComplete, boolean gitDetected, List<SnapshotInputFile> files) {}
+                                  boolean inventoryComplete, boolean gitDetected, List<SnapshotInputFile> files,
+                                  GitMetadata git, List<ReportInputFile> reportFiles) {
+        public SnapshotRequest(String snapshotId, String repositoryId, String repositoryName,
+                               boolean inventoryComplete, boolean gitDetected, List<SnapshotInputFile> files) {
+            this(snapshotId, repositoryId, repositoryName, inventoryComplete, gitDetected, files, null, List.of());
+        }
+    }
+    public record GitMetadata(String origin, String branch, String commit, String availability) {}
+    public record ReportInputFile(String path, String content, String omissionReason) {}
+    public record ReportFile(String path, String content, int bytes, boolean redacted, String omissionReason) {}
     public record SnapshotFile(String path, Category category, String content, int bytes, boolean redacted,
                                boolean selected, String omissionReason) {}
     public record SnapshotSummary(String id, String savedAt, int fileCount) {}
     public record RepositorySnapshot(String id, String repositoryId, String repositoryName, String savedAt,
-                                     boolean inventoryComplete, boolean gitDetected, List<SnapshotFile> files) {}
+                                     boolean inventoryComplete, boolean gitDetected, List<SnapshotFile> files,
+                                     GitMetadata git, List<ReportFile> reportFiles) {
+        public RepositorySnapshot(String id, String repositoryId, String repositoryName, String savedAt,
+                                  boolean inventoryComplete, boolean gitDetected, List<SnapshotFile> files) {
+            this(id, repositoryId, repositoryName, savedAt, inventoryComplete, gitDetected, files, null, List.of());
+        }
+    }
     public record SnapshotModelRequest(String model) {}
     public record SavedAnalysis(String repositoryId, String analysisId, Preview preview, Result result, String snapshotId) {
         public SavedAnalysis(String repositoryId, String analysisId, Preview preview, Result result) {

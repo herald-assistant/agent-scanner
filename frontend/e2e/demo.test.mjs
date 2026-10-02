@@ -179,6 +179,74 @@ test('repository input persists masked configuration and selection, reopens with
   assert.equal(await page.locator('.repository-item').count(),0);
 }));
 
+test('repository report expands mechanisms and IDE settings, persists Git metadata and downloads a local PDF', async () => run(async (page, context) => {
+  const folder = resolve(report, 'synthetic-report-repository');
+  const files = {
+    'AGENTS.md': '# Shared rules\nVerify changes.',
+    '.github/skills/review/SKILL.md': '---\nname: review\ndescription: Przegląd zmian i testów\ndisable-model-invocation: true\n---\nReview procedure.',
+    '.github/agents/reviewer.agent.md': '---\nname: Reviewer\ndescription: Przegląd implementacji\ntools: [read, search]\nagents: [Evidence Researcher]\nhandoffs:\n  - label: Review evidence\n    agent: Evidence Researcher\n    prompt: Review the collected evidence and separate availability from actual use.\n    send: false\n---\nReview changes.',
+    '.github/prompts/release.prompt.md': '---\nname: Release\ndescription: Przygotuj wydanie\nagent: reviewer\n---\nPrepare release.',
+    '.vscode/mcp.json': '{"servers":{"local":{"command":"node","args":["server.js"],"env":{"API_KEY":"synthetic-secret-value"}}}}',
+    '.vscode/settings.json': '{"github.copilot.enable":{"*":true},"chat.includeApplyingInstructions":true,"unknown":{"preserved":true}}',
+    '.vscode/extensions.json': '{"recommendations":["GitHub.copilot","unrelated.extension"]}',
+    '.aiassistant/rules/review.md': '# Przegląd kodu\nVerify changes.',
+    '.aiignore': 'target/\n.env\n',
+    '.noai': '',
+    '.idea/workspace.xml': '<project><component name="Unrelated">unrelated-private-data</component><component name="GitHubCopilotSettings"><option name="apiKey" value="synthetic-secret-value"/></component></project>',
+    '.git/config': '[remote "origin"]\n url = https://user:synthetic-password@example.invalid/team/repo.git?token=synthetic-secret-value',
+    '.git/HEAD': 'ref: refs/heads/main\n',
+    '.git/packed-refs': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/heads/main\n'
+  };
+  for (const [path, content] of Object.entries(files)) {
+    const destination = resolve(folder, path); await mkdir(resolve(destination, '..'), {recursive: true}); await writeFile(destination, content);
+  }
+  await page.getByRole('button', {name: 'Nowa analiza repozytorium', exact: true}).click();
+  await page.locator('input[webkitdirectory]').setInputFiles(folder);
+  await page.waitForURL(/#\/repositories\/[a-f0-9-]+\/inputs\/[a-f0-9-]+$/);
+  const inventory = page.getByRole('region', {name: 'Raport konfiguracji repozytorium'});
+  await inventory.waitFor();
+  assert.match(await inventory.innerText(), /https:\/\/example.invalid\/team\/repo.git/);
+  assert.doesNotMatch(await inventory.innerText(), /synthetic-password/);
+  await page.locator('[data-report-mechanism="SKILLS"] > summary').click();
+  await page.locator('[data-report-mechanism="SKILLS"] .report-entry > summary').click();
+  assert.match(await page.locator('[data-report-mechanism="SKILLS"]').innerText(), /Przegląd zmian i testów/);
+  await page.locator('[data-report-mechanism="AGENTS"] > summary').click();
+  await page.locator('[data-report-mechanism="AGENTS"] .report-entry > summary').click();
+  const agentDetails = await page.locator('[data-report-mechanism="AGENTS"] .entry-details pre').allTextContents();
+  assert.ok(agentDetails.includes('["Evidence Researcher"]'));
+  assert.ok(agentDetails.includes('[{"label": "Review evidence", "agent": "Evidence Researcher", "prompt": "Review the collected evidence and separate availability from actual use.", "send": false}]'));
+  await page.locator('[data-report-mechanism="VSCODE"] > summary').click();
+  await page.locator('[data-report-mechanism="VSCODE"] .report-entry > summary').first().click();
+  await page.screenshot({path: resolve(report, 'repository-report-desktop.png'), fullPage: true});
+  const pdfDownload = page.waitForEvent('download');
+  await page.getByRole('button', {name: 'Pobierz raport PDF', exact: true}).click();
+  const pdf = await pdfDownload;
+  const bytes = await readFile(await pdf.path());
+  assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
+  await writeFile(resolve(report, 'repository-report.pdf'), bytes);
+  await context.setOffline(true);
+  const offlineDownload = page.waitForEvent('download');
+  await page.getByRole('button', {name: 'Pobierz raport PDF', exact: true}).click();
+  assert.equal((await readFile(await (await offlineDownload).path())).subarray(0, 5).toString(), '%PDF-');
+  await context.setOffline(false);
+  await page.reload(); await inventory.waitFor();
+  assert.match(await inventory.innerText(), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  await page.locator('[data-report-mechanism="JETBRAINS"] > summary').click();
+  assert.match(await page.locator('[data-report-mechanism="JETBRAINS"]').innerText(), /review.md/);
+  await page.setViewportSize({width: 390, height: 844});
+  await page.getByRole('button', {name: 'Zwiń panel sesji', exact: true}).click();
+  await page.locator('mat-drawer').waitFor({state: 'hidden'});
+  await page.screenshot({path: resolve(report, 'repository-report-mobile.png'), fullPage: true});
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  const snapshot = await page.evaluate(async () => {
+    const db = await new Promise(resolve => {const r=indexedDB.open('agent-scanner-demo-repositories');r.onsuccess=()=>resolve(r.result);});
+    const all=await new Promise(resolve=>{const r=db.transaction('snapshots').objectStore('snapshots').getAll();r.onsuccess=()=>resolve(r.result);});db.close();return all;
+  });
+  assert.equal(snapshot[0].files.length, 5);
+  assert.equal(snapshot[0].reportFiles.length, 6);
+  assert.doesNotMatch(JSON.stringify(snapshot), /synthetic-secret-value|synthetic-password|unrelated-private-data/);
+}));
+
 test('one main conversation, persisted scope, every local tab, panels and export', async () => run(async page => {
   const sourceText=await readFile(resolve(fixtures,'copilot-file-detached-v1.jsonl'),'utf8');
   const exactInteger=sourceText.replace('"preserved":true','"preserved":true,"large":9007199254740993');

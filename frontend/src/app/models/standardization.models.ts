@@ -49,14 +49,25 @@ export interface StandardSnapshotFile {
   selected: boolean; omissionReason: StandardOmission['reason'] | null;
 }
 export interface StandardSnapshotSummary { id: string; savedAt: string; fileCount: number; }
+export interface RepositoryGitMetadata {
+  origin: string | null; branch: string | null; commit: string | null;
+  availability: 'AVAILABLE' | 'PARTIAL' | 'UNAVAILABLE';
+}
+export interface RepositoryReportFile {
+  path: string; content: string; bytes: number; redacted: boolean;
+  omissionReason: StandardOmission['reason'] | null;
+}
 export interface StandardRepositorySnapshot {
   id: string; repositoryId: string; repositoryName: string; savedAt: string;
   inventoryComplete: boolean; gitDetected: boolean; files: StandardSnapshotFile[];
+  git?: RepositoryGitMetadata | null; reportFiles?: RepositoryReportFile[];
 }
 export interface StandardSnapshotRequest {
   snapshotId: string | null; repositoryId: string | null; repositoryName: string;
   inventoryComplete: boolean; gitDetected: boolean;
   files: {path: string; content: string; selected: boolean; omissionReason: StandardOmission['reason'] | null}[];
+  git?: RepositoryGitMetadata | null;
+  reportFiles?: {path: string; content: string; omissionReason: StandardOmission['reason'] | null}[];
 }
 export interface SavedStandardAnalysis {
   repositoryId: string; analysisId: string; preview: StandardPreview; result: StandardResult;

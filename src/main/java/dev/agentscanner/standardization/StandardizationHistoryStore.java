@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import static dev.agentscanner.standardization.Standardization.*;
@@ -178,6 +179,35 @@ public class StandardizationHistoryStore {
                     content.getBytes(StandardCharsets.UTF_8).length, !content.equals(text) || content.contains("[UKRYTO]"),
                     file.selected(), file.omissionReason()));
         }
+        var reportFiles = new ArrayList<ReportFile>();
+        if (request.reportFiles() != null && request.reportFiles().size() > 300) throw new IllegalArgumentException("Za dużo plików raportu.");
+        for (ReportInputFile file : request.reportFiles() == null ? List.<ReportInputFile>of() : request.reportFiles()) {
+            if (file == null || !StandardizationText.reportPath(file.path()) || !paths.add(file.path()) || file.content() == null
+                    || file.content().contains("\u0000") || (file.omissionReason() != null
+                    && !Set.of("UNREADABLE", "TOO_LARGE", "LIMIT", "UNSUPPORTED_ENCODING").contains(file.omissionReason()))) {
+                throw new IllegalArgumentException("Niepoprawny plik raportu repozytorium.");
+            }
+            int bytes = file.content().getBytes(StandardCharsets.UTF_8).length;
+            total += bytes;
+            if (bytes > MAX_FILE_BYTES || total > MAX_BODY_BYTES || file.omissionReason() != null && !file.content().isEmpty()) {
+                throw new IllegalArgumentException("Niepoprawna treść lub przekroczony limit plików raportu.");
+            }
+            String raw = StandardizationText.reportContent(file.path(), file.content().replace("\r\n", "\n").replace("\r", "\n").replaceFirst("^\uFEFF", ""));
+            if (file.path().toLowerCase(Locale.ROOT).startsWith(".idea/") && raw.isBlank()) throw new IllegalArgumentException("Brak rozpoznanego komponentu AI w pliku IDE.");
+            String content = StandardizationText.redact(raw);
+            reportFiles.add(new ReportFile(file.path(), content, content.getBytes(StandardCharsets.UTF_8).length,
+                    !content.equals(raw) || content.contains("[UKRYTO]"), file.omissionReason()));
+        }
+        GitMetadata git = request.git();
+        if (git != null) {
+            if (git.availability() == null || !Set.of("AVAILABLE", "PARTIAL", "UNAVAILABLE").contains(git.availability())
+                    || git.branch() != null && (git.branch().length() > 500 || git.branch().chars().anyMatch(Character::isISOControl))
+                    || git.commit() != null && !git.commit().matches("(?i)(?:[a-f\\d]{40}|[a-f\\d]{64})")) {
+                throw new IllegalArgumentException("Niepoprawne metadane Git.");
+            }
+            git = new GitMetadata(StandardizationText.safeRemote(git.origin()),
+                    git.branch() == null ? null : StandardizationText.redact(git.branch()), git.commit(), git.availability());
+        }
         String repositoryId = request.repositoryId();
         if (repositoryId == null || repositoryId.isBlank()) {
             repositoryId = UUID.randomUUID().toString();
@@ -195,7 +225,7 @@ public class StandardizationHistoryStore {
             if (jdbc.queryForObject("SELECT COUNT(*) FROM standardization_analysis_input WHERE snapshot_id = ?", Integer.class, snapshotId) > 0) snapshotId = null;
         }
         var snapshot = new RepositorySnapshot(snapshotId == null ? UUID.randomUUID().toString() : snapshotId,
-                repositoryId, request.repositoryName().trim(), Instant.now().toString(), request.inventoryComplete(), request.gitDetected(), List.copyOf(files));
+                repositoryId, request.repositoryName().trim(), Instant.now().toString(), request.inventoryComplete(), request.gitDetected(), List.copyOf(files), git, List.copyOf(reportFiles));
         try {
             jdbc.update("""
                     MERGE INTO standardization_input_snapshot(id, repository_id, saved_at, file_count, snapshot_json) KEY(id)
