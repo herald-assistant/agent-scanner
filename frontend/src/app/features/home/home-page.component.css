@@ -2,22 +2,6 @@
   display: block;
 }
 
-.config-panel {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(250px, .7fr) minmax(430px, 1.3fr);
-  gap: var(--space-10);
-  align-items: start;
-  padding: var(--space-8) 70px var(--space-8) 7%;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.config-copy h2 {
-  margin: var(--space-3) 0 var(--space-5);
-  font-size: var(--text-3xl);
-}
-
 .connection-instructions {
   max-width: 620px;
   color: var(--color-text-secondary);
@@ -72,12 +56,6 @@
   top: 10px;
 }
 
-.close {
-  position: absolute;
-  right: 24px;
-  top: 18px;
-}
-
 .onboarding {
   min-height: calc(100vh - var(--topbar-height));
   display: flex;
@@ -105,14 +83,6 @@
 
 .onboarding-code {
   text-align: left;
-}
-
-.onboarding-code pre {
-  padding-right: 180px;
-}
-
-.link-button {
-  margin-top: var(--space-6);
 }
 
 .radar {
@@ -158,17 +128,7 @@
   }
 }
 
-@media (max-width: 1000px) {
-  .config-panel {
-    grid-template-columns: 1fr;
-    gap: var(--space-6);
-  }
-}
-
 @media (max-width: 700px) {
-  .config-panel {
-    padding: var(--space-8) var(--space-11) var(--space-8) var(--space-6);
-  }
   .onboarding {
     padding: var(--space-9) var(--space-6);
   }

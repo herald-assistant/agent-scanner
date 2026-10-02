@@ -17,7 +17,6 @@ export class TopbarComponent {
   readonly sidebarOpen = input.required<boolean>();
   readonly sidebarToggle = output<void>();
   readonly optimizationGuide = output<Event>();
-  readonly configure = output<void>();
   readonly pauseToggle = output<void>();
 
   time(value?: string | null): string {

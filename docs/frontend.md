@@ -44,7 +44,7 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 
 | Komponent | Odpowiedzialność |
 |---|---|
-| `TopbarComponent` | Zwijanie/rozwijanie panelu sesji w miejscu znaku aplikacji, status odbiornika, konfiguracja, poradnik technik i pauza. |
+| `TopbarComponent` | Zwijanie/rozwijanie panelu sesji w miejscu znaku aplikacji, status odbiornika, poradnik technik i pauza. |
 | `SessionSidebarComponent` / `SessionImportDialogComponent` | Wybór sesji, ikonowy import Copilot OTel JSONL, modal wyboru jednej rozmowy przez HTTP lub wielu w demo oraz zwijana lista repozytoriów i zapisanych analiz. |
 | `CostDashboardComponent` | Bilans sesji i porównywalne rozliczenie wywołań. |
 | `ToolOptimizationOverviewComponent` | Globalne zestawienie narzędzi bez AI. |
@@ -61,11 +61,15 @@ Wiążąca część [AGENTS.md](../AGENTS.md). Formuły i powiązania określa
 
 Właścicieli analiz `core`, routingu i ładowania opisuje [architektura](architektura.md).
 
+Nagłówki Sesje i Repozytoria w lewym panelu pokazują nazwy sekcji oraz ich akcje,
+bez etykiety „HISTORIA” i liczników zapisanych pozycji. Dotyczy to demo i pełnej
+wersji. Repozytoria zachowują przycisk zwijania listy.
+
 ## Tryb demo
 
 Build `demo` wybiera lokalny gateway, IndexedDB i routing hash. Strona startowa
 pokazuje konfigurację eksportera `file`. Topbar zawiera markę i przycisk panelu
-sesji; cała grupa `top-actions` (status, poradnik technik, konfiguracja i pauza)
+sesji; cała grupa `top-actions` (status, poradnik technik i pauza)
 nie jest renderowana w demo. Demo nie odczytuje `/api` ani `/v1`, historii
 Standaryzacji, cache AI ani katalogu modeli.
 Nie pokazuje globalnych liczników logów/metryk ani retencji jako lokalnych pomiarów.
@@ -84,7 +88,7 @@ wcięć wymagałoby ich zaokrąglenia, pokazuje oryginalny JSON.
 `FeatureAvailability` otwiera jeden modal Material „Dostępne w pełnej wersji”
 z treścią „Ta funkcja jest dostępna w pełnej wersji Agent Scanner. W demo możesz
 importować i przeglądać sesje lokalnie.” Dotyczy AI Hub, rozmów, klasyfikacji,
-doradztwa, Standaryzacji oraz ustawień i pauzy odbiornika. Kliknięcie AI Hub
+doradztwa, Standaryzacji oraz pauzy odbiornika. Kliknięcie AI Hub
 zachowuje aktualną zakładkę. Bezpośrednia trasa AI wraca do Podsumowania sesji,
 a trasa repozytorium do strony startowej, przed montowaniem komponentu.
 Brak danych w telemetrii pozostaje stanem danych bez tego modalu.
@@ -265,8 +269,13 @@ jawnego wysłania, narzędzi analityka i walidacji są w [AI](ai.md).
 
 ## Konfiguracja i komunikaty
 
-W pełnej wersji onboarding i konfiguracja VS Code pokazują kompletny poprawny JSON z eksportem
-OTel, `http://localhost:8081`, `http/protobuf` i capture content.
+Onboarding pokazuje kompletny poprawny JSON ustawień VS Code. W pełnej wersji
+zawiera eksport OTel, `http://localhost:8081`, `http/protobuf` i capture content.
+Osobny `config-panel`, jego link na stronie startowej i przycisk konfiguracji
+w topbarze są usunięte w obu wersjach. Parametr `configuration=open` nie otwiera panelu.
+Wejście do Standaryzacji znajduje się przy nagłówku Repozytoria w lewym panelu;
+strona startowa pokazuje instrukcję VS Code i przycisk importu w demo, bez
+dodatkowego komunikatu o IndexedDB i przycisku Standaryzacji.
 Dodanie emitera wymaga instrukcji, zanonimizowanego fixture'u i potwierdzenia
 grupowania; sam wspólny OTLP nie potwierdza zgodności.
 Błędy przejściowe i wynik importu pokazuj w snackbarach, bez bannerów u góry strony.

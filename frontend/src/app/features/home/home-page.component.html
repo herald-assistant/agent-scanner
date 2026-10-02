@@ -1,25 +1,3 @@
-@if (showConfig()) {
-  <section class="config-panel">
-    <div class="config-copy">
-      <span class="eyebrow ui-eyebrow">OPENTELEMETRY</span>
-      <h2>{{ features.demo ? 'Eksportuj telemetrię GitHub Copilot do pliku' : 'Połącz GitHub Copilot w VS Code' }}</h2>
-      <div class="connection-instructions">
-        <strong>W VS Code</strong>
-        <ol>
-          <li><kbd>Ctrl+Shift+P</kbd></li>
-          <li>Uruchom <code>Preferences: Open User Settings (JSON)</code></li>
-          <li>Wstaw poniższe właściwości do istniejącego głównego obiektu JSON:</li>
-        </ol>
-      </div>
-    </div>
-    <div class="code-wrap">
-      <pre>{{ configText }}</pre>
-      <button class="copy ui-button ui-button--primary" (click)="copyConfig()">{{ copied() ? 'Skopiowano ✓' : 'Kopiuj' }}</button>
-    </div>
-    <button class="close ui-icon-button" aria-label="Zamknij konfigurację" (click)="setConfigVisible(false)"><mat-icon>close</mat-icon></button>
-  </section>
-}
-
 <section class="onboarding">
   <div class="radar"><i></i><i></i><i></i><span></span></div>
   <span class="eyebrow ui-eyebrow">{{ features.demo ? 'DEMO · IMPORT LOKALNY' : 'OTLP/HTTP · PORT 8081' }}</span>
@@ -37,8 +15,5 @@
     <p>Ustaw własną ścieżkę pliku w VS Code. Po pracy z Copilotem wczytaj plik JSONL i wybierz rozmowy do zapisania.</p>
     <input #otelFile type="file" accept=".jsonl,.ndjson,application/x-ndjson" hidden (change)="importFile($event)">
     <button class="ui-button ui-button--primary" [disabled]="shell.importing()" (click)="otelFile.click()">Wczytaj plik Copilot OTel JSONL</button>
-    <p>Plik jest przetwarzany lokalnie. Sesje zapisują się w IndexedDB w tej przeglądarce i pozostają dostępne po odświeżeniu strony. Dane są związane z adresem aplikacji i profilem przeglądarki; mogą zostać usunięte przez przeglądarkę. Eksportuj potrzebne sesje jako kopię materiału źródłowego.</p>
   }
-  <button class="link-button ui-button ui-button--ghost" (click)="setConfigVisible(true)">Bezpieczeństwo i priorytet ustawień →</button>
-  <a class="ui-button" routerLink="/repositories/new"><mat-icon>rule_folder</mat-icon>Standaryzacja repozytorium</a>
 </section>

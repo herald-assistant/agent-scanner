@@ -38,7 +38,7 @@ Integracja wspólnego rdzenia z JVM pozostaje kolejnym etapem.
 | Eksport, usunięcie sesji i całości | Blob i lokalna transakcja | Adapter HTTP |
 | Katalog technik | Statyczny asset tego samego katalogu | Istniejący endpoint katalogu |
 | AI, historia, modele, Standaryzacja | Modal i guard przed inicjalizacją | Osobne usługi backendowe |
-| Ustawienia i pauza odbiornika | Modal | Obecny status i kontrola REST |
+| Pauza odbiornika | Modal | Obecny status i kontrola REST |
 
 ```text
 GitHub Copilot w VS Code

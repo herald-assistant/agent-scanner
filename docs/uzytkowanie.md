@@ -43,7 +43,7 @@ i dodaj poniższe właściwości do głównego obiektu ustawień:
 
 To kompletny obiekt JSON; w istniejącym pliku przenieś same pary klucz–wartość.
 Przeładuj okno VS Code i rozpocznij nową interakcję z Copilotem. Sesja powinna
-pojawić się na liście, a status zmienić na „Ostatnio odebrano telemetrię”.
+pojawić się na liście, a status zmienić na „Ostatnia aktualizacja”.
 Oznacza to zapis danych w bazie, nie aktywne połączenie z IDE. Status można
 sprawdzić także przez `GET /api/status`.
 

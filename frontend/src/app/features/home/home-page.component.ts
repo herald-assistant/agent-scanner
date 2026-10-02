@@ -1,13 +1,10 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, inject, signal} from '@angular/core';
-import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {MatIconModule} from '@angular/material/icon';
-import {ActivatedRoute, Router, RouterLink} from '@angular/router';
+import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
+import {Router} from '@angular/router';
 import {FeatureAvailability} from '../../core/feature-availability.service';
 import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 
 @Component({
   selector: 'as-home-page',
-  imports: [MatIconModule, RouterLink],
   templateUrl: './home-page.component.html',
   styleUrl: './home-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -15,11 +12,8 @@ import {ScannerShellStateService} from '../../core/scanner-shell-state.service';
 export class HomePageComponent {
   readonly features = inject(FeatureAvailability);
   readonly shell = inject(ScannerShellStateService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly copied = signal(false);
-  readonly showConfig = signal(false);
 
   readonly configText = this.features.demo ? `{
   "github.copilot.chat.otel.enabled": true,
@@ -35,16 +29,6 @@ export class HomePageComponent {
   "github.copilot.chat.otel.captureContent": true,
   "github.copilot.chat.otel.maxAttributeSizeChars": 0
 }`;
-
-  constructor() {
-    this.route.queryParamMap
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(params => this.showConfig.set(params.get('configuration') === 'open'));
-  }
-
-  async setConfigVisible(visible: boolean): Promise<void> {
-    await this.router.navigate(['/'], {queryParams: visible ? {configuration: 'open'} : {}});
-  }
 
   async copyConfig(): Promise<void> {
     await navigator.clipboard.writeText(this.configText);

@@ -99,12 +99,6 @@ export class AppComponent {
     await this.state.refresh();
   }
 
-  async openConfiguration(): Promise<void> {
-    if (!this.features.require('receiver')) return;
-    this.detailsPanel.close();
-    await this.router.navigate(['/'], {queryParams: {configuration: 'open'}});
-  }
-
   openOptimizationGuide(template: TemplateRef<unknown>, origin: EventTarget | null): void {
     this.detailsPanel.openTemplate(
       template,

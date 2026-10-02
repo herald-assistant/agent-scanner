@@ -47,7 +47,7 @@ fixture demonstrating the desired result.
 
 The session “connected” flag currently means `lastSignalAt != null`: telemetry has
 been received and remains in the database. It is not a heartbeat and must not be
-presented as a live IDE connection. The UI label is “Ostatnio odebrano telemetrię”.
+presented as a live IDE connection. The UI label is “Ostatnia aktualizacja”.
 
 ## Interakcja
 
