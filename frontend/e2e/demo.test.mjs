@@ -182,6 +182,7 @@ test('repository input persists masked configuration and selection, reopens with
   assert.equal(await page.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).isChecked(),false);
   await page.getByRole('button',{name:'Podejrzyj AGENTS.md',exact:true}).click();
   const dialog = page.getByRole('dialog');
+  await dialog.locator('.source-code').waitFor();
   assert.equal(await dialog.getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
   assert.equal(await dialog.locator('.source-code').count(), 1);
   assert.match(await dialog.innerText(),/token=\[UKRYTO\]/);
@@ -284,6 +285,7 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   assert.match(await linkedFiles.innerText(), /\/docs\/guide.md\s+Treść poza migawką/);
   assert.doesNotMatch(await linkedFiles.innerText(), /next.md/);
   await linkedFiles.getByRole('button', {name: 'Podejrzyj podlinkowany plik: .github/skills/review/references/checklist.md', exact: true}).click();
+  await page.getByRole('dialog').locator('.source-code').waitFor();
   assert.equal(await page.getByRole('dialog').getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
   assert.match(await page.getByRole('dialog').innerText(), /Sprawdź testy i zakres zmian/);
   await page.getByRole('button', {name: 'Zamknij podgląd pliku', exact: true}).click();
@@ -336,6 +338,7 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await page.getByRole('button', {name: 'Podejrzyj .github/agents/reviewer.agent.md', exact: true}).click();
   const fileDialog = page.getByRole('dialog');
+  await fileDialog.locator('.source-code').waitFor();
   assert.equal(await fileDialog.getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
   assert.match(await fileDialog.locator('.source-code').innerText(), /name: Reviewer/);
   await page.screenshot({path: resolve(report, 'demo-repository-file-mobile.png')});
