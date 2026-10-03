@@ -262,18 +262,26 @@ function previewContent(entry: ReportEntry, preview: FilePreview, link: string |
     {text: entry.content.trim() ? 'Brak treści poza metadanymi.' : 'Plik pusty.', style: 'note'},
     ...(link ? [sourceLink(link, false)] : [])
   ], margin: [56, 2, 0, 12]}];
-  const blocks: Content[] = preview.blocks.map(block => ({
-    text: block.spans.map(span => ({text: span.text, bold: span.bold || block.kind === 'heading',
-      italics: span.italics, decoration: span.strike ? 'lineThrough' : undefined,
-      font: span.code ? 'ReportMono' : 'Roboto', fontSize: span.code ? 8.5 : undefined})),
-    fontSize: block.kind === 'heading' ? 10 : 9.5, color: ink, lineHeight: 1.18,
-    preserveLeadingSpaces: block.kind === 'code', margin: [block.indent * 9, 0, 0, 4]
-  }));
+  const blocks: Content[] = preview.blocks.map((block, index) => {
+    const spans = block.spans.map(span => ({...span}));
+    if (preview.truncated && index === preview.blocks.length - 1) {
+      while (spans.length && !spans.at(-1)!.text.trim()) spans.pop();
+      const last = spans.at(-1);
+      if (last) last.text = last.text.trimEnd().replace(/[.\u2026]+$/u, '') + '...';
+    }
+    return {
+      text: spans.map(span => ({text: span.text, bold: span.bold || block.kind === 'heading',
+        italics: span.italics, decoration: span.strike ? 'lineThrough' : undefined,
+        font: span.code ? 'ReportMono' : 'Roboto', fontSize: span.code ? 8.5 : undefined})),
+      fontSize: block.kind === 'heading' ? 10 : 9.5, color: ink, lineHeight: 1.18,
+      preserveLeadingSpaces: block.kind === 'code', margin: [block.indent * 9, 0, 0, 4]
+    };
+  });
   if (!blocks.length) blocks.push({text: 'Brak tekstowego fragmentu do wyświetlenia.', style: 'note'});
   if (preview.omittedMarkup) blocks.push({text: 'Obrazy i HTML pominięto w podglądzie.', style: 'note'});
   return [{unbreakable: true, stack: [
     {table: {widths: ['*'], body: [[{fillColor: mint, stack: [
-      {text: preview.truncated ? 'FRAGMENT TREŚCI · SKRÓCONO' : 'FRAGMENT TREŚCI', fontSize: 7, bold: true, characterSpacing: 0.7, color: muted, margin: [0, 0, 0, 7]},
+      {text: 'TREŚĆ', fontSize: 7, bold: true, characterSpacing: 0.7, color: muted, margin: [0, 0, 0, 7]},
       ...blocks
     ]}]]}, layout: {...noLines, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 7}},
     ...(link ? [sourceLink(link, false)] : [])

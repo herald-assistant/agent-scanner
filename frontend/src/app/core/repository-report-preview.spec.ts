@@ -108,7 +108,7 @@ describe('repository PDF source excerpts', () => {
       category: 'MCP', selected: true, read: async () => new File([], 'mcp.json')
     }]});
     const output = JSON.stringify(repositoryReportDefinition(report).content);
-    expect(output.match(/FRAGMENT TREŚCI/g)).toHaveLength(1);
+    expect(output.match(/"text":"TREŚĆ"/g)).toHaveLength(1);
     expect(output.match(/Szczegóły w repozytorium/g)).toHaveLength(1);
     expect(output).toContain('/blob/main/.vscode/mcp.json');
     expect(output).not.toContain('/blob/' + git.commit + '/');
@@ -122,7 +122,7 @@ describe('repository PDF source excerpts', () => {
     ]});
     const output = JSON.stringify(repositoryReportDefinition(report).content);
     expect(output).not.toMatch(/END-XML|END-IGNORE/);
-    expect(output.match(/FRAGMENT TREŚCI/g)).toHaveLength(2);
+    expect(output.match(/"text":"TREŚĆ"/g)).toHaveLength(2);
   });
 });
 

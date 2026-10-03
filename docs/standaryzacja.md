@@ -174,8 +174,9 @@ zielonym tle. Fragment ma do 500 widocznych znaków Unicode i 12 logicznych wier
 lub bloków. Skrót kończy się na pełnym zdaniu, punkcie listy lub linii kodu;
 nie pozostawia samotnego nagłówka ani początku następnego akapitu. Jeżeli już
 pierwsze zdanie lub linia przekracza limit, pozostaje fragment na granicy słowa.
-O skróceniu informuje etykieta `FRAGMENT TREŚCI · SKRÓCONO`, bez osobnego wiersza
-z wielokropkiem. Rozpoznany, poprawny frontmatter jest
+Podgląd zawsze ma etykietę `TREŚĆ`. Przy skróceniu `...` jest dopisywane do końca
+ostatniego widocznego tekstu, bez osobnego wiersza. Pełna treść nie otrzymuje
+tego znacznika. Rozpoznany, poprawny frontmatter jest
 pomijany tylko w podglądzie, a źródło pozostaje bez zmian. Markdown zachowuje
 akapity, listy, pogrubienia, kursywę, cytaty i kod. Nagłówki źródła są mniejsze
 od nazwy pliku; kod używa lokalnie dołączonej czcionki monospace. Tabele mają
