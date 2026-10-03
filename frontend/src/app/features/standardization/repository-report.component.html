@@ -28,7 +28,7 @@
       <div class="mechanism-content">
         @for (entry of group.entries; track $index) {
           <details class="report-entry">
-            <summary><span><strong>{{ entry.name }}</strong><small>{{ entry.path }}</small></span><mat-icon class="chevron">expand_more</mat-icon></summary>
+            <summary><span><strong>{{ entry.name }}</strong><small>/{{ entry.path }}</small></span><mat-icon class="chevron">expand_more</mat-icon></summary>
             <div class="entry-content">
               @if (entry.description) { <p>{{ entry.description }}</p> }
               <div class="entry-meta"><span>{{ entry.readable ? entry.bytes + ' B zapisanej treści' : 'Treść nieodczytana' }}</span>

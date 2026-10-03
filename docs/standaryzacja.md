@@ -111,6 +111,12 @@ profil i oznaczać brak dowodów zamiast potwierdzać działanie.
 Po wczytaniu katalogu strona pokazuje podsumowanie repozytorium oraz rozwijane
 sekcje instrukcji, skills, agentów, MCP, promptów, materiałów i ustawień AI w IDE.
 Sekcje odsłaniają elementy, ich zadeklarowane metadane i podgląd źródłowych plików.
+Raport na stronie i PDF pomijają pola `Lokalizacja` instrukcji oraz `Katalog` skilla,
+które powtarzały informacje wynikające ze ścieżki. Pod nazwą każdego pliku widnieje
+ścieżka od korzenia repozytorium z początkowym `/`, także `/AGENTS.md` pod nazwą
+`AGENTS.md`. To format prezentacji; zapisane ścieżki i linki do repozytorium pozostają
+w dotychczasowym formacie. Jawne metadane, takie jak `applyTo`,
+`argument-hint` i opis, oraz zapisana treść źródłowa pozostają zachowane.
 Inwentaryzacja obejmuje wszystkie znalezione konfiguracje niezależnie od zaznaczeń
 wejścia AI. Serwery MCP liczymy jako deklaracje, osobno od liczby plików konfiguracji.
 Brak pliku przy odczycie częściowym pozostaje brakiem potwierdzenia.

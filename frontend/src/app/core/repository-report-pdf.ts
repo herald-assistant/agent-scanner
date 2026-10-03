@@ -217,7 +217,8 @@ function meta(label: string, value: string): Content {
 }
 function shortHeader(entry: ReportEntry): boolean { return entry.name.length + entry.path.length <= 800; }
 function entryText(entry: ReportEntry): string {
-  return [entry.name, entry.path, entry.description, ...entry.notes, ...visibleDetails(entry).flatMap(detail => [detail.label, detail.value])].filter(Boolean).join('\n');
+  return [entry.name, '/' + entry.path, entry.description, ...entry.notes,
+    ...visibleDetails(entry).flatMap(detail => [detail.label, detail.value])].filter(Boolean).join('\n');
 }
 function visibleDetails(entry: ReportEntry): ReportEntry['details'] {
   return entry.details.filter(detail => !entry.readable || !['Deklaracja XML', 'Wzorce ograniczeń'].includes(detail.label)
@@ -229,7 +230,7 @@ function compactEntry(entry: ReportEntry): boolean {
 }
 function entryHeader(entry: ReportEntry): Content[] {
   return [{text: wrap(entry.name), style: 'entry', margin: [56, 10, 0, 4]},
-    {text: wrap(entry.path), style: 'path', margin: [56, 0, 0, 5]},
+    {text: wrap('/' + entry.path), style: 'path', margin: [56, 0, 0, 5]},
     ...(!entry.readable || entry.redacted ? [{text: !entry.readable ? 'Treść nieodczytana' : 'Zamaskowane wartości', style: 'note', margin: [56, 0, 0, 5]} as Content] : [])];
 }
 function entryBody(entry: ReportEntry): Content[] {

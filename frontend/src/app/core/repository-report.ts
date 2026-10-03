@@ -88,9 +88,6 @@ function configurationEntry(file: RepositoryFile): ReportEntry {
   for (const field of ['applyTo', 'agent', 'mode', 'model', 'tools', 'allowed-tools', 'agents', 'handoffs', 'target', 'user-invocable', 'disable-model-invocation', 'infer', 'excludeAgent', 'argument-hint', 'compatibility']) {
     if (Object.hasOwn(fields, field)) entry.details.push({label: field, value: display(fields[field])});
   }
-  if (file.category === 'INSTRUCTIONS') entry.details.unshift({label: 'Lokalizacja', value: file.path.includes('/instructions/') ? 'Instrukcje ścieżkowe'
-    : file.path.includes('/') && /(?:AGENTS|CLAUDE|GEMINI)\.md$/i.test(file.path) ? 'Instrukcje w podkatalogu' : 'Instrukcje ogólne'});
-  if (file.category === 'SKILLS') entry.details.unshift({label: 'Katalog', value: file.path.split('/').slice(0, -1).join('/')});
   return entry;
 }
 
