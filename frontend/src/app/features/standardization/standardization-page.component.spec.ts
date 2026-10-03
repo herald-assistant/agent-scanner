@@ -1,6 +1,8 @@
 import {Component} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {MAT_ICON_DEFAULT_OPTIONS} from '@angular/material/icon';
+import {MatTooltip} from '@angular/material/tooltip';
+import {By} from '@angular/platform-browser';
 import {ActivatedRoute, convertToParamMap, Router} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -80,18 +82,27 @@ describe('StandardizationPageComponent actions', () => {
     return element.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   }
 
-  it('shows export, delete and close in the session action style with accessible labels and Material icons', async () => {
+  it('shows JSON and PDF export, delete and close with accessible labels, tooltips and Material icons', async () => {
     const element = await ready();
     const actions = [...element.querySelectorAll<HTMLButtonElement>('.analysis-actions button')];
     expect(actions.map(action => action.getAttribute('aria-label'))).toEqual([
-      'Eksportuj analizę do JSON', 'Usuń analizę', 'Zamknij analizę'
+      'Eksportuj analizę do JSON', 'Pobierz raport PDF', 'Usuń analizę', 'Zamknij analizę'
     ]);
     expect(actions.every(action => action.classList.contains('ui-icon-button'))).toBe(true);
     expect(button(element, 'Usuń analizę').classList.contains('ui-button--danger')).toBe(true);
     expect([...element.querySelectorAll('.analysis-actions mat-icon')]
       .every(icon => icon.classList.contains('material-symbols-outlined'))).toBe(true);
+    const pdf = button(element, 'Pobierz raport PDF');
+    expect(pdf.querySelector('mat-icon')?.textContent).toBe('picture_as_pdf');
+    expect(pdf.textContent).not.toContain('Pobierz raport PDF');
+    expect(pdf.disabled).toBe(false);
+    const tooltip = fixture.debugElement.queryAll(By.directive(MatTooltip)).find(item => item.nativeElement === pdf)!;
+    expect(tooltip.injector.get(MatTooltip).message).toBe('Pobierz raport PDF');
     expect(element.textContent).not.toContain('Nowa analiza');
     expect(element.textContent).not.toContain('Do sesji');
+    TestBed.inject(StandardizationStateService).savingFiles.set(true);
+    fixture.detectChanges();
+    expect(pdf.disabled).toBe(true);
   });
 
   it('keeps the result when deletion is not confirmed', async () => {

@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {ActivatedRoute, Router} from '@angular/router';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {ScannerApiService} from '../../core/scanner-api.service';
 import {NotificationService} from '../../core/notification.service';
 import {StandardizationHistoryService} from '../../core/standardization-history.service';
@@ -11,10 +12,11 @@ import {StandardizationComponent} from './standardization.component';
 import {SavedStandardAnalysis} from '../../models/standardization.models';
 import {StandardizationRepositoryService} from '../../core/standardization-repository.service';
 import {FeatureAvailability} from '../../core/feature-availability.service';
+import {createRepositoryReportPdf} from '../../core/repository-report-pdf';
 
 @Component({
   selector: 'as-standardization-page',
-  imports: [StandardizationComponent, MatIconModule, MatTooltipModule],
+  imports: [StandardizationComponent, MatIconModule, MatTooltipModule, MatProgressSpinnerModule],
   templateUrl: './standardization-page.component.html',
   styleUrl: './standardization-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -37,6 +39,9 @@ export class StandardizationPageComponent {
   readonly newAnalysis = signal(true);
   readonly savedAnalysis = signal<SavedStandardAnalysis | null>(null);
   readonly deleting = signal(false);
+  readonly exportingPdf = signal(false);
+  readonly canExportPdf = computed(() => !this.loading() && !this.error() && !this.deleting() && !this.exportingPdf()
+    && !this.state.busy() && this.state.filesSaved() && !!this.state.folder());
 
   constructor() {
     this.destroyRef.onDestroy(() => this.request++);
@@ -64,6 +69,24 @@ export class StandardizationPageComponent {
       link.href = url; link.download = `agent-scanner-input-${snapshot.id}.json`; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }
+  }
+
+  async downloadPdf(): Promise<void> {
+    if (!this.canExportPdf()) return;
+    // Freeze the report at the user's click, even if navigation changes during generation.
+    const report = this.state.report();
+    this.exportingPdf.set(true);
+    try {
+      const blob = await createRepositoryReportPdf(report);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `agent-scanner-raport-${report.name.replace(/[^\p{L}\p{N}._-]+/gu, '-').slice(0, 100)}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      this.notifications.error('Nie udało się wygenerować PDF. Spróbuj ponownie; zapisane pliki pozostają dostępne.');
+    } finally { this.exportingPdf.set(false); }
   }
 
   async deleteAnalysis(): Promise<void> {

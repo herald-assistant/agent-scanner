@@ -84,6 +84,9 @@ describe('Standardization view', () => {
   it('does not start overlapping folder selections while enumerating a directory', async () => {
     const fixture = await setup();
     fixture.componentInstance.state.beginNew();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.setup-card')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Wybierz folder');
     const input = document.createElement('input');
     let finish!: () => void;
     const picker = vi.fn(async () => {
@@ -101,6 +104,11 @@ describe('Standardization view', () => {
       await first;
       expect(fixture.componentInstance.state.busy()).toBe(false);
       expect(fixture.componentInstance.state.folder()?.name).toBe('chosen-repo');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.setup-card')).toBeNull();
+      expect(fixture.nativeElement.querySelector('input[webkitdirectory]')).toBeNull();
+      await fixture.componentInstance.chooseFolder(input);
+      expect(picker).toHaveBeenCalledTimes(1);
     } finally {
       if (original) Object.defineProperty(window, 'showDirectoryPicker', original);
       else Reflect.deleteProperty(window, 'showDirectoryPicker');
@@ -113,6 +121,8 @@ describe('Standardization view', () => {
     const state = fixture.componentInstance.state;
     expect(fixture.nativeElement.textContent).not.toContain('Środowisko Copilot');
     expect(fixture.nativeElement.textContent).not.toContain('Wersja klienta');
+    expect(fixture.nativeElement.querySelector('.setup-card')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Zmień folder');
     expect(state.selected()).toHaveLength(2);
     const checkbox = fixture.nativeElement.querySelector('input[aria-label="Przekaż do analizy: AGENTS.md"]') as HTMLInputElement;
     checkbox.click();
@@ -190,11 +200,26 @@ describe('Standardization view', () => {
     await state.loadFolder({name: 'configuration-only', complete: true, gitDetected: true, refreshable: true, entries: repositoryEntries});
     fixture.detectChanges();
     expect(state.files().map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
-    expect(fixture.nativeElement.textContent).toContain('Materiały konfiguracji');
+    expect(fixture.nativeElement.textContent).toContain('Podlinkowane pliki');
     expect(fixture.nativeElement.textContent).toContain('Raport konfiguracji repozytorium');
     await state.prepare();
     expect(state.preview()!.packet.files.map(file => file.path)).toEqual(['AGENTS.md', '.github/instructions/conventions.md']);
     for (const entry of repositoryEntries.slice(2)) expect(entry.read).not.toHaveBeenCalled();
+    expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('shows only the source without tabs after preparing a packet but before analysis', async () => {
+    const fixture = await setup();
+    const state = fixture.componentInstance.state;
+    await state.prepare();
+    fixture.componentInstance.openFile(state.files()[0]);
+    await fixture.whenStable();
+    const dialog = document.querySelector('as-standardization-file-dialog')!;
+    expect(dialog.querySelector('nav')).toBeNull();
+    expect(dialog.querySelector('header')?.nextElementSibling?.tagName).toBe('MAT-DIALOG-CONTENT');
+    expect(dialog.querySelector('.source-code')?.textContent).toContain(state.files()[0].content);
+    expect(dialog.textContent).not.toContain('Ten plik nie ma jeszcze oceny AI');
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });
@@ -205,6 +230,7 @@ describe('Standardization view', () => {
     await state.prepare();
     const prepared = state.preview()!;
     const target = prepared.packet.targets[0];
+    prepared.packet.localChecks.push({fileId: target.fileId, state: 'PASS', message: 'Odczytano instrukcję.'});
     const result: StandardResult = {
       contract: 'standardization-answer-v1', previewId: prepared.id, hash: prepared.hash, model: 'model-a', analyzedAt: '2026-09-22',
       assessments: [{assessmentId: target.id, verdict: 'CONCERN', rationale: 'Instrukcja ogólna zawiera procedurę wyłącznie do przeglądu zmian.',
@@ -226,6 +252,15 @@ describe('Standardization view', () => {
     expect(document.body.textContent).toContain('Instrukcja ogólna zawiera procedurę wyłącznie do przeglądu zmian.');
     expect(document.body.textContent).toContain('Podstawa kryterium: AS-W — obowiązkowa uniwersalność zasad wspólnych');
     expect(document.body.textContent).toContain('Dowody z plików');
+    const element = document.querySelector('as-standardization-file-dialog')!;
+    const tabs = [...element.querySelectorAll<HTMLButtonElement>('nav button')];
+    expect(tabs.map(button => button.textContent?.trim())).toEqual(['Ocena AI 1', 'Treść pliku', 'Kontrola lokalna']);
+    tabs[1].click();
+    await fixture.whenStable();
+    expect(element.querySelector('.source-code')?.textContent).toContain(file.content);
+    tabs[2].click();
+    await fixture.whenStable();
+    expect(element.querySelector('.local-check')?.textContent).toContain('Odczytano instrukcję.');
     fixture.destroy();
   });
 
@@ -243,7 +278,8 @@ describe('Standardization view', () => {
     expect(state.canPrepare()).toBe(false);
     expect(state.files().map(file => file.path)).toEqual(prepared.packet.files.map(file => file.path));
     expect(fixture.nativeElement.textContent).toContain('Zapisana analiza');
-    expect(fixture.nativeElement.textContent).toContain('Zapisane pliki');
+    expect(fixture.nativeElement.querySelector('.files-card h3')?.textContent).toBe('Pliki i ocena AI');
+    expect(fixture.nativeElement.querySelector('.setup-card')).toBeNull();
     expect(api.analyzeAndSaveStandardization).not.toHaveBeenCalled();
     fixture.destroy();
   });
@@ -299,6 +335,7 @@ describe('Standardization view', () => {
     fixture.componentInstance.openFile(fixture.componentInstance.state.files()[0]);
     await fixture.whenStable();
     expect(document.body.textContent).toContain('Lokalny podgląd po maskowaniu');
+    expect(document.querySelector('as-standardization-file-dialog nav')).toBeNull();
     TestBed.inject(MatDialog).closeAll();
     await fixture.whenStable();
     await fixture.componentInstance.runAnalysis();

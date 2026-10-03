@@ -1,12 +1,15 @@
 import {parseTree, getNodeValue, createScanner, SyntaxKind, Node as JsonNode, ParseError} from 'jsonc-parser';
 import {parseDocument} from 'yaml';
+import {Lexer, walkTokens} from 'marked';
 import {RepositoryGitMetadata, RepositoryReportFile, StandardCategory} from '../models/standardization.models';
 import {RepositoryFile} from './standardization-files';
 
 export interface ReportDetail { label: string; value: string; }
+export interface ReportLinkedFile { path: string; source: ReportEntry | null; }
 export interface ReportEntry {
   path: string; name: string; description: string; details: ReportDetail[]; notes: string[];
   readable: boolean; bytes: number; redacted: boolean; content: string;
+  linkedFiles: ReportLinkedFile[];
 }
 export interface ReportGroup { id: string; title: string; icon: string; summary: string; complete: boolean; entries: ReportEntry[]; }
 export interface RepositoryReport {
@@ -47,6 +50,11 @@ export function buildRepositoryReport(input: RepositoryReportInput): RepositoryR
     complete: ideComplete, entries: vscode.map(vscodeEntry), summary: `${fileCountLabel(vscode.length)} projektu`});
   groups.push({id: 'JETBRAINS', title: 'IntelliJ / JetBrains · konfiguracje AI', icon: 'settings',
     complete: ideComplete, entries: jetbrains.map(jetbrainsEntry), summary: `${fileCountLabel(jetbrains.length)} projektu`});
+  // Link previews use only saved sources and never follow links or read additional files.
+  const sources = new Map([...input.files, ...extras].map(file => [file.path, baseEntry(file)]));
+  for (const group of groups) if (group.id !== 'CONTEXT') for (const entry of group.entries) {
+    entry.linkedFiles = linkedFilePaths(entry).map(path => ({path, source: sources.get(path) ?? null}));
+  }
   const materialCount = input.files.filter(file => file.category === 'CONTEXT').length;
   const notes = ['Raport opisuje znalezione pliki i zadeklarowane ustawienia. Nie potwierdza instalacji rozszerzeń, aktywacji ani użycia mechanizmów.',
     'Ustawienia osobiste IDE poza wybranym katalogiem nie są objęte odczytem.'];
@@ -63,8 +71,30 @@ export function buildRepositoryReport(input: RepositoryReportInput): RepositoryR
 function baseEntry(file: {path: string; content: string; bytes: number; redacted: boolean; omissionReason?: string | null; error?: string}): ReportEntry {
   const readable = !file.error && (!file.omissionReason || file.omissionReason === 'EXCLUDED');
   return {path: file.path, name: file.path.split('/').at(-1)!, description: '', details: [], content: file.content,
+    linkedFiles: [],
     notes: readable ? [] : ['Nie odczytano treści: ' + (file.omissionReason ?? file.error)], readable,
     bytes: file.bytes, redacted: file.redacted};
+}
+
+function linkedFilePaths(entry: ReportEntry): string[] {
+  if (!entry.readable || !/\.md$/i.test(entry.path)) return [];
+  const paths = new Set<string>();
+  const markdown = entry.content.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, '');
+  walkTokens(Lexer.lex(markdown), token => {
+    if (token.type !== 'link') return;
+    let reference = token.href.split(/[?#]/, 1)[0];
+    try { reference = decodeURIComponent(reference); } catch { return; }
+    if (!reference || /^(?:\/|~|[a-z][a-z\d+.-]*:)/i.test(reference)
+      || /[\\$\u0000-\u001f]/.test(reference) || reference.endsWith('/')) return;
+    const parts = entry.path.split('/').slice(0, -1);
+    for (const part of reference.split('/')) {
+      if (part === '..') { if (!parts.length) return; parts.pop(); }
+      else if (part && part !== '.') parts.push(part);
+    }
+    const path = parts.join('/');
+    if (path && path !== entry.path) paths.add(path);
+  });
+  return [...paths];
 }
 
 function frontmatter(entry: ReportEntry): Record<string, unknown> {

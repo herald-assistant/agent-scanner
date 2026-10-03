@@ -3,12 +3,21 @@ import {repositoryFileLink, repositoryFilePreview} from './repository-report-pre
 import type {ReportEntry} from './repository-report';
 import {buildRepositoryReport} from './repository-report';
 import {paginatedRepositoryReportDefinition, repositoryReportDefinition} from './repository-report-pdf';
-import type {Node, NodeQueries} from 'pdfmake/interfaces';
+import type {Node} from 'pdfmake/interfaces';
+import {categoryForPath, type RepositoryFile} from './standardization-files';
 
 const entry = (content: string, path = 'AGENTS.md'): ReportEntry => ({path, content, name: path, description: '',
-  readable: true, redacted: false, bytes: content.length, details: [], notes: []});
+  readable: true, redacted: false, bytes: content.length, details: [], notes: [], linkedFiles: []});
 const text = (preview: ReturnType<typeof repositoryFilePreview>): string => preview.blocks.map(block => block.spans.map(span => span.text).join('')).join('\n');
 const git = {origin: 'git@github.com:example/repository.git', commit: 'a'.repeat(40), branch: 'main', availability: 'AVAILABLE' as const};
+const configuration = (path: string, content: string): RepositoryFile => ({...entry(content, path),
+  category: categoryForPath(path), selected: true, read: async () => new File([content], path)});
+function contentNodes(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.flatMap(contentNodes);
+  if (!value || typeof value !== 'object') return [];
+  const node = value as Record<string, unknown>;
+  return [node, ...Object.values(node).flatMap(contentNodes)];
+}
 
 describe('repository PDF source excerpts', () => {
   it('removes valid frontmatter from the preview only and retains Markdown structure and inline styles', () => {
@@ -109,10 +118,48 @@ describe('repository PDF source excerpts', () => {
     }]});
     const output = JSON.stringify(repositoryReportDefinition(report).content);
     expect(output.match(/"text":"TREŚĆ"/g)).toHaveLength(1);
-    expect(output.match(/Szczegóły w repozytorium/g)).toHaveLength(1);
+    expect(output).not.toContain('Szczegóły w repozytorium');
+    expect(output.match(/"text":" ↗"/g)).toHaveLength(2);
     expect(output).toContain('/blob/main/.vscode/mcp.json');
     expect(output).not.toContain('/blob/' + git.commit + '/');
     expect(output).toContain(git.commit); // The checkout commit remains report metadata.
+  });
+
+  it('puts linked paths below the source excerpt, removes the material category and links only the arrow beside the name', () => {
+    const report = buildRepositoryReport({name: 'synthetic', complete: true, gitDetected: true, git, files: [
+      configuration('.github/skills/review/SKILL.md', '---\nname: review\n---\nReview changes.\n[Checklist](references/checklist.md)\n[Again](references/checklist.md#tests)\n[Guide](../../../docs/guide.md)'),
+      configuration('.github/skills/review/references/checklist.md', 'UNIQUE-MATERIAL-CONTENT')
+    ]});
+    const definition = repositoryReportDefinition(report);
+    const output = JSON.stringify(definition.content);
+    expect(output).not.toMatch(/Materiały konfiguracji|group-CONTEXT|section-CONTEXT|UNIQUE-MATERIAL-CONTENT|Szczegóły w repozytorium/);
+    expect(output.indexOf('PODLINKOWANE PLIKI')).toBeGreaterThan(output.indexOf('TREŚĆ'));
+    const nodes = contentNodes(definition.content);
+    const header = nodes.find(node => node['style'] === 'entry')!;
+    expect(header['text']).toEqual([{text: 'review'}, expect.objectContaining({
+      text: ' ↗', link: 'https://github.com/example/repository/blob/main/.github/skills/review/SKILL.md'
+    })]);
+    expect(header['link']).toBeUndefined();
+    const list = nodes.find(node => typeof node['fontSize'] === 'number' && Array.isArray(node['stack'])
+      && JSON.stringify(node['stack']).includes('PODLINKOWANE PLIKI'))!;
+    const rows = contentNodes(list).filter(node => Array.isArray(node['ul']));
+    expect(rows).toHaveLength(2);
+    expect(JSON.stringify(rows[0])).toContain('/blob/main/.github/skills/review/references/checklist.md');
+    expect(JSON.stringify(rows[1])).toContain('treść poza migawką');
+    expect(list['fillColor']).toBeUndefined();
+  });
+
+  it('keeps many linked files breakable and omits navigation when no repository URL can be resolved', () => {
+    const references = Array.from({length: 40}, (_, index) => `[Reference ${index}](references/check-${index}.md)`).join('\n');
+    const report = buildRepositoryReport({name: 'synthetic', complete: true, gitDetected: false,
+      files: [configuration('.github/skills/review/SKILL.md', 'Review changes.\n' + references)]});
+    const definition = repositoryReportDefinition(report);
+    const nodes = contentNodes(definition.content);
+    expect(nodes.filter(node => Array.isArray(node['ul']))).toHaveLength(40);
+    expect(nodes.some(node => node['link'])).toBe(false);
+    expect(nodes.some(node => node['unbreakable'] === true && Array.isArray(node['stack'])
+      && contentNodes(node['stack']).filter(child => Array.isArray(child['ul'])).length > 1)).toBe(false);
+    expect(JSON.stringify(definition.content)).not.toContain(' ↗');
   });
 
   it('does not bypass the excerpt limit through duplicated XML or ignore-file source fields', () => {
@@ -127,24 +174,64 @@ describe('repository PDF source excerpts', () => {
 });
 
 describe('repository PDF pagination', () => {
-  it('moves a category that starts late and continues, then labels only its actual continuation pages', async () => {
-    const report = buildRepositoryReport({name: 'synthetic', complete: true, gitDetected: false, files: [], reportFiles: []});
-    const queries: NodeQueries = {getFollowingNodesOnPage: () => [], getPreviousNodesOnPage: () => [], getNodesOnNextPage: () => []};
-    let passes = 0;
-    const definition = await paginatedRepositoryReportDefinition(report, async draft => {
-      const moved = ++passes > 1;
-      const node = (id: string, pages: number[], top: number): Node => ({id, pageNumbers: pages, pages: 4, stack: true,
-        startPosition: {pageNumber: pages[0], pageOrientation: 'portrait', top, left: 42,
-          verticalRatio: 0, horizontalRatio: 0, pageInnerHeight: 710, pageInnerWidth: 511}});
-      draft.pageBreakBefore!(node('section-JETBRAINS', moved ? [2, 3, 4] : [2, 3], 72), queries);
-      draft.pageBreakBefore!(node('group-JETBRAINS', moved ? [3] : [2], moved ? 97 : 610), queries);
-    });
-    expect(passes).toBe(2);
-    if (typeof definition.header !== 'function') throw new Error('Expected dynamic header');
-    const size = {width: 595.28, height: 841.89, orientation: 'portrait' as const};
-    expect(JSON.stringify(definition.header(3, 4, size))).not.toContain('ciąg dalszy');
-    expect(JSON.stringify(definition.header(4, 4, size))).toContain('IntelliJ / JetBrains · ciąg dalszy');
+  it('preserves long paths and values without inserting whitespace or invisible separators', () => {
+    const path = '.github/skills/repository-report-showcase/SKILL.md';
+    const linked = '.github/skills/repository-report-showcase/references/checklist.md';
+    const value = 'folder/' + 'x'.repeat(240) + '/configuration.json';
+    const report = buildRepositoryReport({name: 'synthetic', complete: true, gitDetected: true, git,
+      files: [configuration(path, '---\nname: repository-report-showcase\ndescription: Example\ncompatibility: ' + value
+        + '\n---\n[Checklist](references/checklist.md)')]});
+    const texts = contentNodes(repositoryReportDefinition(report).content).map(node => node['text']);
+    expect(texts).toContain('/' + path);
+    expect(texts).toContain('/' + linked);
+    expect(texts).toContain(value);
+    expect(JSON.stringify(texts)).not.toContain('\u200b');
   });
+
+  it('renders headings with their first content and identifies every continued file, including source boxes', async () => {
+    const [{default: pdfMake}, {default: vfs}, {default: mono}] = await Promise.all([
+      import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts'), import('./fonts/report-mono')]);
+    pdfMake.addVirtualFileSystem(vfs);
+    pdfMake.addVirtualFileSystem(mono);
+    pdfMake.addFonts({ReportMono: {normal: 'ReportMono.ttf', bold: 'ReportMono.ttf', italics: 'ReportMono.ttf', bolditalics: 'ReportMono.ttf'}});
+    const report = buildRepositoryReport({name: 'synthetic-pagination', complete: true, gitDetected: false,
+      files: [configuration('AGENTS.md', '# Rules\n' + 'Complete source paragraph. '.repeat(16)),
+        configuration('.github/skills/review/SKILL.md', '---\nname: review\ndescription: Example\n---\n' + 'Source paragraph. '.repeat(24))]});
+    const instructions = report.groups.find(group => group.id === 'INSTRUCTIONS')!;
+    instructions.entries[0].details = [{label: 'Long declaration', value: Array.from({length: 70}, (_, index) => 'Line ' + index).join('\n')}];
+    const skills = report.groups.find(group => group.id === 'SKILLS')!;
+    skills.entries = Array.from({length: 8}, (_, index) => ({...skills.entries[0], name: 'Review ' + index,
+      path: '.github/skills/review-' + index + '/SKILL.md'}));
+    let passes = 0;
+    const definition = await paginatedRepositoryReportDefinition(report, draft => {
+      expect(++passes).toBeLessThan(35);
+      return pdfMake.createPdf(draft).getBuffer();
+    });
+    const nodes = new Map<string, Node>();
+    definition.pageBreakBefore = node => { if (node.id) nodes.set(node.id, node); return false; };
+    await pdfMake.createPdf(definition).getBuffer();
+    const continuationPages = new Set<number>();
+    for (const [id, node] of nodes) {
+      if (id.endsWith('-keep')) {
+        const following = nodes.get(id.slice(0, -5) + '-next');
+        if (following) expect(following.startPosition.pageNumber, id).toBe(node.startPosition.pageNumber);
+      }
+      if (/^preview-\d+$/u.test(id)) expect(node.pageNumbers, id).toHaveLength(1);
+    }
+    const size = {width: 595.28, height: 841.89, orientation: 'portrait' as const};
+    for (const group of report.groups) for (const [index, entry] of group.entries.entries()) {
+      const node = nodes.get('entry-' + group.id + '-' + index)!;
+      for (const page of node.pageNumbers.filter(page => page > node.startPosition.pageNumber)) {
+        continuationPages.add(page);
+        if (typeof definition.header !== 'function') throw new Error('Expected dynamic header');
+        const header = JSON.stringify(definition.header(page, node.pages, size));
+        expect(header).toContain('ciąg dalszy');
+        expect(header).toContain(entry.path);
+        expect(header).toContain(entry.name);
+      }
+    }
+    expect(continuationPages.size).toBeGreaterThan(0);
+  }, 30_000);
 });
 
 describe('repository source links', () => {

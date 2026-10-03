@@ -1,14 +1,16 @@
 <header class="dialog-header">
-  <div><span class="ui-eyebrow">{{ data.file.category === 'CONTEXT' ? 'MATERIAŁ KONFIGURACJI' : 'KONFIGURACJA COPILOT' }}</span><h2 mat-dialog-title>{{ data.file.path }}</h2>
+  <div><span class="ui-eyebrow">{{ data.file.category === 'CONTEXT' ? 'PLIK PODLINKOWANY' : 'KONFIGURACJA COPILOT' }}</span><h2 mat-dialog-title>{{ data.file.path }}</h2>
     @if (data.packetFile?.redacted || data.file.redacted) { <p>Rozpoznane wartości poufne są zamaskowane.</p> }
   </div>
   <button class="ui-icon-button" mat-dialog-close aria-label="Zamknij podgląd pliku"><mat-icon>close</mat-icon></button>
 </header>
-<nav class="ui-tabs" aria-label="Szczegóły pliku">
-  <button [class.active]="tab() === 'AI'" [attr.aria-current]="tab() === 'AI' ? 'page' : null" (click)="tab.set('AI')">Ocena AI <span>{{ assessments.length }}</span></button>
-  <button [class.active]="tab() === 'CONTENT'" [attr.aria-current]="tab() === 'CONTENT' ? 'page' : null" (click)="tab.set('CONTENT')">Treść pliku</button>
-  <button [class.active]="tab() === 'LOCAL'" [attr.aria-current]="tab() === 'LOCAL' ? 'page' : null" (click)="tab.set('LOCAL')">Kontrola lokalna</button>
-</nav>
+@if (hasAnalysis) {
+  <nav class="ui-tabs" aria-label="Szczegóły pliku">
+    <button [class.active]="tab() === 'AI'" [attr.aria-current]="tab() === 'AI' ? 'page' : null" (click)="tab.set('AI')">Ocena AI <span>{{ assessments.length }}</span></button>
+    <button [class.active]="tab() === 'CONTENT'" [attr.aria-current]="tab() === 'CONTENT' ? 'page' : null" (click)="tab.set('CONTENT')">Treść pliku</button>
+    <button [class.active]="tab() === 'LOCAL'" [attr.aria-current]="tab() === 'LOCAL' ? 'page' : null" (click)="tab.set('LOCAL')">Kontrola lokalna</button>
+  </nav>
+}
 <mat-dialog-content>
   @if (tab() === 'CONTENT') {
     @if (data.file.error) { <p role="alert">{{ data.file.error }}</p> }
@@ -32,7 +34,7 @@
     } @else {
       <p class="note">Ocena AI · {{ data.result.model }}. Sprawdź uzasadnienie i cytaty; zgodność treści nie potwierdza działania konfiguracji w środowisku.</p>
       @if (missing) { <p class="notice">Nie uzyskano poprawnej oceny dla {{ missing }} kryteriów tego pliku. Nie zostały zaliczone.</p> }
-      @if (data.file.category === 'CONTEXT') { <p class="note">Materiał konfiguracji wspiera ocenę podziału odpowiedzialności, zakresu i odsyłania do szczegółów. Poniżej znajdują się oceny plików konfiguracji, które powołują się na jego treść.</p> }
+      @if (data.file.category === 'CONTEXT') { <p class="note">Podlinkowany plik wspiera ocenę podziału odpowiedzialności, zakresu i odsyłania do szczegółów. Poniżej znajdują się oceny plików konfiguracji, które powołują się na jego treść.</p> }
       @for (group of grouped; track group.label) {
         @if (group.assessments.length) {
           <section class="assessment-group" [class]="group.tone">

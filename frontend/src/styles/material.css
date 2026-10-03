@@ -49,12 +49,22 @@
   --mat-snack-bar-button-color: var(--color-info);
 }
 
+.repository-links-badge {
+  --mat-badge-background-color: var(--color-surface-raised);
+  --mat-badge-text-color: var(--color-text-secondary);
+  --mat-badge-text-font: var(--font-sans);
+  --mat-badge-text-size: var(--text-xs);
+  --mat-badge-text-weight: var(--weight-medium);
+}
+
 /* These surface dimensions have no Material token; scope adapters to our panels. */
 :is(.scanner-detail-dialog, .session-chat-dialog-panel, .session-chat-history-dialog-panel, .tool-definition-dialog-panel) .mat-mdc-dialog-surface {
   overflow: hidden;
   border: 1px solid var(--color-border-strong);
 }
 :is(.scanner-detail-dialog, .session-chat-dialog-panel, .session-chat-history-dialog-panel) .mat-mdc-dialog-content { max-height: none; }
+.standardization-file-dialog-panel .mat-mdc-dialog-surface { overflow: hidden; }
+.standardization-file-dialog-panel .mat-mdc-dialog-content { max-height: none; }
 .tool-definition-dialog-panel .mat-mdc-dialog-content { max-height: calc(90dvh - 96px); }
 
 :is(.scanner-info-tooltip, .scanner-reasoning-tooltip, .round-problem-tooltip) .mat-mdc-tooltip-surface {

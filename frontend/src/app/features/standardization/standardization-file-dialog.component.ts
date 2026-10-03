@@ -16,7 +16,8 @@ export interface StandardizationFileDialogData {
 })
 export class StandardizationFileDialogComponent {
   readonly data = inject<StandardizationFileDialogData>(MAT_DIALOG_DATA);
-  readonly tab = signal<'AI' | 'CONTENT' | 'LOCAL'>(this.data.result && this.data.packetFile ? 'AI' : 'CONTENT');
+  readonly hasAnalysis = !!this.data.result && !!this.data.packetFile;
+  readonly tab = signal<'AI' | 'CONTENT' | 'LOCAL'>(this.hasAnalysis ? 'AI' : 'CONTENT');
   readonly content = this.data.packetFile?.content ?? this.data.file.content;
   readonly lines = this.content.split('\n').map((text, index) => ({number: index + 1, text}));
   readonly targets = this.data.preview?.packet.targets.filter(target => target.fileId === this.data.packetFile?.id) ?? [];

@@ -17,10 +17,10 @@ import {pickRepository, RepositoryFile, RepositorySelection, selectionFromFiles}
 import {StandardCategory} from '../../models/standardization.models';
 import {StandardizationFileDialogComponent, StandardizationFileDialogData} from './standardization-file-dialog.component';
 import {RepositoryReportComponent} from './repository-report.component';
-import {buildRepositoryReport, ReportEntry} from '../../core/repository-report';
+import {ReportEntry} from '../../core/repository-report';
 
 export const CATEGORY_LABELS: Record<StandardCategory, string> = {
-  INSTRUCTIONS: 'Instrukcje', SKILLS: 'Skills', AGENTS: 'Agenci', MCP: 'MCP', PROMPTS: 'Prompty', CONTEXT: 'Materiały konfiguracji'
+  INSTRUCTIONS: 'Instrukcje', SKILLS: 'Skills', AGENTS: 'Agenci', MCP: 'MCP', PROMPTS: 'Prompty', CONTEXT: 'Podlinkowane pliki'
 };
 @Component({
   selector: 'as-standardization',
@@ -46,11 +46,7 @@ export class StandardizationComponent {
     .map(([id, label]) => ({id: id as StandardCategory, label, count: this.state.files().filter(file => file.category === id).length}))
     .filter(item => item.count > 0));
   readonly readableCount = computed(() => this.state.files().filter(file => !file.error).length);
-  readonly report = computed(() => buildRepositoryReport({name: this.state.folder()?.name ?? '',
-    savedAt: this.state.snapshot()?.savedAt ?? this.state.result()?.analyzedAt,
-    complete: this.state.inventoryComplete() && (!this.state.saved() || !!this.state.snapshot()), gitDetected: this.state.folder()?.gitDetected ?? false,
-    git: this.state.git(), files: this.state.files(), reportFiles: this.state.reportFiles(),
-    ideComplete: this.state.snapshot()?.reportFiles != null}));
+  readonly report = this.state.report;
   readonly summaries = computed(() => {
     const preview = this.state.preview();
     const result = this.state.result();
@@ -101,7 +97,7 @@ export class StandardizationComponent {
   }
 
   async chooseFolder(input: HTMLInputElement): Promise<void> {
-    if (this.state.busy()) return;
+    if (this.state.busy() || this.state.folder()) return;
     this.state.choosingFolder.set(true);
     try {
       const selection = await pickRepository();
@@ -116,6 +112,7 @@ export class StandardizationComponent {
     } finally { this.state.choosingFolder.set(false); }
   }
   async filesChosen(event: Event): Promise<void> {
+    if (this.state.busy() || this.state.folder()) return;
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.files?.length) return;
     try { await this.loadFolder(selectionFromFiles(Array.from(input.files))); }
@@ -145,6 +142,7 @@ export class StandardizationComponent {
     const packetFile = preview?.packet.files.find(item => item.path === file.path);
     this.dialog.open<StandardizationFileDialogComponent, StandardizationFileDialogData>(StandardizationFileDialogComponent, {
       width: '1000px', maxWidth: '94vw', maxHeight: '90vh',
+      panelClass: 'standardization-file-dialog-panel',
       data: {file, packetFile, preview, result: this.state.result()}
     });
   }

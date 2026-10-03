@@ -1,39 +1,39 @@
-import {ChangeDetectionStrategy, Component, computed, inject, input, output, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, input, output} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
-import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
+import {MatBadgeModule} from '@angular/material/badge';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {RepositoryReport, ReportEntry} from '../../core/repository-report';
-import {createRepositoryReportPdf} from '../../core/repository-report-pdf';
-import {NotificationService} from '../../core/notification.service';
+
+const MECHANISM_DESCRIPTIONS: Record<string, string> = {
+  INSTRUCTIONS: 'Zasady pracy i kontekst dla agenta.',
+  SKILLS: 'Procedury dobierane do zadania.',
+  AGENTS: 'Role agentów i zestawy narzędzi.',
+  MCP: 'Połączenia z narzędziami i źródłami danych.',
+  PROMPTS: 'Gotowe polecenia wywoływane ręcznie.',
+  VSCODE: 'Ustawienia AI i zalecane rozszerzenia.',
+  JETBRAINS: 'Reguły AI i ustawienia projektu.'
+};
 
 @Component({
-  selector: 'as-repository-report', imports: [DatePipe, MatIconModule, MatProgressSpinnerModule],
+  selector: 'as-repository-report', imports: [DatePipe, MatIconModule, MatBadgeModule, MatTooltipModule],
   templateUrl: './repository-report.component.html', styleUrl: './repository-report.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RepositoryReportComponent {
   readonly report = input.required<RepositoryReport>();
   readonly generatedAt = computed(() => { this.report(); return new Date(); });
-  readonly exportDisabled = input(false);
+  readonly groups = computed(() => this.report().groups.filter(group => group.id !== 'CONTEXT').map(group => {
+    const count = new Set(group.entries.map(entry => entry.path)).size;
+    const partial = !group.complete || group.entries.some(entry => !entry.readable);
+    const tone = count ? partial ? 'attention' : 'positive' : group.complete ? 'gap' : 'unknown';
+    const noun = count === 1 ? 'plik' : count % 10 >= 2 && count % 10 <= 4 && !(count % 100 >= 12 && count % 100 <= 14) ? 'pliki' : 'plików';
+    return {...group, description: MECHANISM_DESCRIPTIONS[group.id] ?? 'Pliki konfiguracji repozytorium.', tone,
+      statusLabel: count ? `Zidentyfikowano: ${count} ${noun}` : !group.complete ? 'Nie ustalono' : 'Brak konfiguracji',
+      statusIcon: tone === 'positive' ? 'check_circle' : tone === 'attention' ? 'warning_amber' : tone === 'gap' ? 'error_outline' : 'info',
+      statusHint: partial ? 'Odczyt częściowy. Raport obejmuje tylko zidentyfikowane pliki; brak plików nie potwierdza braku konfiguracji.'
+        : count ? 'Zidentyfikowano pliki tego typu. Ich obecność nie potwierdza aktywacji ani użycia mechanizmu.'
+        : 'Nie znaleziono plików tego typu w obsługiwanym zakresie repozytorium.'};
+  }));
   readonly inspect = output<ReportEntry>();
-  readonly exporting = signal(false);
-  private readonly notifications = inject(NotificationService);
-
-  async downloadPdf(): Promise<void> {
-    if (this.exporting() || this.exportDisabled()) return;
-    // Freeze the report at the user's click, even if navigation changes during generation.
-    const report = this.report();
-    this.exporting.set(true);
-    try {
-      const blob = await createRepositoryReportPdf(report);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `agent-scanner-raport-${report.name.replace(/[^\p{L}\p{N}._-]+/gu, '-').slice(0, 100)}.pdf`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch {
-      this.notifications.error('Nie udało się wygenerować PDF. Spróbuj ponownie; zapisane pliki pozostają dostępne.');
-    } finally { this.exporting.set(false); }
-  }
 }

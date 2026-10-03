@@ -6,6 +6,12 @@
         <button class="icon-button ui-icon-button" type="button" [matTooltip]="savedAnalysis() ? 'Eksportuj analizę do JSON' : 'Eksportuj pliki repozytorium do JSON'"
           matTooltipClass="scanner-info-tooltip" [attr.aria-label]="savedAnalysis() ? 'Eksportuj analizę do JSON' : 'Eksportuj pliki repozytorium do JSON'" [disabled]="deleting() || state.busy()"
           (click)="exportAnalysis()"><mat-icon aria-hidden="true">download</mat-icon></button>
+        <button class="icon-button ui-icon-button" type="button" [matTooltip]="exportingPdf() ? 'Generowanie PDF…' : 'Pobierz raport PDF'"
+          matTooltipClass="scanner-info-tooltip" aria-label="Pobierz raport PDF" [attr.aria-busy]="exportingPdf()" [disabled]="!canExportPdf()"
+          (click)="downloadPdf()">
+          @if (exportingPdf()) { <mat-spinner diameter="16" aria-label="Generowanie raportu PDF" /> }
+          @else { <mat-icon aria-hidden="true">picture_as_pdf</mat-icon> }
+        </button>
         <button class="icon-button danger ui-icon-button ui-button--danger" type="button" [matTooltip]="savedAnalysis() ? 'Usuń analizę' : 'Usuń pliki repozytorium'"
           matTooltipClass="scanner-info-tooltip" [attr.aria-label]="savedAnalysis() ? 'Usuń analizę' : 'Usuń pliki repozytorium'" [disabled]="deleting() || state.busy()"
           (click)="deleteAnalysis()"><mat-icon aria-hidden="true">delete</mat-icon></button>

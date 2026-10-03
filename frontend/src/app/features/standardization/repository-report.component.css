@@ -6,7 +6,6 @@
 h3 { font-size: var(--text-3xl); overflow-wrap: anywhere; margin: var(--space-3) 0; }
 p, small { color: var(--color-text-secondary); line-height: var(--leading-relaxed); }
 .report-heading p { margin: 0; }
-.report-heading button { flex-shrink: 0; }
 .repo-identification { margin-top: var(--space-8); }
 dl { margin: 0; }
 .repo-identification > div, .entry-details > div { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: var(--space-6); padding: var(--space-4) 0; border-top: 1px solid var(--color-border); }
@@ -20,12 +19,14 @@ summary:hover { background: var(--color-surface-hover); }
 summary > span:first-of-type { flex: 1; min-width: 0; }
 summary strong, summary small { display: block; overflow-wrap: anywhere; }
 summary small { margin-top: var(--space-2); font-size: var(--text-sm); }
-.mechanism-icon { color: var(--color-info); background: var(--color-info-soft); border-radius: var(--radius-sm); padding: var(--space-4); box-sizing: content-box; flex-shrink: 0; }
-.mechanism[data-report-mechanism="SKILLS"] .mechanism-icon,
-.mechanism[data-report-mechanism="AGENTS"] .mechanism-icon,
-.mechanism[data-report-mechanism="JETBRAINS"] .mechanism-icon { color: var(--color-violet); background: var(--color-violet-soft); }
-.mechanism[data-report-mechanism="PROMPTS"] .mechanism-icon { color: var(--color-output); background: var(--color-output-soft); }
-.mechanism[data-report-mechanism="CONTEXT"] .mechanism-icon { color: var(--color-text-secondary); background: var(--color-surface-raised); }
+.mechanism-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.mechanism-icon { color: var(--color-text-secondary); flex-shrink: 0; }
+.mechanism-label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mechanism-status { white-space: nowrap; font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.mechanism-status mat-icon { width: var(--icon-sm); height: var(--icon-sm); font-size: var(--icon-sm); }
+.mechanism-status.positive { color: var(--color-accent); border-color: var(--color-accent-border); background: var(--color-accent-soft); }
+.mechanism-status.attention { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-soft); }
+.mechanism-status.gap { color: var(--color-danger); border-color: var(--color-danger-border); background: var(--color-danger-soft); }
 .chevron { color: var(--color-text-muted); flex-shrink: 0; }
 details[open] > summary > .chevron { transform: rotate(180deg); }
 .mechanism-content { border-top: 1px solid var(--color-border); }
@@ -33,14 +34,22 @@ details[open] > summary > .chevron { transform: rotate(180deg); }
 .entry-content { padding: 0 var(--space-6) var(--space-6); }
 .entry-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); margin-block: var(--space-5); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .entry-meta button { margin-left: auto; }
+.entry-links-count { display: inline-flex; flex-shrink: 0; color: var(--color-text-secondary); margin-inline-end: var(--space-5); }
+.entry-links { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.entry-links h4 { margin: 0 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.entry-links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.entry-links li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); min-width: 0; }
+.linked-file { max-width: 100%; text-align: left; }
+.linked-file span { min-width: 0; overflow-wrap: anywhere; }
+.linked-file.unavailable { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--color-text-secondary); }
+.linked-file mat-icon { flex-shrink: 0; }
 pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--text-sm)/var(--leading-relaxed) var(--font-mono); }
 .entry-note { font-size: var(--text-sm); color: var(--color-warning); }
 .empty-mechanism { padding: var(--space-6); margin: 0; }
 @media (max-width: 700px) {
   .report-heading { flex-wrap: wrap; }
-  .report-heading button { width: 100%; }
   .repo-identification > div, .entry-details > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
-  .mechanism-summary { flex-wrap: wrap; }
-  .mechanism-summary .ui-badge { margin-left: var(--space-9); }
-  .mechanism-summary .chevron { margin-left: auto; }
+  .mechanism-summary { grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-4) var(--space-5); }
+  .mechanism-summary .mechanism-status { grid-column: 2 / -1; grid-row: 2; justify-self: end; }
+  .mechanism-summary > .chevron { grid-column: 3; grid-row: 1; }
 }

@@ -106,6 +106,29 @@ async function fullVersion(page, trigger) {
   await dialog.getByRole('button',{name:'Rozumiem'}).click();
   await dialog.waitFor({state:'hidden'});
 }
+async function assertSingleFileDialogScroll(page) {
+  const dialog = page.getByRole('dialog');
+  const content = dialog.locator('mat-dialog-content');
+  const scrollContainers = await dialog.evaluate(element => [element, ...element.querySelectorAll('*')]
+    .filter(item => item instanceof HTMLElement && /auto|scroll/.test(getComputedStyle(item).overflowY) && item.scrollHeight > item.clientHeight + 1)
+    .map(item => item.tagName));
+  assert.deepEqual(scrollContainers, ['MAT-DIALOG-CONTENT'], 'Long files should use one vertical scroll area');
+  const closeButton = dialog.getByRole('button', {name: 'Zamknij podgląd pliku', exact: true});
+  const headerBefore = await dialog.locator('.dialog-header').boundingBox();
+  await content.hover();
+  await page.mouse.wheel(0, 600);
+  await page.waitForFunction(() => document.querySelector('.standardization-file-dialog-panel mat-dialog-content')?.scrollTop > 0);
+  await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  const headerAfter = await dialog.locator('.dialog-header').boundingBox();
+  assert.equal(headerAfter.y, headerBefore.y, 'The file header should remain visible while scrolling');
+  const lastLine = await dialog.locator('.source-line').last().boundingBox();
+  const contentBox = await content.boundingBox();
+  assert.ok(lastLine.y >= contentBox.y && lastLine.y + lastLine.height <= contentBox.y + contentBox.height + 1, 'The last source line should be reachable');
+  assert.match(await dialog.locator('.source-line').last().innerText(), /END-LONG-SOURCE/);
+  const closeBox = await closeButton.boundingBox();
+  assert.ok(closeBox.y >= 0 && closeBox.y + closeBox.height <= page.viewportSize().height);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+}
 
 test('static startup, onboarding, unsupported features and idle time never call the backend', async () => run(async page => {
   assert.match(await page.locator('.onboarding-code').innerText(), /"github.copilot.chat.otel.exporterType": "file"/);
@@ -132,17 +155,35 @@ test('repository input persists masked configuration and selection, reopens with
   await page.getByRole('button',{name:'Nowa analiza repozytorium',exact:true}).click();
   await page.locator('input[webkitdirectory]').setInputFiles(folder);
   await page.waitForURL(/#\/repositories\/[a-f0-9-]+\/inputs\/[a-f0-9-]+$/);
+  await page.locator('.analysis-title h1').filter({hasText: 'synthetic-repository'}).waitFor();
   await page.locator('.file-row').first().waitFor();
+  assert.equal(await page.locator('.setup-card').count(),0);
+  assert.equal(await page.locator('input[webkitdirectory]').count(),0);
   assert.equal(await page.locator('.file-row').count(),2);
+  const instructionsStatus = page.locator('[data-report-mechanism="INSTRUCTIONS"] > summary .mechanism-status');
+  assert.match(await instructionsStatus.innerText(), /Zidentyfikowano: 2 pliki/);
+  assert.match(await instructionsStatus.getAttribute('class'), /positive/);
+  assert.equal(await page.locator('[data-report-mechanism="INSTRUCTIONS"] > summary small').innerText(), 'Zasady pracy i kontekst dla agenta.');
+  assert.match(await page.locator('[data-report-mechanism="SKILLS"] > summary .mechanism-status').innerText(), /Brak konfiguracji/);
+  assert.equal(new Set(await page.locator('.mechanism-icon').evaluateAll(icons => icons.map(icon => getComputedStyle(icon).color))).size, 1);
   assert.equal(await page.getByText('Model oceniający',{exact:true}).count(),0);
   await page.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).uncheck();
   await page.getByRole('button',{name:'Uruchom analizę',exact:true}).waitFor();
-  await page.waitForFunction(()=>!document.querySelector('.analysis-buttons button')?.disabled);
+  await page.waitForFunction(async ()=>{
+    const db = await new Promise(resolve => {const request = indexedDB.open('agent-scanner-demo-repositories'); request.onsuccess = () => resolve(request.result);});
+    try {
+      const snapshots = await new Promise(resolve => {const request = db.transaction('snapshots').objectStore('snapshots').getAll(); request.onsuccess = () => resolve(request.result);});
+      return snapshots.some(snapshot => snapshot.files.some(file => file.path === 'AGENTS.md' && !file.selected));
+    } finally {db.close();}
+  });
   await page.reload();
   await page.locator('.file-row').first().waitFor();
+  assert.equal(await page.locator('.setup-card').count(),0);
   assert.equal(await page.getByRole('checkbox',{name:'Przekaż do analizy: AGENTS.md',exact:true}).isChecked(),false);
   await page.getByRole('button',{name:'Podejrzyj AGENTS.md',exact:true}).click();
   const dialog = page.getByRole('dialog');
+  assert.equal(await dialog.getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
+  assert.equal(await dialog.locator('.source-code').count(), 1);
   assert.match(await dialog.innerText(),/token=\[UKRYTO\]/);
   assert.doesNotMatch(await dialog.innerText(),/synthetic-secret-value/);
   await page.screenshot({path:resolve(report,'demo-repository-file-desktop.png'),fullPage:true});
@@ -183,7 +224,8 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   const folder = resolve(report, 'synthetic-report-repository');
   const files = {
     'AGENTS.md': '# Zasady współpracy\nPrzed zmianą przeczytaj **instrukcje projektu** i zachowaj istniejące modyfikacje.\n\n- Sprawdź zakres zadania.\n- Uruchom właściwe testy.\n- Opisz wynik i ograniczenia.\n\n> Oddzielaj obserwacje od przypuszczeń.',
-    '.github/skills/review/SKILL.md': '---\nname: review\ndescription: Przegląd zmian i testów\ndisable-model-invocation: true\n---\n## Procedura przeglądu\n1. Przeczytaj zmiany oraz związane z nimi testy.\n2. Zapisz ustalenia z odniesieniem do plików.\n\nWeryfikacja lokalna:\n```sh\nnpm test -- --watch=false\n```',
+    '.github/skills/review/SKILL.md': '---\nname: review\ndescription: Przegląd zmian i testów\ndisable-model-invocation: true\n---\n## Procedura przeglądu\n1. Przeczytaj zmiany oraz związane z nimi testy.\n2. Zapisz ustalenia z odniesieniem do plików.\n\nWeryfikacja lokalna:\n```sh\nnpm test -- --watch=false\n```\n\n[Checklist](references/checklist.md#tests)\n[Checklist ponownie](./references/checklist.md#review)\n[Dokumentacja](../../../docs/guide.md)',
+    '.github/skills/review/references/checklist.md': '# Lista kontrolna\nSprawdź testy i zakres zmian.\n[Dalsze materiały](next.md)',
     '.github/agents/reviewer.agent.md': '---\nname: Reviewer\ndescription: Przegląd implementacji\ntools: [read, search]\nagents: [Evidence Researcher]\nhandoffs:\n  - label: Review evidence\n    agent: Evidence Researcher\n    prompt: Review the collected evidence and separate availability from actual use.\n    send: false\n---\n# Zakres przeglądu\nAnalizuj **zmienione pliki** oraz testy związane z zadaniem. Wskazuj konkretne problemy i ich skutki dla użytkownika.\n\n## Sposób pracy\n- Zacznij od `git diff` i instrukcji projektu.\n- Oddzielaj potwierdzone błędy od przypuszczeń.\n- Do ustaleń dodawaj ścieżki oraz odnośniki do odpowiednich miejsc.\n\nNie modyfikuj plików podczas przeglądu. Jeśli do oceny brakuje danych, zapisz pytanie i wskaż potrzebny materiał. Zakończ krótką listą ustaleń, wykonanych sprawdzeń oraz ograniczeń.\n\nDalsze instrukcje opisują przykłady raportowania i przypadki wymagające dodatkowej weryfikacji. END-OMITTED-PREVIEW',
     '.github/prompts/release.prompt.md': '---\nname: Release\ndescription: Przygotuj wydanie\nagent: reviewer\n---\nPrepare release.',
     '.vscode/mcp.json': '{"servers":{"local":{"command":"node","args":["server.js"],"env":{"API_KEY":"synthetic-secret-value"}}}}',
@@ -197,6 +239,9 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
     '.git/HEAD': 'ref: refs/heads/main\n',
     '.git/packed-refs': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/heads/main\n'
   };
+  files['.github/agents/reviewer.agent.md'] += '\n\n' + Array.from({length: 80}, (_, index) =>
+    `- Przykład ${index + 1}: sprawdź dowody i opisz ustalenia w syntetycznym raporcie przeglądu.`).join('\n') +
+    '\nŚcieżka przykładowa: synthetic-' + 'configuration-'.repeat(20) + '.md\nEND-LONG-SOURCE';
   for (const [path, content] of Object.entries(files)) {
     const destination = resolve(folder, path); await mkdir(resolve(destination, '..'), {recursive: true}); await writeFile(destination, content);
   }
@@ -205,16 +250,53 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   await page.waitForURL(/#\/repositories\/[a-f0-9-]+\/inputs\/[a-f0-9-]+$/);
   const inventory = page.getByRole('region', {name: 'Raport konfiguracji repozytorium'});
   await inventory.waitFor();
+  const pdfButton = page.locator('.analysis-title').getByRole('button', {name: 'Pobierz raport PDF', exact: true});
+  assert.equal(await pdfButton.locator('mat-icon').innerText(), 'picture_as_pdf');
+  assert.equal(await pdfButton.evaluate(button => button.previousElementSibling?.getAttribute('aria-label')), 'Eksportuj pliki repozytorium do JSON');
+  assert.equal(await inventory.getByRole('button', {name: 'Pobierz raport PDF', exact: true}).count(), 0);
+  await pdfButton.hover();
+  const pdfTooltip = page.locator('.mat-mdc-tooltip-surface').filter({hasText: 'Pobierz raport PDF'});
+  await pdfTooltip.waitFor();
+  await page.mouse.move(0, 0);
+  await pdfTooltip.waitFor({state: 'hidden'});
   assert.match(await inventory.innerText(), /https:\/\/github.com\/example\/synthetic-repository.git/);
   assert.doesNotMatch(await inventory.innerText(), /synthetic-password/);
+  assert.equal(await inventory.locator('[data-report-mechanism="CONTEXT"]').count(), 0);
   await page.locator('[data-report-mechanism="SKILLS"] > summary').click();
+  const linksCount = page.locator('[data-report-mechanism="SKILLS"] .entry-links-count');
+  assert.equal(await linksCount.getAttribute('aria-label'), 'Podlinkowane pliki: 2');
+  assert.equal(await linksCount.locator('.mat-badge-content').innerText(), '2');
+  await linksCount.hover();
+  const linksTooltip = page.locator('.mat-mdc-tooltip-surface').filter({hasText: 'Podlinkowane pliki: 2. Rozwiń wpis, aby zobaczyć listę.'});
+  await linksTooltip.waitFor();
+  await page.mouse.move(0, 0);
+  await linksTooltip.waitFor({state: 'hidden'});
+  await page.locator('[data-report-mechanism="SKILLS"] .report-entry > summary').focus();
+  await page.keyboard.press('Tab');
+  await linksTooltip.waitFor();
+  await page.screenshot({path: resolve(report, 'repository-links-tooltip.png'), fullPage: true});
+  await linksCount.evaluate(element => element.blur());
+  await linksTooltip.waitFor({state: 'hidden'});
   await page.locator('[data-report-mechanism="SKILLS"] .report-entry > summary').click();
   assert.match(await page.locator('[data-report-mechanism="SKILLS"]').innerText(), /Przegląd zmian i testów/);
+  const linkedFiles = page.locator('[data-report-mechanism="SKILLS"] .entry-links');
+  assert.equal(await linkedFiles.locator('li').count(), 2);
+  assert.match(await linkedFiles.innerText(), /\/docs\/guide.md\s+Treść poza migawką/);
+  assert.doesNotMatch(await linkedFiles.innerText(), /next.md/);
+  await linkedFiles.getByRole('button', {name: 'Podejrzyj podlinkowany plik: .github/skills/review/references/checklist.md', exact: true}).click();
+  assert.equal(await page.getByRole('dialog').getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
+  assert.match(await page.getByRole('dialog').innerText(), /Sprawdź testy i zakres zmian/);
+  await page.getByRole('button', {name: 'Zamknij podgląd pliku', exact: true}).click();
   await page.locator('[data-report-mechanism="AGENTS"] > summary').click();
   await page.locator('[data-report-mechanism="AGENTS"] .report-entry > summary').click();
   const agentDetails = await page.locator('[data-report-mechanism="AGENTS"] .entry-details pre').allTextContents();
   assert.ok(agentDetails.includes('["Evidence Researcher"]'));
   assert.ok(agentDetails.includes('[{"label": "Review evidence", "agent": "Evidence Researcher", "prompt": "Review the collected evidence and separate availability from actual use.", "send": false}]'));
+  await page.getByRole('button', {name: 'Podejrzyj .github/agents/reviewer.agent.md', exact: true}).click();
+  await page.getByRole('dialog').locator('.source-code').waitFor();
+  await page.screenshot({path: resolve(report, 'demo-repository-file-long-desktop.png')});
+  await assertSingleFileDialogScroll(page);
+  await page.getByRole('button', {name: 'Zamknij podgląd pliku', exact: true}).click();
   await page.locator('[data-report-mechanism="VSCODE"] > summary').click();
   await page.locator('[data-report-mechanism="VSCODE"] .report-entry > summary').first().click();
   await page.screenshot({path: resolve(report, 'repository-report-desktop.png'), fullPage: true});
@@ -224,6 +306,8 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   const bytes = await readFile(await pdf.path());
   assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
   assert.ok(bytes.includes(Buffer.from('https://github.com/example/synthetic-repository/blob/main/.github/agents/reviewer.agent.md')));
+  assert.ok(bytes.includes(Buffer.from('https://github.com/example/synthetic-repository/blob/main/.github/skills/review/references/checklist.md')));
+  assert.ok(bytes.includes(Buffer.from('https://github.com/example/synthetic-repository/blob/main/docs/guide.md')));
   assert.ok(!bytes.includes(Buffer.from('/blob/' + 'a'.repeat(40) + '/')), 'PDF source links must not depend on a local commit when the branch is known');
   await writeFile(resolve(report, 'repository-report.pdf'), bytes);
   await context.setOffline(true);
@@ -238,13 +322,30 @@ test('repository report expands mechanisms and IDE settings, persists Git metada
   await page.setViewportSize({width: 390, height: 844});
   await page.getByRole('button', {name: 'Zwiń panel sesji', exact: true}).click();
   await page.locator('mat-drawer').waitFor({state: 'hidden'});
+  await page.locator('[data-report-mechanism="SKILLS"] > summary').click();
+  await page.locator('[data-report-mechanism="SKILLS"] .report-entry > summary').click();
+  assert.equal(await linksCount.locator('.mat-badge-content').innerText(), '2');
+  assert.equal(await linkedFiles.locator('li').count(), 2);
+  const filters = page.locator('.file-filters .ui-segmented');
+  await filters.getByRole('button', {name: 'Podlinkowane pliki · 1', exact: true}).click();
+  await page.waitForFunction(() => document.querySelectorAll('.file-row').length === 1);
+  assert.equal(await page.locator('.file-row').count(), 1);
+  assert.match(await page.locator('.file-row').innerText(), /references\/checklist.md/);
+  await filters.getByRole('button', {name: 'Wszystkie', exact: true}).click();
   await page.screenshot({path: resolve(report, 'repository-report-mobile.png'), fullPage: true});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await page.getByRole('button', {name: 'Podejrzyj .github/agents/reviewer.agent.md', exact: true}).click();
+  const fileDialog = page.getByRole('dialog');
+  assert.equal(await fileDialog.getByRole('navigation', {name: 'Szczegóły pliku'}).count(), 0);
+  assert.match(await fileDialog.locator('.source-code').innerText(), /name: Reviewer/);
+  await page.screenshot({path: resolve(report, 'demo-repository-file-mobile.png')});
+  await assertSingleFileDialogScroll(page);
+  await page.getByRole('button', {name: 'Zamknij podgląd pliku', exact: true}).click();
   const snapshot = await page.evaluate(async () => {
     const db = await new Promise(resolve => {const r=indexedDB.open('agent-scanner-demo-repositories');r.onsuccess=()=>resolve(r.result);});
     const all=await new Promise(resolve=>{const r=db.transaction('snapshots').objectStore('snapshots').getAll();r.onsuccess=()=>resolve(r.result);});db.close();return all;
   });
-  assert.equal(snapshot[0].files.length, 5);
+  assert.equal(snapshot[0].files.length, 6);
   assert.equal(snapshot[0].reportFiles.length, 6);
   assert.doesNotMatch(JSON.stringify(snapshot), /synthetic-secret-value|synthetic-password|unrelated-private-data/);
 }));

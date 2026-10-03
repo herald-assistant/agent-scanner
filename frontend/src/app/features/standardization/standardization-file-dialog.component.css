@@ -1,14 +1,17 @@
-:host { display: block; min-width: 0; }
+:host { display: flex; flex-direction: column; min-width: 0; min-height: 0; max-height: inherit; }
 .dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-5); padding: var(--panel-padding); }
+.dialog-header, .ui-tabs { flex-shrink: 0; }
 .dialog-header > div { min-width: 0; }
 .dialog-header h2 { margin: var(--space-3) 0 0; padding: 0; overflow-wrap: anywhere; font-size: var(--text-xl); }
 .dialog-header p { color: var(--color-text-muted); margin-bottom: 0; font-size: var(--text-sm); }
 .ui-tabs { padding-inline: var(--panel-padding); }
+mat-dialog-content { min-height: 0; }
 p { line-height: var(--leading-relaxed); color: var(--color-text-secondary); }
 .note { font-size: var(--text-sm); color: var(--color-text-muted); }
-.source-code { padding-block: var(--space-5); margin-top: var(--space-5); border-radius: var(--radius-sm); max-height: 60vh; }
+.source-code { padding-block: var(--space-5); margin-top: var(--space-5); border-radius: var(--radius-sm); }
+.source-code, .evidence pre { overflow: visible; scrollbar-gutter: auto; }
 .source-line { display: flex; align-items: start; gap: var(--space-5); min-width: 0; }
-.source-line code { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: var(--space-5); }
+.source-line code { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-right: var(--space-5); }
 .line-number { min-width: 4ch; text-align: right; color: var(--color-text-muted); flex: 0 0 auto; user-select: none; }
 .empty { padding: var(--space-9); text-align: center; }
 .empty > mat-icon { font-size: var(--icon-40); width: var(--icon-40); height: var(--icon-40); color: var(--color-info); }
@@ -30,7 +33,7 @@ p { line-height: var(--leading-relaxed); color: var(--color-text-secondary); }
 summary { cursor: pointer; padding-block: var(--space-4); margin-top: var(--space-4); color: var(--color-info); }
 .evidence { padding: var(--space-4); overflow-wrap: anywhere; }
 .evidence strong { font-size: var(--text-sm); }
-.evidence pre { padding: var(--space-5); border-radius: var(--radius-sm); max-height: 240px; }
+.evidence pre { padding: var(--space-5); border-radius: var(--radius-sm); }
 .sources { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-top: var(--space-5); font-size: var(--text-sm); color: var(--color-text-muted); }
 .sources a { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--color-info); }
 .sources a mat-icon { width: var(--icon-sm); height: var(--icon-sm); font-size: var(--icon-sm); }

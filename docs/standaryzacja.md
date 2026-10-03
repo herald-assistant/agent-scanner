@@ -14,9 +14,11 @@ Przycisk dodawania przy nagłówku listy rozpoczyna nową analizę. Historia jes
 także po odświeżeniu aplikacji. Stare trasy `/standardization` i
 `/sessions/:id/standardization` prowadzą do nowego widoku `/repositories/new`.
 
-Nagłówek zapisanej analizy ma ikonowe przyciski w takim samym układzie i stylu
-jak sesja: eksport do JSON, usunięcie oraz zamknięcie widoku. Zastępują dawne
-`Nowa analiza` i `Do sesji`. Kosz wymaga potwierdzenia i usuwa wyłącznie wybraną
+Nagłówek zapisanych plików lub analizy ma ikonowe przyciski w takim samym układzie i stylu
+jak sesja: eksport do JSON, pobranie raportu PDF, usunięcie oraz zamknięcie widoku.
+Ikona PDF znajduje się bezpośrednio obok eksportu JSON i ma tooltip
+`Pobierz raport PDF`; podczas generowania pokazuje spinner i jest nieaktywna.
+Przyciski zastępują dawne `Nowa analiza` i `Do sesji`. Kosz wymaga potwierdzenia i usuwa wyłącznie wybraną
 analizę wraz z wynikiem AI oraz zamaskowaną migawką; pozostałe analizy pozostają.
 Po usunięciu odświeża się historia i otwiera ekran początkowy. Usunięcie ostatniej
 analizy usuwa również pusty wpis repozytorium. Zamknięcie widoku nie usuwa danych.
@@ -56,6 +58,12 @@ domyślnie zaznacza je i zapisuje zamaskowaną migawkę. Model używa zapisanych
 po potwierdzeniu **Uruchom analizę** w modalu; nie odczytuje plików ponownie z dysku.
 Model nie ma samodzielnego dostępu do lokalnego dysku
 użytkownika. Przed kliknięciem można odznaczyć i obejrzeć każdy plik.
+Modal podglądu przed wykonaniem analizy pokazuje treść pliku bezpośrednio pod
+nagłówkiem, bez zakładek. Zakładki `Ocena AI`, `Treść pliku` i `Kontrola lokalna`
+pojawiają się dla pliku objętego zakończoną analizą. Samo przygotowanie pakietu
+nie włącza zakładek; plik spoza analizowanego pakietu pozostaje podglądem treści.
+Modal ma jeden pionowy obszar przewijania pod nagłówkiem i zakładkami. Treść pliku
+oraz cytaty przewijają się razem z zawartością; nagłówek i zamknięcie pozostają widoczne.
 Automatyczne wykrycie przez Scanner nie potwierdza aktywacji pliku w Copilot.
 
 GitHub rozróżnia sposób aktywacji mechanizmów: instrukcje stosują się
@@ -109,8 +117,31 @@ profil i oznaczać brak dowodów zamiast potwierdzać działanie.
 ## Lokalny raport konfiguracji i PDF
 
 Po wczytaniu katalogu strona pokazuje podsumowanie repozytorium oraz rozwijane
-sekcje instrukcji, skills, agentów, MCP, promptów, materiałów i ustawień AI w IDE.
+sekcje instrukcji, skills, agentów, MCP, promptów i ustawień AI w IDE.
+Karta wyboru folderu jest widoczna tylko przed wczytaniem repozytorium.
+Po imporcie oraz przy otwieraniu zapisanej migawki lub analizy znika razem
+z możliwością zmiany folderu. Inny folder można wskazać w nowej analizie
+otwieranej przyciskiem dodawania w sekcji `Repozytoria`.
 Sekcje odsłaniają elementy, ich zadeklarowane metadane i podgląd źródłowych plików.
+Nagłówki mechanizmów mają neutralne ikony, nazwę typu i jednoliniowy opis jego roli.
+Pill po prawej pokazuje `Zidentyfikowano: X plików` z właściwą odmianą liczby,
+`Brak konfiguracji` przy pełnym odczycie albo `Nie ustalono` przy niepełnym odczycie.
+Liczba obejmuje unikalne pliki, również gdy jeden plik MCP deklaruje kilka serwerów.
+Zieleń oznacza obecność plików, czerwień potwierdzony brak w obsługiwanym zakresie,
+a bursztynowy kolor częściowy odczyt znalezionych plików. Są to stany konfiguracji;
+nie potwierdzają aktywnej adopcji ani użycia w sesji. Pełny opis i zakres stanu są
+dostępne w tooltipach, także przy skróceniu opisu na wąskim ekranie.
+Pomocnicze materiały nie mają na stronie osobnej sekcji. W szczegółach każdej
+konfiguracji Markdown lista `Podlinkowane pliki` pokazuje bezpośrednie lokalne
+odnośniki. Ikona `link` po prawej stronie nagłówka ma Material Badge z liczbą
+unikalnych ścieżek i tooltip opisujący listę. Powtórzenia i różne kotwice do tego
+samego pliku liczymy raz; adresy zewnętrzne, kotwice wewnętrzne, obrazy i przykłady
+w kodzie nie zwiększają licznika. Dostępne źródło można podejrzeć z listy.
+Odnośnik bez źródła w migawce ma opis `Treść poza migawką`, a zapisane pominięcie
+odczytu — `Treść nieodczytana`. Lista powstaje z zapisanej treści, bez dodatkowego
+odczytu plików i bez podążania za odnośnikami pomocniczych materiałów.
+Pliki wejścia AI zachowują dotychczasowy zakres i wybór; pomocnicza grupa na tej
+liście nosi nazwę `Podlinkowane pliki`.
 Raport na stronie i PDF pomijają pola `Lokalizacja` instrukcji oraz `Katalog` skilla,
 które powtarzały informacje wynikające ze ścieżki. Pod nazwą każdego pliku widnieje
 ścieżka od korzenia repozytorium z początkowym `/`, także `/AGENTS.md` pod nazwą
@@ -151,7 +182,8 @@ z pełnymi szczegółami także zwiniętych sekcji, klikalnym podsumowaniem,
 zakładkami i numeracją stron. PDF ma kompozycję wydawniczą: zieloną geometrię
 wektorową przy krawędziach, limonkowy akcent aplikacji i otwarte układy tekstowe.
 Pierwsza strona podsumowuje osobno każdą kategorię mechanizmów i konfiguracji IDE
-w dwukolumnowym indeksie z ikonami, bez wypełnionych kart. Cały obszar pozycji
+w dwukolumnowym indeksie z ikonami, bez wypełnionych kart. Pomocnicze materiały
+nie mają osobnej kategorii w indeksie, treści ani zakładkach PDF. Cały obszar pozycji
 znalezionej kategorii prowadzi do szczegółów, również ikona i odstępy wokół tekstu.
 Sekcje szczegółów mają kolejną numerację, a pola prezentowane są jako etykiety
 i wartości bez siatki tabel; krótkie pola są zestawiane parami, dłuższe zajmują
@@ -162,11 +194,16 @@ Logo i nazwa Agent Scanner są częścią kompozycji pierwszej strony. Kolejne m
 dyskretny nagłówek po prawej: `RAPORT REPOZYTORIUM · nazwa repozytorium`.
 Stopka zawiera wyłącznie numerację stron; stałe marginesy oddzielają nagłówek
 i stopkę od treści, bez dodatkowej linii nad stopką.
-Podział stron jest sprawdzany lokalnie przed eksportem. Kategoria zaczynająca się
-w dolnej części strony i przechodząca na następną zostaje przeniesiona na nową
-stronę; dłuższe sekcje mogą swobodnie przechodzić dalej. Strony kontynuacji mają
-dyskretne przypomnienie `nazwa kategorii · ciąg dalszy` nad treścią. Pozycje są
-odczytywane z układu PDF, a dodatkowy pomiar nie wykonuje żadnych żądań sieciowych.
+Podział stron jest sprawdzany lokalnie przed eksportem. Nagłówki kategorii,
+plików i pól pozostają z początkiem swojej treści. Ograniczone długością fragmenty
+`TREŚĆ` są przenoszone w całości, a dłuższe metadane i listy mogą przechodzić dalej.
+Nie przenosimy całych wpisów ani kategorii tylko dlatego, że zaczynają się
+w dolnej części strony. Kontynuacja pokazuje kategorię oraz nazwę i ścieżkę pliku,
+jeśli wpis zaczął się wcześniej. Wyłącznie długie podpisy w nagłówku strony są
+skracane wielokropkiem; pełne wartości pozostają w treści raportu.
+Pozycje są odczytywane z układu PDF i ponownie mierzone po przeniesieniu bloku,
+bez żądań sieciowych. Długie ścieżki i wartości zawija biblioteka PDF, bez
+dodawania spacji ani niewidocznych separatorów do oryginalnego tekstu.
 Zieleń buduje identyfikację raportu, nie stanowi oceny jakości ani poziomu adopcji.
 Raport na stronie i PDF nie eksponują ogólnych liczników plików; pominięcia pozostają
 przy źródłach. Nie ma osobnego bloku zakresu odczytu. Wartości tablic i obiektów
@@ -192,8 +229,16 @@ MCP z jednego pliku fragment źródła występuje raz. Surowe deklaracje XML i w
 `.aiignore` nie są powtarzane jako pola nad podglądem tej samej treści. Plik pusty
 lub zawierający tylko metadane otrzymuje krótką informację bez pustego bloku tła.
 
-Pod fragmentem znajduje się link **Szczegóły w repozytorium**, gdy adres `origin`
+Pod fragmentem `TREŚĆ` konfiguracji z odnośnikami znajduje się lista
+`PODLINKOWANE PLIKI`. Pokazuje te same unikalne lokalne ścieżki co raport strony,
+mniejszą czcionką i w stonowanym kolorze, bez dodatkowego boxa. Ścieżki prowadzą
+do plików w rozpoznanym repozytorium; brak źródła w migawce lub nieudany odczyt
+pozostają opisane przy pozycji. Długie listy mogą przechodzić na kolejne strony.
+Lista nie powtarza treści pomocniczych plików ani nie rozszerza zakresu odczytu.
+
+Obok głównej nazwy każdego wpisu znajduje się sama klikalna strzałka `↗`, gdy adres `origin`
 wskazuje rozpoznany GitHub.com lub GitLab.com i znany jest commit lub branch.
+Zastępuje dawny tekstowy odnośnik pod podglądem treści.
 Obsługiwane są adresy HTTPS oraz Git/SSH; link HTTPS wskazuje najpierw znany branch,
 a tylko przy braku jego nazwy poprawny identyfikator commita. Lokalny commit może
 nie być opublikowany w `origin`, dlatego nie zastępuje znanej gałęzi w odnośniku.

@@ -9,6 +9,50 @@ const file = (path: string, content: string, selected = true): RepositoryFile =>
 const base = {name: 'synthetic-repo', complete: true, gitDetected: false};
 
 describe('repository configuration inventory', () => {
+  it('attaches shared linked files to their configurations, deduplicates paths and never follows material links', () => {
+    const material = file('.github/skills/review/references/checklist.md', '[Further reading](next.md)');
+    const report = buildRepositoryReport({...base, files: [
+      file('.github/skills/review/SKILL.md', '[Checklist](references/checklist.md#tests)\n[Again](./references/checklist.md#review)'),
+      file('.github/agents/review.agent.md', '[Checklist](../skills/review/references/checklist.md)'), material]});
+    const skill = report.groups.find(group => group.id === 'SKILLS')!.entries[0];
+    const agent = report.groups.find(group => group.id === 'AGENTS')!.entries[0];
+    expect(skill.linkedFiles.map(link => link.path)).toEqual([material.path]);
+    expect(agent.linkedFiles.map(link => link.path)).toEqual([material.path]);
+    expect(skill.linkedFiles[0].source?.content).toBe(material.content);
+    expect(skill.linkedFiles[0].source?.linkedFiles).toEqual([]);
+    expect(report.groups.find(group => group.id === 'CONTEXT')!.entries[0].linkedFiles).toEqual([]);
+    expect(report.materialCount).toBe(1);
+    expect(JSON.parse(JSON.stringify(report)).fileCount).toBe(3);
+  });
+
+  it('recognizes local Markdown references without treating URLs, anchors, images or code examples as file links', () => {
+    const content = '---\nname: review\ndescription: "[Metadata](metadata.md)"\n---\n'
+      + '[Local][checklist]\n\n[checklist]: <references/check list.md>\n\n'
+      + '[Again](references/check%20list.md?view=source#tests)\n'
+      + '[Not captured](../../../docs/guide.md)\n[Anchor](#tests)\n[Self](SKILL.md#tests)\n'
+      + '[Web](https://example.invalid/guide.md)\n[Network](//example.invalid/guide.md)\n'
+      + '[Outside](../../../../outside.md)\n[Absolute](/docs/guide.md)\n[Directory](references/)\n'
+      + '![Image](diagram.svg)\n`[Inline example](inline.md)`\n\n```md\n[Example](example.md)\n```';
+    const material = file('.github/skills/review/references/check list.md', 'Checklist');
+    const report = buildRepositoryReport({...base, files: [file('.github/skills/review/SKILL.md', content), material]});
+    const links = report.groups.find(group => group.id === 'SKILLS')!.entries[0].linkedFiles;
+    expect(links.map(link => link.path)).toEqual([material.path, 'docs/guide.md']);
+    expect(links[0].source?.content).toBe('Checklist');
+    expect(links[1].source).toBeNull();
+    expect(report.groups.find(group => group.id === 'SKILLS')!.entries[0].content).toBe(content);
+  });
+
+  it('retains unreadable linked sources and attaches links to Markdown IDE rules using the same saved snapshot', () => {
+    const unreadable = {...file('AGENTS.md', '[Unknown](unknown.md)'), error: 'UNREADABLE'};
+    const report = buildRepositoryReport({...base, files: [unreadable], reportFiles: [
+      {path: '.aiassistant/rules/review.md', content: '[Rules](../../AGENTS.md)', bytes: 29, redacted: false, omissionReason: null}
+    ]});
+    expect(report.groups.find(group => group.id === 'INSTRUCTIONS')!.entries[0].linkedFiles).toEqual([]);
+    const links = report.groups.find(group => group.id === 'JETBRAINS')!.entries[0].linkedFiles;
+    expect(links[0].source?.readable).toBe(false);
+    expect(links[0].source?.notes.join(' ')).toContain('UNREADABLE');
+  });
+
   it('does not turn missing IDE capture in an old snapshot into confirmed absence', () => {
     const report = buildRepositoryReport({...base, files: [file('AGENTS.md', 'Rules')]});
     expect(report.ideFileCount).toBeNull();

@@ -6,7 +6,11 @@ import {repositoryFileLink, repositoryFilePreview, type FilePreview} from './rep
 const forest = '#123c30', green = '#226347', lime = '#b8f36b', mint = '#edf5ee';
 const ink = '#20382e', muted = '#596e63';
 const pageWidth = 595.28, pageHeight = 841.89, inset = 42, contentWidth = pageWidth - inset * 2;
-const wrap = (text: string): string => text.replace(/\S{49,}/gu, token => token.replace(/(\S{24})(?=\S)/gu, '$1\u200b'));
+const bodyTop = 90;
+interface Continuation { category: string; name?: string; path?: string; }
+// Only running headers are abbreviated; source values use pdfmake's native hard wrapping.
+const runningText = (text: string, limit: number): string => text.length > limit ? text.slice(0, limit - 1) + '…' : text;
+type KeepWithNext = (id: string, heading: Content[], body: Content[]) => Content[];
 const noLines: CustomTableLayout = {hLineWidth: () => 0, vLineWidth: () => 0,
   paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0};
 interface CategoryVisual { title: string; path: string; }
@@ -16,13 +20,13 @@ const visuals: Record<string, CategoryVisual> = {
   AGENTS: {title: 'Agenci', path: 'M5 7h14v13H5z M12 7V3 M9 3h6 M8 12h1 M15 12h1 M9 16h6 M2 11v5 M22 11v5'},
   MCP: {title: 'MCP', path: 'M9 9h6v6H9z M3 3h4v4H3z M17 3h4v4h-4z M3 17h4v4H3z M17 17h4v4h-4z M7 7l2 2 M15 9l2-2 M7 17l2-2 M15 15l2 2'},
   PROMPTS: {title: 'Prompty', path: 'M3 4h18v13H9l-6 4z M7 8h10 M7 12h7'},
-  CONTEXT: {title: 'Materiały konfiguracji', path: 'M3 6h7l2 3h9v12H3z M3 6V3h7l2 3h7v3'},
   VSCODE: {title: 'VS Code', path: 'M8 5L2 12l6 7 M16 5l6 7-6 7 M14 3l-4 18'},
   JETBRAINS: {title: 'IntelliJ / JetBrains', path: 'M4 3h16v18H4z M4 8h16 M8 12v5 M12 11v7 M16 13v3'}
 };
 
 export function repositoryReportDefinition(report: RepositoryReport, generatedAt = new Date(),
-  continuations: ReadonlyMap<number, string> = new Map(), sectionBreaks: ReadonlySet<string> = new Set()): TDocumentDefinitions {
+  continuations: ReadonlyMap<number, Continuation> = new Map(), breaks: ReadonlySet<string> = new Set()): TDocumentDefinitions {
+  const groups = report.groups.filter(group => group.id !== 'CONTEXT');
   const titleSize = report.name.length > 100 ? 22 : report.name.length > 50 ? 26 : 31;
   const content: Content[] = [
     {stack: [
@@ -32,7 +36,7 @@ export function repositoryReportDefinition(report: RepositoryReport, generatedAt
           {text: 'AGENT SCANNER', fontSize: 9, bold: true, characterSpacing: 0.7, color: forest, margin: [9, 5, 0, 0]}
         ], margin: [0, 0, 0, 31]},
         {text: 'RAPORT KONFIGURACJI AI', style: 'eyebrow', color: green},
-        {text: wrap(report.name), id: 'repository', outline: true, fontSize: titleSize, bold: true, color: forest, lineHeight: 1.04, margin: [0, 10, 0, 12]},
+        {text: report.name, id: 'repository', outline: true, fontSize: titleSize, bold: true, color: forest, lineHeight: 1.04, margin: [0, 10, 0, 12]},
         {text: 'Mechanizmy i ustawienia zadeklarowane w repozytorium', fontSize: 10.5, color: muted, lineHeight: 1.3},
         {text: 'Wygenerowano: ' + generatedAt.toLocaleString('pl-PL'), fontSize: 8, color: muted, margin: [0, 17, 0, 0]}
       ]}, {text: '', width: '*'}], margin: [0, 0, 0, 27]},
@@ -45,9 +49,9 @@ export function repositoryReportDefinition(report: RepositoryReport, generatedAt
         {canvas: [{type: 'rect', x: 0, y: 0, w: 32, h: 3, color: green}], margin: [0, 25, 0, 12]},
         {text: 'Przegląd kategorii', fontSize: 21, bold: true, color: forest, margin: [0, 0, 0, 5]},
         {text: 'Wybierz kategorię, aby przejść do deklaracji i plików źródłowych.', style: 'note', margin: [0, 0, 0, 15]},
-        ...categoryIndex(report.groups)
+        ...categoryIndex(groups)
       ]},
-      ...(report.groups.some(group => group.entries.some(entry => repositoryFileLink(report.git, entry.path))) ? [{
+      ...(groups.some(group => group.entries.some(entry => repositoryFileLink(report.git, entry.path))) ? [{
         text: 'Odnośniki prowadzą do wersji w repozytorium. Lokalne zmiany i nieopublikowane pliki mogą być tam niedostępne.',
         style: 'note', margin: [0, 8, 0, 0]
       } as Content] : []),
@@ -55,44 +59,36 @@ export function repositoryReportDefinition(report: RepositoryReport, generatedAt
     ], margin: [0, -30, 0, 0]}
   ];
   let sectionNumber = 0;
+  const keep: KeepWithNext = (id, heading, body) => [
+    {id: id + '-keep', stack: [{pageBreak: breaks.has(id + '-keep') ? 'before' : undefined, stack: heading}]},
+    {id: id + '-next', stack: body}
+  ];
   const shownSources = new Set<string>();
   const previews = new Map<ReportEntry, Content[]>();
-  for (const group of report.groups) for (const entry of group.entries) {
+  for (const group of groups) for (const entry of group.entries) {
     // MCP can expose several declarations from one file. Show the source only once.
     if (!shownSources.has(entry.path)) {
       const excerpt = repositoryFilePreview(entry);
-      previews.set(entry, previewContent(entry, excerpt, repositoryFileLink(report.git, entry.path)));
+      const id = 'preview-' + previews.size;
+      previews.set(entry, previewContent(entry, excerpt, id, breaks.has(id), keep));
       shownSources.add(entry.path);
     }
   }
-  const body = (entry: ReportEntry): Content[] => [...entryBody(entry), ...(previews.get(entry) ?? [])];
-  const completeEntry = (entry: ReportEntry): Content[] => [...entryHeader(entry), ...body(entry)];
-  for (const group of report.groups) {
+  const header = (entry: ReportEntry): Content[] => entryHeader(entry, repositoryFileLink(report.git, entry.path));
+  for (const group of groups) {
     if (!group.entries.length) continue;
     const firstGroup = sectionNumber === 0;
     const heading = sectionHeading(group, ++sectionNumber, firstGroup);
-    const section: Content[] = [];
-    const addSection = (): void => {
-      const sectionNode: ContentStack & {id: string} = {id: 'section-' + group.id, stack: section};
-      content.push({pageBreak: firstGroup || sectionBreaks.has(group.id) ? 'before' : undefined, stack: [sectionNode]});
-    };
-    const first = group.entries[0];
-    const keepFirstEntry = compactEntry(first);
-    const keepFirstHeader = keepFirstEntry || shortHeader(first);
-    section.push({unbreakable: true, stack: [
-      heading,
-      ...(keepFirstEntry ? completeEntry(first) : keepFirstHeader ? entryHeader(first) : [])
-    ]});
-    for (const [entryIndex, entry] of group.entries.entries()) {
-      if (!entryIndex && keepFirstEntry) continue;
-      if (entryIndex && compactEntry(entry)) { section.push({unbreakable: true, stack: completeEntry(entry)}); continue; }
-      if (entryIndex || !keepFirstHeader) section.push({unbreakable: shortHeader(entry), stack: entryHeader(entry)});
-      section.push(...body(entry));
-    }
-    addSection();
+    const entries: Content[] = group.entries.map((entry, index) => {
+      const id = 'entry-' + group.id + '-' + index;
+      const body = [...entryBody(entry, id, keep), ...(previews.get(entry) ?? []), ...linkedFilesContent(entry, report, id, keep)];
+      return {id, stack: keep(id, header(entry), body)};
+    });
+    content.push({pageBreak: firstGroup ? 'before' : undefined,
+      stack: keep('section-' + group.id, [heading], entries)});
   }
   return {
-    pageSize: 'A4', pageMargins: [inset, 72, inset, 60],
+    pageSize: 'A4', pageMargins: [inset, bodyTop, inset, 60],
     info: {title: 'Raport konfiguracji AI · ' + report.name, author: 'Agent Scanner', subject: 'Lokalna inwentaryzacja konfiguracji repozytorium'},
     defaultStyle: {font: 'Roboto', fontSize: 9.5, color: ink, lineHeight: 1.15},
     styles: {
@@ -104,10 +100,13 @@ export function repositoryReportDefinition(report: RepositoryReport, generatedAt
     },
     background: page => ({svg: pageArtwork(page === 1), width: pageWidth, height: pageHeight}),
     header: page => page === 1 ? {text: ''} : {stack: [
-      {text: [{text: 'RAPORT REPOZYTORIUM', fontSize: 7, characterSpacing: 1}, {text: ' · ' + wrap(report.name)}],
+      {text: [{text: 'RAPORT REPOZYTORIUM', fontSize: 7, characterSpacing: 1}, {text: ' · ' + runningText(report.name, 50)}],
         alignment: 'right', fontSize: 8, color: muted, margin: [inset, 29, inset, 0]},
-      ...(continuations.has(page) ? [{text: continuations.get(page) + ' · ciąg dalszy',
-        absolutePosition: {x: inset + 56, y: 55}, fontSize: 8, color: muted} as Content] : [])
+      ...(continuations.has(page) ? [{stack: [
+        {text: runningText(continuations.get(page)!.category + (continuations.get(page)!.name ? ' · ' + continuations.get(page)!.name : ''), 95)
+          + ' · ciąg dalszy', fontSize: 8},
+        ...(continuations.get(page)!.path ? [{text: runningText('/' + continuations.get(page)!.path, 130), fontSize: 7, margin: [0, 3, 0, 0]} as Content] : [])
+      ], margin: [inset + 56, 8, inset, 0], color: muted} as Content] : [])
     ]},
     footer: (page, count) => ({text: String(page).padStart(2, '0') + ' / ' + String(count).padStart(2, '0'),
       alignment: 'right', fontSize: 8, color: muted, margin: [inset, 28, inset, 0]}),
@@ -115,15 +114,16 @@ export function repositoryReportDefinition(report: RepositoryReport, generatedAt
   };
 }
 
-/** Use measured page positions, never estimated character counts, for section breaks and continuation labels. */
+/** Measure ordinary flow nodes: unbreakable transactions report stale page positions in pdfmake. */
 export async function paginatedRepositoryReportDefinition(report: RepositoryReport,
   measure: (definition: TDocumentDefinitions) => Promise<unknown>, generatedAt = new Date()): Promise<TDocumentDefinitions> {
-  const sectionBreaks = new Set<string>();
+  const groups = report.groups.filter(group => group.id !== 'CONTEXT');
+  const breaks = new Set<string>();
   const inspect = async (): Promise<Map<string, Node>> => {
     const nodes = new Map<string, Node>();
-    const definition = repositoryReportDefinition(report, generatedAt, new Map(), sectionBreaks);
+    const definition = repositoryReportDefinition(report, generatedAt, new Map(), breaks);
     definition.pageBreakBefore = node => {
-      if (node.id?.startsWith('section-') || node.id?.startsWith('group-')) nodes.set(node.id, node);
+      if (node.id) nodes.set(node.id, node);
       return false;
     };
     await measure(definition);
@@ -131,25 +131,43 @@ export async function paginatedRepositoryReportDefinition(report: RepositoryRepo
   };
   let nodes = await inspect();
   for (;;) {
-    const previousCount = sectionBreaks.size;
-    for (const group of report.groups) {
-      const heading = nodes.get('group-' + group.id), section = nodes.get('section-' + group.id);
-      if (heading && section && heading.startPosition.top > pageHeight * 0.58
-        && section.pageNumbers.some(page => page > heading.startPosition.pageNumber)) sectionBreaks.add(group.id);
+    let changed = false;
+    for (const [id, heading] of nodes) {
+      const splitPreview = /^preview-\d+$/u.test(id) && heading.pageNumbers.length > 1;
+      if (!splitPreview && !id.endsWith('-keep')) continue;
+      const following = nodes.get(id.slice(0, -5) + '-next');
+      if (heading.startPosition.top > bodyTop + 1 && !breaks.has(id)
+        && (splitPreview || following && following.startPosition.pageNumber > heading.startPosition.pageNumber)) {
+        if (following && !splitPreview) for (const existing of breaks) {
+          const child = nodes.get(existing);
+          // Transfer a break from the first body block to its preceding heading.
+          if (child?.startPosition.pageNumber === following.startPosition.pageNumber
+            && child.startPosition.top <= following.startPosition.top + 1) breaks.delete(existing);
+        }
+        breaks.add(id);
+        changed = true;
+        // Fix the first orphan, then remeasure before deciding about later content.
+        // Batch decisions would leave obsolete breaks after a preceding heading moves.
+        break;
+      }
     }
-    if (sectionBreaks.size === previousCount) break;
-    nodes = await inspect(); // At most one added break per category; no body text is forced to be unbreakable.
+    if (!changed) break;
+    nodes = await inspect();
   }
-  const continuations = new Map<number, string>();
-  for (const group of report.groups) {
-    const heading = nodes.get('group-' + group.id), section = nodes.get('section-' + group.id);
+  const continuations = new Map<number, Continuation>();
+  for (const group of groups) {
+    const heading = nodes.get('group-' + group.id), section = nodes.get('section-' + group.id + '-next');
     if (!heading || !section) continue;
-    // Stack positions may include the previous page before an unbreakable child moves.
     for (const page of section.pageNumbers.filter(page => page > heading.startPosition.pageNumber)) {
-      if (!continuations.has(page)) continuations.set(page, categoryVisual(group).title);
+      if (continuations.has(page)) continue;
+      const continuedEntry = group.entries.find((_, index) => {
+        const entry = nodes.get('entry-' + group.id + '-' + index);
+        return entry && entry.startPosition.pageNumber < page && entry.pageNumbers.includes(page);
+      });
+      continuations.set(page, {category: categoryVisual(group).title, name: continuedEntry?.name, path: continuedEntry?.path});
     }
   }
-  return repositoryReportDefinition(report, generatedAt, continuations, sectionBreaks);
+  return repositoryReportDefinition(report, generatedAt, continuations, breaks);
 }
 
 function pageArtwork(cover: boolean): string {
@@ -172,7 +190,7 @@ function pageArtwork(cover: boolean): string {
 function brandMark(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path d="M6 0h12l6 12-6 12H6L0 12Z" fill="${forest}"/><path d="M7 16v-4m5 4V6m5 10V9" fill="none" stroke="${lime}" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 }
-function categoryVisual(group: ReportGroup): CategoryVisual { return visuals[group.id] ?? visuals['CONTEXT']; }
+function categoryVisual(group: ReportGroup): CategoryVisual { return visuals[group.id] ?? {title: group.title, path: visuals['INSTRUCTIONS'].path}; }
 function categoryIcon(visual: CategoryVisual): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><path d="M10 2h20l9 18-9 18H10L1 20Z" fill="${mint}"/><path d="${visual.path}" transform="translate(8 8)" fill="none" stroke="${green}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
@@ -213,55 +231,45 @@ function sectionHeading(group: ReportGroup, number: number, first: boolean): Con
 }
 function meta(label: string, value: string): Content {
   return {columns: [{text: label, width: 65, fontSize: 7.5, bold: true, color: muted, characterSpacing: 0.8},
-    {text: wrap(value), fontSize: 9, color: ink}], margin: [0, 0, 0, 8]};
-}
-function shortHeader(entry: ReportEntry): boolean { return entry.name.length + entry.path.length <= 800; }
-function entryText(entry: ReportEntry): string {
-  return [entry.name, '/' + entry.path, entry.description, ...entry.notes,
-    ...visibleDetails(entry).flatMap(detail => [detail.label, detail.value])].filter(Boolean).join('\n');
+    {text: value, width: 261, fontSize: 9, color: ink}], margin: [0, 0, 0, 8]};
 }
 function visibleDetails(entry: ReportEntry): ReportEntry['details'] {
   return entry.details.filter(detail => !entry.readable || !['Deklaracja XML', 'Wzorce ograniczeń'].includes(detail.label)
     || detail.value.trim() !== entry.content.trim());
 }
-function compactEntry(entry: ReportEntry): boolean {
-  const text = entryText(entry);
-  return entry.name.length + entry.path.length <= 200 && entry.details.length <= 6 && text.length <= 650 && text.split('\n').length <= 16;
-}
-function entryHeader(entry: ReportEntry): Content[] {
-  return [{text: wrap(entry.name), style: 'entry', margin: [56, 10, 0, 4]},
-    {text: wrap('/' + entry.path), style: 'path', margin: [56, 0, 0, 5]},
+function entryHeader(entry: ReportEntry, link: string | null): Content[] {
+  return [{text: [{text: entry.name}, ...(link ? [{text: ' ↗', font: 'ReportMono', link, color: green}] : [])],
+    style: 'entry', margin: [56, 10, 0, 4]},
+    {text: '/' + entry.path, style: 'path', margin: [56, 0, 0, 5]},
     ...(!entry.readable || entry.redacted ? [{text: !entry.readable ? 'Treść nieodczytana' : 'Zamaskowane wartości', style: 'note', margin: [56, 0, 0, 5]} as Content] : [])];
 }
-function entryBody(entry: ReportEntry): Content[] {
+function entryBody(entry: ReportEntry, id: string, keep: KeepWithNext): Content[] {
   const content: Content[] = [];
-  if (entry.description) content.push({text: wrap(entry.description), margin: [56, 0, 0, 8]});
+  if (entry.description) content.push({text: entry.description, margin: [56, 0, 0, 8]});
   // These fields are the source itself, now presented below with an explicit excerpt limit.
   const details = visibleDetails(entry);
   for (let index = 0; index < details.length; index++) {
     const detail = details[index], next = details[index + 1];
     const compact = (item: {label: string; value: string}): boolean => item.label.length <= 36 && item.value.length <= 70 && !item.value.includes('\n');
     if (next && compact(detail) && compact(next)) {
-      content.push({unbreakable: true, columns: [detailBlock(detail), detailBlock(next)], columnGap: 24, margin: [56, 0, 0, 8]});
+      content.push({columns: [detail, next].map((item, offset) => ({width: (contentWidth - 56 - 24) / 2,
+        stack: [detailBlock(item, id + '-detail-' + (index + offset), keep)]})), columnGap: 24, margin: [56, 0, 0, 8]});
       index++;
-    } else content.push({stack: [detailBlock(detail)], margin: [56, 0, 0, 8]});
+    } else content.push({stack: [detailBlock(detail, id + '-detail-' + index, keep)], margin: [56, 0, 0, 8]});
   }
-  for (const text of entry.notes) content.push({text: wrap(text), style: 'note', margin: [56, 0, 0, 8]});
+  for (const text of entry.notes) content.push({text, style: 'note', margin: [56, 0, 0, 8]});
   return content;
 }
-function detailBlock(detail: {label: string; value: string}): Content {
-  const text = detail.label + '\n' + detail.value;
-  return {unbreakable: text.length < 600 && text.split('\n').length < 16, stack: [
-    {text: wrap(detail.label), fontSize: 8, color: muted, margin: [0, 0, 0, 4]},
-    {text: wrap(detail.value), fontSize: 9.5, color: ink}
-  ]};
+function detailBlock(detail: {label: string; value: string}, id: string, keep: KeepWithNext): Content {
+  return {stack: keep(id,
+    [{text: detail.label, fontSize: 8, color: muted, margin: [0, 0, 0, 4]}],
+    [{text: detail.value, fontSize: 9.5, color: ink}])};
 }
 
-function previewContent(entry: ReportEntry, preview: FilePreview, link: string | null): Content[] {
-  if (!entry.readable) return link ? [sourceLink(link)] : [];
-  if (!preview.blocks.length && !preview.omittedMarkup) return [{unbreakable: true, stack: [
-    {text: entry.content.trim() ? 'Brak treści poza metadanymi.' : 'Plik pusty.', style: 'note'},
-    ...(link ? [sourceLink(link, false)] : [])
+function previewContent(entry: ReportEntry, preview: FilePreview, id: string, pageBreak: boolean, keep: KeepWithNext): Content[] {
+  if (!entry.readable) return [];
+  if (!preview.blocks.length && !preview.omittedMarkup) return [{stack: [
+    {text: entry.content.trim() ? 'Brak treści poza metadanymi.' : 'Plik pusty.', style: 'note'}
   ], margin: [56, 2, 0, 12]}];
   const blocks: Content[] = preview.blocks.map((block, index) => {
     const spans = block.spans.map(span => ({...span}));
@@ -280,17 +288,26 @@ function previewContent(entry: ReportEntry, preview: FilePreview, link: string |
   });
   if (!blocks.length) blocks.push({text: 'Brak tekstowego fragmentu do wyświetlenia.', style: 'note'});
   if (preview.omittedMarkup) blocks.push({text: 'Obrazy i HTML pominięto w podglądzie.', style: 'note'});
-  return [{unbreakable: true, stack: [
-    {table: {widths: ['*'], body: [[{fillColor: mint, stack: [
-      {text: 'TREŚĆ', fontSize: 7, bold: true, characterSpacing: 0.7, color: muted, margin: [0, 0, 0, 7]},
-      ...blocks
-    ]}]]}, layout: {...noLines, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 7}},
-    ...(link ? [sourceLink(link, false)] : [])
-  ], margin: [56, 2, 0, 8]}];
+  const source: ContentStack & {id: string} = {id, stack: [
+    {pageBreak: pageBreak ? 'before' : undefined, table: {widths: [contentWidth - 56 - 24], body: [[{fillColor: mint, stack: keep(id,
+      [{text: 'TREŚĆ', fontSize: 7, bold: true, characterSpacing: 0.7, color: muted, margin: [0, 0, 0, 7]}], blocks)
+    }]]}, layout: {...noLines, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 7}},
+  ], margin: [56, 2, 0, 8]};
+  return [source];
 }
-function sourceLink(link: string, inset = true): Content {
-  return {text: [{text: 'Szczegóły w repozytorium'}, {text: ' ↗', font: 'ReportMono'}], link, fontSize: 8.5, bold: true, color: green,
-    margin: [inset ? 56 : 0, 7, 0, 3]};
+function linkedFilesContent(entry: ReportEntry, report: RepositoryReport, id: string, keep: KeepWithNext): Content[] {
+  if (!entry.linkedFiles.length) return [];
+  const rows: Content[] = entry.linkedFiles.map(file => {
+    const link = repositoryFileLink(report.git, file.path);
+    const status = !file.source ? ' (treść poza migawką)' : !file.source.readable ? ' (treść nieodczytana)' : '';
+    return {ul: [{text: [{text: '/' + file.path, link: link ?? undefined},
+      ...(status ? [{text: status, italics: true}] : [])]}], margin: [0, 0, 0, 3]};
+  });
+  return [{stack: [
+    ...keep(id + '-links',
+      [{text: 'PODLINKOWANE PLIKI', fontSize: 7, bold: true, characterSpacing: 0.5, margin: [0, 0, 0, 4]}], [rows[0]]),
+    ...rows.slice(1)
+  ], fontSize: 8, color: muted, lineHeight: 1.1, margin: [56, 2, 0, 12]}];
 }
 
 export async function createRepositoryReportPdf(report: RepositoryReport): Promise<Blob> {

@@ -8,25 +8,23 @@
     <span class="ui-badge"><mat-icon>{{ state.saved() ? 'history' : 'folder_open' }}</mat-icon>{{ state.saved() ? 'Zapisana analiza' : 'Odczyt plików' }}</span>
   </header>
 
-  <section class="ui-card setup-card">
-    <div class="folder-picker">
-      <div class="folder-icon"><mat-icon>folder_open</mat-icon></div>
-      <div class="folder-copy">
-        <h3>{{ state.folder()?.name || 'Wybierz lokalne repozytorium' }}</h3>
-        <p>{{ state.saved() ? 'Zapisane pliki · ' + state.files().length + ' ocenianych plików' : state.snapshot() ? 'Zapisane wejście · ' + state.files().length + ' plików' : state.folder() ? 'Folder na tym komputerze · ' + state.files().length + ' odnalezionych plików' : 'Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.' }}</p>
-      </div>
-      @if (!state.saved()) {
+  @if (!state.folder()) {
+    <section class="ui-card setup-card">
+      <div class="folder-picker">
+        <div class="folder-icon"><mat-icon>folder_open</mat-icon></div>
+        <div class="folder-copy">
+          <h3>Wybierz lokalne repozytorium</h3>
+          <p>Instrukcje, skills, agenci, MCP, prompty i podlinkowane materiały konfiguracji.</p>
+        </div>
         <input #folderInput type="file" webkitdirectory multiple hidden (change)="filesChosen($event)" aria-label="Folder repozytorium">
         <button class="ui-button" [disabled]="state.busy()" (click)="chooseFolder(folderInput)">
-          <mat-icon>create_new_folder</mat-icon>{{ state.folder() ? 'Zmień folder' : 'Wybierz folder' }}
+          <mat-icon>create_new_folder</mat-icon>Wybierz folder
         </button>
-      }
-    </div>
-    @if (!state.saved()) {
+      </div>
       <p class="scope-note storage-note">{{ features.demo ? 'Zamaskowane pliki i zaznaczenia są zapisywane w IndexedDB tej przeglądarki.' : 'Zamaskowane pliki i zaznaczenia są zapisywane w bazie serwera Agent Scanner jako wejście do analizy AI.' }}</p>
-      @if (state.savingFiles()) { <p class="inline-status storage-note" role="status"><mat-spinner diameter="16" />Zapisywanie plików…</p> }
-    }
-  </section>
+    </section>
+  }
+  @if (state.savingFiles()) { <p class="inline-status" role="status"><mat-spinner diameter="16" />Zapisywanie plików…</p> }
 
   @if (state.error()) { <div class="notice error" role="alert"><mat-icon>error_outline</mat-icon><span>{{ state.error() }}</span>
     @if (state.folder() && !state.filesSaved() && !state.saved()) { <button class="ui-button ui-button--small" [disabled]="state.busy()" (click)="retrySave()">Ponów zapis</button> }
@@ -37,7 +35,7 @@
     @if (!state.inventoryComplete()) { <p class="notice warning"><mat-icon>info</mat-icon>Odczyt jest częściowy: pominięto niedostępne katalogi albo osiągnięto limit. Raport uwzględni tę lukę.</p> }
     @if (!state.folder()?.gitDetected) { <p class="scope-note">Nie potwierdzono katalogu Git. Ocena obejmie wyłącznie pliki widoczne w wybranym folderze.</p> }
 
-    <as-repository-report [report]="report()" [exportDisabled]="state.busy() || !state.filesSaved()" (inspect)="openReportFile($event)" />
+    <as-repository-report [report]="report()" (inspect)="openReportFile($event)" />
 
     @if (state.result(); as result) {
       <section class="ui-card report-summary" aria-label="Podsumowanie oceny AI" aria-live="polite">
@@ -103,7 +101,7 @@
               </button>
               <div class="file-verdicts">
                 @if (summaries().get(file.path); as summary) {
-                  @if (file.category === 'CONTEXT') { <span class="ui-badge">Materiał konfiguracji</span> }
+                  @if (file.category === 'CONTEXT') { <span class="ui-badge">Plik podlinkowany</span> }
                   @else {
                     @if (summary.supported) { <span class="ui-badge positive"><mat-icon>check_circle</mat-icon>{{ summary.supported }} zgodnych</span> }
                     @if (summary.concern) { <span class="ui-badge warning-text">{{ summary.concern }} do dopracowania</span> }

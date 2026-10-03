@@ -7,6 +7,7 @@ import {SessionChatModel} from '../models/session-chat.models';
 import {FeatureAvailability} from './feature-availability.service';
 import {StandardizationRepositoryService} from './standardization-repository.service';
 import {StandardizationHistoryService} from './standardization-history.service';
+import {buildRepositoryReport} from './repository-report';
 
 @Injectable({providedIn: 'root'})
 export class StandardizationStateService {
@@ -42,6 +43,11 @@ export class StandardizationStateService {
   readonly saved = signal(false);
   readonly repositoryId = signal<string | null>(null);
   readonly expectedRepositoryName = signal('');
+  readonly report = computed(() => buildRepositoryReport({name: this.folder()?.name ?? '',
+    savedAt: this.snapshot()?.savedAt ?? this.result()?.analyzedAt,
+    complete: this.inventoryComplete() && (!this.saved() || !!this.snapshot()), gitDetected: this.folder()?.gitDetected ?? false,
+    git: this.git(), files: this.files(), reportFiles: this.reportFiles(),
+    ideComplete: this.snapshot()?.reportFiles != null}));
   readonly selected = computed(() => this.files().filter(file => file.selected && !file.error));
   readonly bytes = computed(() => this.selected().reduce((sum, file) => sum + file.bytes, 0));
   readonly busy = computed(() => this.choosingFolder() || this.reading() || this.savingFiles() || this.preparing() || this.sending());

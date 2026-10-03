@@ -4,10 +4,6 @@
       <div><span class="ui-eyebrow">KONFIGURACJA REPOZYTORIUM</span><h3>{{ report().name }}</h3>
         <p>Wygenerowano: {{ generatedAt() | date:'dd.MM.yyyy, HH:mm' }}</p>
       </div>
-      <button class="ui-button" [disabled]="exportDisabled() || exporting()" (click)="downloadPdf()">
-        @if (exporting()) { <mat-spinner diameter="16" /> } @else { <mat-icon>picture_as_pdf</mat-icon> }
-        {{ exporting() ? 'Generowanie PDF…' : 'Pobierz raport PDF' }}
-      </button>
     </header>
     <dl class="repo-identification">
       <div><dt>ORIGIN</dt><dd>{{ report().git?.origin || 'Brak danych' }}</dd></div>
@@ -17,18 +13,33 @@
     @if (report().unreadableCount) { <p class="entry-note">Nie odczytano treści {{ report().unreadableCount }} plików. Szczegóły pominięć są wskazane przy plikach.</p> }
   </section>
 
-  @for (group of report().groups; track group.id) {
+  @for (group of groups(); track group.id) {
     <details class="ui-card mechanism" [attr.data-report-mechanism]="group.id">
       <summary class="mechanism-summary">
-        <mat-icon class="mechanism-icon">{{ group.icon }}</mat-icon>
-        <span><strong>{{ group.title }}</strong><small>{{ group.summary }}</small></span>
-        <span class="ui-badge">{{ group.entries.length ? 'Znaleziono' : group.complete ? 'Nie znaleziono' : 'Nie ustalono' }}</span>
-        <mat-icon class="chevron">expand_more</mat-icon>
+        <mat-icon class="mechanism-icon" aria-hidden="true">{{ group.icon }}</mat-icon>
+        <span class="mechanism-label"><strong>{{ group.title }}</strong><small [matTooltip]="group.description">{{ group.description }}</small></span>
+        <span class="ui-badge mechanism-status" [class.positive]="group.tone === 'positive'" [class.attention]="group.tone === 'attention'"
+          [class.gap]="group.tone === 'gap'" [matTooltip]="group.statusHint">
+          <mat-icon aria-hidden="true">{{ group.statusIcon }}</mat-icon>{{ group.statusLabel }}
+        </span>
+        <mat-icon class="chevron" aria-hidden="true">expand_more</mat-icon>
       </summary>
       <div class="mechanism-content">
         @for (entry of group.entries; track $index) {
           <details class="report-entry">
-            <summary><span><strong>{{ entry.name }}</strong><small>/{{ entry.path }}</small></span><mat-icon class="chevron">expand_more</mat-icon></summary>
+            <summary>
+              <span><strong>{{ entry.name }}</strong><small>/{{ entry.path }}</small></span>
+              @if (entry.linkedFiles.length) {
+                <span class="entry-links-count repository-links-badge" role="img" tabindex="0"
+                  [matBadge]="entry.linkedFiles.length" [matBadgeOverlap]="false"
+                  [matBadgeDescription]="'Podlinkowane pliki: ' + entry.linkedFiles.length"
+                  [attr.aria-label]="'Podlinkowane pliki: ' + entry.linkedFiles.length"
+                  [matTooltip]="'Podlinkowane pliki: ' + entry.linkedFiles.length + '. Rozwiń wpis, aby zobaczyć listę.'">
+                  <mat-icon aria-hidden="true">link</mat-icon>
+                </span>
+              }
+              <mat-icon class="chevron" aria-hidden="true">expand_more</mat-icon>
+            </summary>
             <div class="entry-content">
               @if (entry.description) { <p>{{ entry.description }}</p> }
               <div class="entry-meta"><span>{{ entry.readable ? entry.bytes + ' B zapisanej treści' : 'Treść nieodczytana' }}</span>
@@ -38,6 +49,27 @@
               @if (entry.details.length) { <dl class="entry-details">
                 @for (detail of entry.details; track $index) { <div><dt>{{ detail.label }}</dt><dd><pre>{{ detail.value }}</pre></dd></div> }
               </dl> }
+              @if (entry.linkedFiles.length) {
+                <section class="entry-links" aria-label="Podlinkowane pliki">
+                  <h4>Podlinkowane pliki</h4>
+                  <ul>
+                    @for (link of entry.linkedFiles; track link.path) {
+                      <li>
+                        @if (link.source; as source) {
+                          <button class="ui-button ui-button--small ui-button--ghost linked-file" (click)="inspect.emit(source)"
+                            [attr.aria-label]="'Podejrzyj podlinkowany plik: ' + link.path">
+                            <mat-icon aria-hidden="true">description</mat-icon><span>/{{ link.path }}</span>
+                          </button>
+                          @if (!source.readable) { <small>Treść nieodczytana</small> }
+                        } @else {
+                          <span class="linked-file unavailable"><mat-icon aria-hidden="true">description</mat-icon><span>/{{ link.path }}</span></span>
+                          <small>Treść poza migawką</small>
+                        }
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
               @for (note of entry.notes; track note) { <p class="entry-note">{{ note }}</p> }
             </div>
           </details>
